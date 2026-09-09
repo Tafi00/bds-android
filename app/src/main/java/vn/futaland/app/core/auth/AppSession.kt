@@ -1,0 +1,77 @@
+package vn.futaland.app.core.auth
+
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import vn.futaland.app.core.network.APIClient
+import vn.futaland.app.core.network.JSONValue
+
+class AppSession private constructor() {
+
+    companion object {
+        val shared = AppSession()
+    }
+
+    private val _currentUser = MutableStateFlow<JSONValue?>(null)
+    val currentUser = _currentUser.asStateFlow()
+
+    private val _permissions = MutableStateFlow<Set<String>>(emptySet())
+    val permissions = _permissions.asStateFlow()
+
+    val isAuthenticated: Boolean
+        get() = _currentUser.value != null && !APIClient.get().tokenStorage.accessToken.isNullOrEmpty()
+
+    val user: JSONValue?
+        get() = _currentUser.value
+
+    val role: String
+        get() = _currentUser.value?.get("role")?.string ?: "guest"
+
+    fun hasPermission(permission: String): Boolean {
+        if (role == "admin") return true
+        return _permissions.value.contains(permission)
+    }
+
+    suspend fun restore() {
+        val token = APIClient.get().tokenStorage.accessToken
+        if (token.isNullOrEmpty()) {
+            _currentUser.value = null
+            _permissions.value = emptySet()
+            return
+        }
+
+        try {
+            val meRes = APIClient.get().request("/auth/me")
+            val userData = meRes["data"]
+            if (!userData.isNull) {
+                _currentUser.value = userData
+                fetchPermissions()
+            } else {
+                logout()
+            }
+        } catch (_: Exception) {
+            // Keep recoverable offline state if access token exists
+        }
+    }
+
+    suspend fun fetchPermissions() {
+        try {
+            val permRes = APIClient.get().request("/auth/permissions")
+            val list = permRes["data"].array.map { it.string }.filter { it.isNotEmpty() }
+            _permissions.value = list.toSet()
+        } catch (_: Exception) {
+            _permissions.value = emptySet()
+        }
+    }
+
+    fun login(accessToken: String, refreshToken: String, userData: JSONValue) {
+        APIClient.get().tokenStorage.accessToken = accessToken
+        APIClient.get().tokenStorage.refreshToken = refreshToken
+        _currentUser.value = userData
+    }
+
+    fun logout() {
+        APIClient.get().tokenStorage.clear()
+        _currentUser.value = null
+        _permissions.value = emptySet()
+    }
+}

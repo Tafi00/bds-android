@@ -1,0 +1,14 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- Building 1 (Taller) -->
+    <path
+        android:pathData="M10,2H3C2.45,2 2,2.45 2,3v18c0,0.55 0.45,1 1,1h7c0.55,0 1,-0.45 1,-1V3C11,2.45 10.55,2 10,2zM5,6h2v2H5V6zM5,10h2v2H5V10zM5,14h2v2H5V14zM8,18H5v-2h3V18z"
+        android:fillColor="#207446" />
+    <!-- Building 2 (Secondary) -->
+    <path
+        android:pathData="M21,7h-7c-0.55,0 -1,0.45 -1,1v13c0,0.55 0.45,1 1,1h7c0.55,0 1,-0.45 1,-1V8C22,7.45 21.55,7 21,7zM16,11h2v2h-2V11zM16,15h2v2h-2V15zM19,19h-3v-2h3V19z"
+        android:fillColor="#207446" />
+</vector>
