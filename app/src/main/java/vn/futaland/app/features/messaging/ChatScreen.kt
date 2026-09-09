@@ -10,7 +10,10 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Send
@@ -54,12 +57,19 @@ fun ChatScreen(
 ) {
     val scope = rememberCoroutineScope()
 
-    // Active conversation state (null = show conversation list, non-null = show active chat)
     var activeConversationId by remember { mutableStateOf(initialConversationId) }
     var activeConversationName by remember { mutableStateOf("Trợ lý FUTA AI") }
 
     var search by remember { mutableStateOf("") }
-    var filterTab by remember { mutableStateOf("all") } // "all", "unread"
+    var filterTab by remember { mutableStateOf("all") }
+
+    // Connect WebSocket on launch
+    LaunchedEffect(Unit) {
+        ChatWebSocketManager.shared.connect()
+    }
+
+    val isConnected by ChatWebSocketManager.shared.isConnected.collectAsState()
+    val typingUsers by ChatWebSocketManager.shared.typingUsers.collectAsState()
 
     val conversations = remember {
         mutableStateListOf(
@@ -68,7 +78,6 @@ fun ChatScreen(
             ConversationItem("3", "CSKH FUTA Land", "Hệ thống đã ghi nhận phiếu đặt cọc của quý khách.", "15/05", 0, true)
         )
     }
-
     if (activeConversationId.isNullOrEmpty()) {
         // VIEW 1: CONVERSATION LIST (Matching iOS ChatView.swift)
         Column(
@@ -252,19 +261,52 @@ fun ChatScreen(
                 ChatMessage("3", "bot", activeConversationName, "Dự án Times Square Đà Nẵng hiện đang mở bán các căn 2PN diện tích từ 68m² đến 74m², view biển Mỹ Khê với mức giá từ 3.2 Tỷ. Bạn có muốn nhận bảng tính lãi suất vay ngân hàng không?", false, "10:03")
             )
         }
+        LaunchedEffect(activeConversationId) {
+            activeConversationId?.let { convId ->
+                ChatWebSocketManager.shared.join(convId)
+                ChatWebSocketManager.shared.markRead(convId)
+            }
+        }
 
-        fun sendMessage() {
-            if (messageText.trim().isEmpty()) return
+        // Handle incoming WebSocket messages
+        DisposableEffect(activeConversationId) {
+            ChatWebSocketManager.shared.onNewMessage = { jsonMsg ->
+                val convId = jsonMsg["conversationId"].string
+                if (convId == activeConversationId || activeConversationId == null) {
+                    val newMsg = ChatMessage(
+                        id = jsonMsg["id"].string.ifEmpty { System.currentTimeMillis().toString() },
+                        senderId = jsonMsg["senderId"].string,
+                        senderName = jsonMsg["senderName"].string.ifEmpty { activeConversationName },
+                        content = jsonMsg["content"].string,
+                        isMe = false,
+                        time = "Vừa xong"
+                    )
+                    messages.add(newMsg)
+                    scope.launch {
+                        listState.animateScrollToItem(messages.size - 1)
+                    }
+                }
+            }
+            onDispose {
+                ChatWebSocketManager.shared.onNewMessage = null
+            }
+        }
+
+        fun sendMessage(customText: String? = null) {
+            val textToSend = (customText ?: messageText).trim()
+            if (textToSend.isEmpty()) return
+            val convId = activeConversationId ?: "1"
+            ChatWebSocketManager.shared.sendMessage(convId, textToSend)
             val newMsg = ChatMessage(
                 id = System.currentTimeMillis().toString(),
                 senderId = "me",
                 senderName = "Tôi",
-                content = messageText.trim(),
+                content = textToSend,
                 isMe = true,
                 time = "Bây giờ"
             )
             messages.add(newMsg)
-            messageText = ""
+            if (customText == null) messageText = ""
             scope.launch {
                 listState.animateScrollToItem(messages.size - 1)
             }
@@ -304,47 +346,115 @@ fun ChatScreen(
                                 color = FutaColors.Navy
                             )
                             Text(
-                                text = "Đang trực tuyến 24/7",
+                                text = if (isConnected) "Đang trực tuyến 24/7" else "Đang kết nối lại...",
                                 fontSize = 11.sp,
-                                color = FutaColors.BrandGreen
+                                color = if (isConnected) FutaColors.BrandGreen else FutaColors.BrandOrange
                             )
                         }
                     }
                 }
             },
             bottomBar = {
-                Surface(
-                    color = Color.White,
-                    border = BorderStroke(1.dp, FutaColors.LightBlueBorder),
-                    modifier = Modifier.navigationBarsPadding()
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .navigationBarsPadding()
+                        .background(Color.White)
                 ) {
+                    // Typing Indicator if active
+                    val typingUser = activeConversationId?.let { typingUsers[it] }
+                    if (!typingUser.isNullOrEmpty()) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "$typingUser đang soạn tin nhắn...",
+                                fontSize = 11.5.sp,
+                                color = FutaColors.BrandGreen,
+                                fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
+                            )
+                        }
+                    }
+
+                    // Quick Reply Suggestion Chips
+                    val quickReplies = listOf(
+                        "Tôi muốn xem căn này",
+                        "Gửi bảng giá chi tiết",
+                        "Tư vấn chính sách vay",
+                        "Đặt lịch xem nhà thực tế"
+                    )
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 12.dp, vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                            .horizontalScroll(rememberScrollState())
+                            .padding(horizontal = 12.dp, vertical = 6.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        FutaInput(
-                            value = messageText,
-                            onValueChange = { messageText = it },
-                            placeholder = "Nhập tin nhắn tư vấn...",
-                            modifier = Modifier.weight(1f)
-                        )
-                        Spacer(Modifier.width(8.dp))
-                        IconButton(
-                            onClick = { sendMessage() },
+                        quickReplies.forEach { reply ->
+                            Surface(
+                                shape = RoundedCornerShape(16.dp),
+                                color = Color(0xFFF1F5F9),
+                                border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                                modifier = Modifier.clickable { sendMessage(reply) }
+                            ) {
+                                Text(
+                                    text = reply,
+                                    fontSize = 11.5.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    color = FutaColors.Navy,
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
+                                )
+                            }
+                        }
+                    }
+
+                    Surface(
+                        color = Color.White,
+                        border = BorderStroke(1.dp, FutaColors.LightBlueBorder),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
                             modifier = Modifier
-                                .size(42.dp)
-                                .background(FutaColors.BrandGreen, CircleShape)
+                                .fillMaxWidth()
+                                .padding(horizontal = 10.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Icon(Icons.Default.Send, null, tint = Color.White, modifier = Modifier.size(18.dp))
+                            IconButton(
+                                onClick = {
+                                    ToastCenter.show("Tính năng gửi tệp/hình ảnh")
+                                },
+                                modifier = Modifier.size(36.dp)
+                            ) {
+                                Icon(Icons.Default.Add, "Đính kèm", tint = FutaColors.Navy)
+                            }
+                            Spacer(Modifier.width(4.dp))
+                            FutaInput(
+                                value = messageText,
+                                onValueChange = {
+                                    messageText = it
+                                    activeConversationId?.let { convId ->
+                                        ChatWebSocketManager.shared.sendTyping(convId)
+                                    }
+                                },
+                                placeholder = "Nhập tin nhắn tư vấn...",
+                                modifier = Modifier.weight(1f)
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            IconButton(
+                                onClick = { sendMessage() },
+                                modifier = Modifier
+                                    .size(42.dp)
+                                    .background(FutaColors.BrandGreen, CircleShape)
+                            ) {
+                                Icon(Icons.Default.Send, null, tint = Color.White, modifier = Modifier.size(18.dp))
+                            }
                         }
                     }
                 }
             }
         ) { padding ->
             LazyColumn(
-                state = listState,
                 modifier = Modifier
                     .fillMaxSize()
                     .background(FutaColors.PageBg)

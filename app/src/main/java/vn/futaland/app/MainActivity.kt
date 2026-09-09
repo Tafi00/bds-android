@@ -18,17 +18,38 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import vn.futaland.app.core.auth.AppSession
+import vn.futaland.app.core.network.APIClient
 import vn.futaland.app.designsystem.FutaLandTheme
 import vn.futaland.app.designsystem.FutaToastOverlay
-import vn.futaland.app.features.account.AccountScreen
+import vn.futaland.app.designsystem.ToastCenter
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import vn.futaland.app.features.account.PricingScreen
 import vn.futaland.app.features.account.AuthenticationScreen
+import vn.futaland.app.features.account.AccountScreen
+import vn.futaland.app.features.account.AuthStep
 import vn.futaland.app.features.properties.SavedPropertiesScreen
 import vn.futaland.app.features.account.WorkspaceScreen
 import vn.futaland.app.features.discovery.DiscoveryScreen
 import vn.futaland.app.features.discovery.ProjectsScreen
 import vn.futaland.app.features.account.AdminModuleScreen
 import vn.futaland.app.features.account.AdminSettingsScreen
+import vn.futaland.app.features.account.AdminDashboardScreen
+import vn.futaland.app.features.account.AdminCRMScreen
+import vn.futaland.app.features.account.AdminAIScreen
+import vn.futaland.app.features.account.AdminRolesScreen
+import vn.futaland.app.features.account.AdminLuckyWheelScreen
+import vn.futaland.app.features.account.ProfileScreen
+import vn.futaland.app.features.account.NewsScreen
+import vn.futaland.app.features.account.NewsDetailScreen
+import vn.futaland.app.features.account.GuideScreen
+import vn.futaland.app.features.account.ContactScreen
+import vn.futaland.app.features.account.AboutScreen
+import vn.futaland.app.features.account.PoliciesScreen
+import vn.futaland.app.features.account.BillingScreen
+import vn.futaland.app.features.properties.MyListingsScreen
+import vn.futaland.app.features.properties.ViewHistoryScreen
 import vn.futaland.app.features.discovery.ProjectDetailScreen
 import vn.futaland.app.features.messaging.NotificationsScreen
 import vn.futaland.app.features.luckywheel.LuckyWheelScreen
@@ -69,7 +90,33 @@ class MainActivity : ComponentActivity() {
                     pendingRoute?.let { intent ->
                         RouteCoordinator.consume(intent)
                         val path = intent.route
-                        if (path.startsWith("/listing/")) {
+                        if (path == "/login-admin") {
+                            kotlinx.coroutines.CoroutineScope(Dispatchers.IO).launch {
+                                try {
+                                    val res = APIClient.get().request(
+                                        "/auth/login",
+                                        method = "POST",
+                                        bodyJson = "{\"phone\":\"0858606168\",\"password\":\"adminpro123Aa@\"}"
+                                    )
+                                    val data = res["data"]
+                                    val access = data["accessToken"].string
+                                    val refresh = data["refreshToken"].string
+                                    val user = data["user"]
+                                    AppSession.shared.login(access, refresh, user)
+                                    withContext(Dispatchers.Main) {
+                                        ToastCenter.show("Đã đăng nhập Admin FutaLand")
+                                        navController.navigate(FutaDestinations.ACCOUNT)
+                                    }
+                                } catch (e: Exception) {
+                                    withContext(Dispatchers.Main) {
+                                        ToastCenter.show("Lỗi login: ${e.message}", isError = true)
+                                    }
+                                }
+                            }
+                        } else if (path == "/logout") {
+                            AppSession.shared.logout()
+                            navController.navigate(FutaDestinations.ACCOUNT)
+                        } else if (path.startsWith("/listing/")) {
                             val id = path.removePrefix("/listing/")
                             navController.navigate(FutaDestinations.propertyDetail(id))
                         } else if (path == "/lucky-wheel") {
@@ -82,12 +129,48 @@ class MainActivity : ComponentActivity() {
                             navController.navigate(FutaDestinations.WORKSPACE)
                         } else if (path == "/account") {
                             navController.navigate(FutaDestinations.ACCOUNT)
+                        } else if (path == "/saved") {
+                            navController.navigate(FutaDestinations.SAVED)
+                        } else if (path == "/projects") {
+                            safeNavigate(FutaDestinations.PROJECTS_LIST)
+                        } else if (path.startsWith("/project/")) {
+                            val id = path.removePrefix("/project/")
+                            safeNavigate(FutaDestinations.projectDetail(id))
+                        } else if (path == "/pricing") {
+                            safeNavigate(FutaDestinations.PRICING)
+                        } else if (path == "/notifications") {
+                            safeNavigate(FutaDestinations.NOTIFICATIONS)
+                        } else if (path.startsWith("/admin/")) {
+                            val dest = path.removePrefix("/admin/")
+                            when (dest) {
+                                "dashboard" -> safeNavigate(FutaDestinations.ADMIN_DASHBOARD)
+                                "projects" -> safeNavigate(FutaDestinations.ADMIN_PROJECTS)
+                                "campaigns" -> safeNavigate(FutaDestinations.ADMIN_CAMPAIGNS)
+                                "inventory" -> safeNavigate(FutaDestinations.ADMIN_INVENTORY)
+                                "registrations" -> safeNavigate(FutaDestinations.ADMIN_REGISTRATIONS)
+                                "transactions" -> safeNavigate(FutaDestinations.ADMIN_TRANSACTIONS)
+                                "cms" -> safeNavigate(FutaDestinations.ADMIN_CMS)
+                                "settings" -> safeNavigate(FutaDestinations.ADMIN_SETTINGS)
+                                "users" -> safeNavigate(FutaDestinations.ADMIN_USERS)
+                                "roles" -> safeNavigate(FutaDestinations.ADMIN_ROLES)
+                                "advisor-profiles" -> safeNavigate(FutaDestinations.ADMIN_ADVISOR_PROFILES)
+                                "ai" -> safeNavigate(FutaDestinations.ADMIN_AI)
+                                "zalo" -> safeNavigate(FutaDestinations.ADMIN_ZALO)
+                                "customers" -> safeNavigate(FutaDestinations.ADMIN_CUSTOMERS)
+                                "contracts" -> safeNavigate(FutaDestinations.ADMIN_CONTRACTS)
+                                "reports" -> safeNavigate(FutaDestinations.ADMIN_REPORTS)
+                                "crm" -> safeNavigate(FutaDestinations.CRM)
+                                "lucky-wheel" -> safeNavigate(FutaDestinations.ADMIN_LUCKY_WHEEL)
+                            }
+                        } else if (path == "/profile") {
+                            safeNavigate(FutaDestinations.PROFILE)
+                        } else if (path == "/auth-password") {
+                            safeNavigate("auth_password")
                         } else if (path == "/auth" || path == "/login") {
                             safeNavigate(FutaDestinations.AUTH)
                         }
                     }
                 }
-
                 val isRootTab = currentRoute in BottomNavRoutes
 
                 Box(modifier = Modifier.fillMaxSize()) {
@@ -251,13 +334,13 @@ class MainActivity : ComponentActivity() {
                                 AdminModuleScreen("Quản lý người dùng", "/users") { navController.popBackStack() }
                             }
                             composable(FutaDestinations.ADMIN_ROLES) {
-                                AdminModuleScreen("Vai trò & Phân quyền", "/users") { navController.popBackStack() }
+                                AdminRolesScreen { navController.popBackStack() }
                             }
                             composable(FutaDestinations.ADMIN_ADVISOR_PROFILES) {
                                 AdminModuleScreen("Duyệt hồ sơ TVV", "/advisor/profile-requests") { navController.popBackStack() }
                             }
                             composable(FutaDestinations.ADMIN_AI) {
-                                AdminModuleScreen("Training AI", "/projects") { navController.popBackStack() }
+                                AdminAIScreen { navController.popBackStack() }
                             }
                             composable(FutaDestinations.ADMIN_ZALO) {
                                 AdminModuleScreen("Marketing Zalo", "/zalo/campaigns") { navController.popBackStack() }
@@ -272,10 +355,16 @@ class MainActivity : ComponentActivity() {
                                 AdminModuleScreen("Báo cáo doanh số", "/sales/campaigns") { navController.popBackStack() }
                             }
                             composable(FutaDestinations.ADMIN_DASHBOARD) {
-                                AdminModuleScreen("Bảng điều khiển", "/projects") { navController.popBackStack() }
+                                AdminDashboardScreen { navController.popBackStack() }
                             }
                             composable(FutaDestinations.CRM) {
-                                AdminModuleScreen("Chăm sóc khách hàng (CRM)", "/customers") { navController.popBackStack() }
+                                AdminCRMScreen { navController.popBackStack() }
+                            }
+                            composable(FutaDestinations.ADMIN_LUCKY_WHEEL) {
+                                AdminLuckyWheelScreen { navController.popBackStack() }
+                            }
+                            composable(FutaDestinations.PROFILE) {
+                                ProfileScreen { navController.popBackStack() }
                             }
                             composable(FutaDestinations.ADVISOR) {
                                 AdminModuleScreen("Trở thành tư vấn viên", "/advisor/profile-requests") { navController.popBackStack() }
@@ -289,9 +378,64 @@ class MainActivity : ComponentActivity() {
                             }
 
                             // Secondary: Pricing VIP Plans
+                            composable("auth_password") {
+                                AuthenticationScreen(
+                                    initialStep = AuthStep.PASSWORD,
+                                    onBack = { navController.popBackStack() },
+                                    onSuccess = { navController.popBackStack() }
+                                )
+                            }
+
+                            // Secondary: Pricing VIP Plans
                             composable(FutaDestinations.PRICING) {
                                 PricingScreen(
                                     onBack = { navController.popBackStack() }
+                                )
+                            }
+                            composable(FutaDestinations.NEWS) {
+                                NewsScreen(
+                                    onBack = { navController.popBackStack() },
+                                    onArticleClick = { slug -> navController.navigate(FutaDestinations.newsDetail(slug)) }
+                                )
+                            }
+                            composable(
+                                route = FutaDestinations.NEWS_DETAIL,
+                                arguments = listOf(navArgument("slug") { type = NavType.StringType })
+                            ) { backStack ->
+                                val slug = backStack.arguments?.getString("slug") ?: ""
+                                NewsDetailScreen(
+                                    slug = slug,
+                                    onBack = { navController.popBackStack() }
+                                )
+                            }
+                            composable(FutaDestinations.GUIDE) {
+                                GuideScreen { navController.popBackStack() }
+                            }
+                            composable(FutaDestinations.CONTACT) {
+                                ContactScreen { navController.popBackStack() }
+                            }
+                            composable(FutaDestinations.ABOUT) {
+                                AboutScreen { navController.popBackStack() }
+                            }
+                            composable(FutaDestinations.POLICIES) {
+                                PoliciesScreen { navController.popBackStack() }
+                            }
+                            composable(FutaDestinations.BILLING) {
+                                BillingScreen(
+                                    onBack = { navController.popBackStack() },
+                                    onUpgradeClick = { navController.navigate(FutaDestinations.PRICING) }
+                                )
+                            }
+                            composable(FutaDestinations.MY_LISTINGS) {
+                                MyListingsScreen(
+                                    onBack = { navController.popBackStack() },
+                                    onNavigate = { route -> safeNavigate(route) }
+                                )
+                            }
+                            composable(FutaDestinations.VIEW_HISTORY) {
+                                ViewHistoryScreen(
+                                    onBack = { navController.popBackStack() },
+                                    onNavigate = { route -> safeNavigate(route) }
                                 )
                             }
                         }

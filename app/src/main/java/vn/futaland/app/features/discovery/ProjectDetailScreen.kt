@@ -5,17 +5,17 @@ import android.net.Uri
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.Chat
-import androidx.compose.material.icons.filled.LocationOn
-import androidx.compose.material.icons.filled.Phone
-import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -27,13 +27,13 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
 import coil3.compose.AsyncImage
 import kotlinx.coroutines.launch
 import vn.futaland.app.core.network.APIClient
 import vn.futaland.app.core.network.JSONValue
 import vn.futaland.app.designsystem.*
 import vn.futaland.app.features.properties.FutaPropertyCard
-import vn.futaland.app.features.properties.PropertyFormatters
 import vn.futaland.app.navigation.FutaDestinations
 
 @Composable
@@ -47,6 +47,10 @@ fun ProjectDetailScreen(
     var project by remember { mutableStateOf<JSONValue?>(null) }
     var apartments by remember { mutableStateOf<List<JSONValue>>(emptyList()) }
     var loading by remember { mutableStateOf(true) }
+    var selectedSubNav by remember { mutableStateOf("overview") }
+    var showZoomPlan by remember { mutableStateOf(false) }
+    var inventoryFilterBed by remember { mutableStateOf("all") }
+    val listState = rememberLazyListState()
 
     LaunchedEffect(projectId) {
         scope.launch {
@@ -54,15 +58,14 @@ fun ProjectDetailScreen(
             try {
                 val pRes = APIClient.get().request("/projects/$projectId")
                 project = pRes["data"]
-                val aRes = APIClient.get().request("/apartments", query = mapOf("projectId" to projectId, "limit" to "12"))
-                apartments = aRes["data"].array
+                val aptRes = APIClient.get().request("/apartments", query = mapOf("projectId" to projectId, "limit" to "50"))
+                apartments = aptRes["data"].array
             } catch (_: Exception) {
             } finally {
                 loading = false
             }
         }
     }
-
     Scaffold(
         topBar = {
             Surface(color = Color.White, shadowElevation = 1.dp) {
@@ -137,15 +140,20 @@ fun ProjectDetailScreen(
             val developer = p["developer"].string.ifEmpty { "Tập đoàn Phương Trang (FUTA Group)" }
             val totalUnits = p["totalUnits"].int
             val desc = p["description"].string.ifEmpty { p["overview"].string }
+            val listState = rememberLazyListState()
+            val filteredApartments = remember(apartments, inventoryFilterBed) {
+                if (inventoryFilterBed == "all") apartments
+                else apartments.filter { it["bedrooms"].int.toString() == inventoryFilterBed || it["bedroomCount"].int.toString() == inventoryFilterBed }
+            }
 
             LazyColumn(
+                state = listState,
                 modifier = Modifier
                     .fillMaxSize()
                     .background(FutaColors.PageBg)
                     .padding(padding),
                 contentPadding = PaddingValues(bottom = 24.dp)
             ) {
-                // 1. Hero Banner Image
                 item {
                     Box(
                         modifier = Modifier
@@ -164,7 +172,59 @@ fun ProjectDetailScreen(
                     }
                 }
 
-                // 2. Project Info Card
+                // Sticky Sub-Nav Tabs (Matching iOS ProjectsView)
+                item {
+                    val tabs = listOf(
+                        "overview" to "Tổng quan",
+                        "masterplan" to "Mặt bằng",
+                        "inventory" to "Bảng hàng",
+                        "amenities" to "Tiện ích"
+                    )
+                    Surface(
+                        color = Color.White,
+                        border = BorderStroke(1.dp, Color(0xFFF1F5F9)),
+                        shadowElevation = 1.dp,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .horizontalScroll(rememberScrollState())
+                                .padding(horizontal = 16.dp, vertical = 6.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            tabs.forEach { (tabKey, tabLabel) ->
+                                val isSelected = selectedSubNav == tabKey
+                                Surface(
+                                    shape = CircleShape,
+                                    color = if (isSelected) FutaColors.BrandGreen else Color(0xFFF8FAFC),
+                                    modifier = Modifier.clickable {
+                                        selectedSubNav = tabKey
+                                        scope.launch {
+                                            val targetIdx = when (tabKey) {
+                                                "overview" -> 1
+                                                "masterplan" -> 3
+                                                "inventory" -> 5
+                                                "amenities" -> 6
+                                                else -> 0
+                                            }
+                                            listState.animateScrollToItem(targetIdx)
+                                        }
+                                    }
+                                ) {
+                                    Text(
+                                        text = tabLabel,
+                                        fontSize = 12.5.sp,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                        color = if (isSelected) Color.White else FutaColors.Navy,
+                                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 7.dp)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                    Spacer(Modifier.height(14.dp))
+                }
                 item {
                     FutaCard(
                         modifier = Modifier
@@ -233,20 +293,123 @@ fun ProjectDetailScreen(
                         Spacer(Modifier.height(16.dp))
                     }
                 }
+                // 4. Master Plan / Sơ đồ tổng thể
+                item {
+                    FutaCard(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp)
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text("MẶT BẰNG TỔNG THỂ", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
+                                TextButton(onClick = { showZoomPlan = true }) {
+                                    Text("Phóng to", fontSize = 12.sp, color = FutaColors.BrandGreen, fontWeight = FontWeight.Bold)
+                                }
+                            }
+                            Spacer(Modifier.height(8.dp))
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(180.dp)
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(Color(0xFFE2E8F0))
+                                    .clickable { showZoomPlan = true }
+                            ) {
+                                AsyncImage(
+                                    model = p["masterPlanUrl"].string.ifEmpty { banner },
+                                    contentDescription = "Mặt bằng",
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier.fillMaxSize()
+                                )
+                            }
+                        }
+                    }
+                    Spacer(Modifier.height(16.dp))
+                }
 
-                // 4. Linked Apartments Section
-                if (apartments.isNotEmpty()) {
+                // 5. Amenities Section (Tiện ích chuẩn 5 sao)
+                item {
+                    FutaCard(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp)
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Text("TIỆN ÍCH DỰ ÁN", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
+                            Spacer(Modifier.height(12.dp))
+                            val amenities = listOf(
+                                "Bể bơi vô cực", "Công viên cây xanh", "Trung tâm thương mại",
+                                "Phòng Gym & Yoga", "Nhà trẻ quốc tế", "An ninh 24/7"
+                            )
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    amenities.take(3).forEach { a ->
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Icon(Icons.Default.CheckCircle, null, tint = FutaColors.BrandGreen, modifier = Modifier.size(15.dp))
+                                            Spacer(Modifier.width(6.dp))
+                                            Text(a, fontSize = 12.5.sp, color = FutaColors.Navy)
+                                        }
+                                    }
+                                }
+                                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    amenities.drop(3).forEach { a ->
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Icon(Icons.Default.CheckCircle, null, tint = FutaColors.BrandGreen, modifier = Modifier.size(15.dp))
+                                            Spacer(Modifier.width(6.dp))
+                                            Text(a, fontSize = 12.5.sp, color = FutaColors.Navy)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    Spacer(Modifier.height(16.dp))
+                }
+
+                // 6. Linked Apartments Section with Filter
+                if (filteredApartments.isNotEmpty()) {
                     item {
-                        Text(
-                            text = "GIỎ HÀNG THUỘC DỰ ÁN (${apartments.size} SẢN PHẨM)",
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = FutaColors.Slate,
-                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)
-                        )
+                        Column(modifier = Modifier.padding(horizontal = 16.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "BẢNG HÀNG (${filteredApartments.size} CĂN)",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = FutaColors.Slate
+                                )
+                                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                    listOf("all" to "Tất cả", "1" to "1 PN", "2" to "2 PN", "3" to "3 PN").forEach { (bedKey, bedLabel) ->
+                                        val isSelected = inventoryFilterBed == bedKey
+                                        Surface(
+                                            shape = CircleShape,
+                                            color = if (isSelected) FutaColors.BrandGreen else Color(0xFFF1F5F9),
+                                            modifier = Modifier.clickable { inventoryFilterBed = bedKey }
+                                        ) {
+                                            Text(
+                                                text = bedLabel,
+                                                fontSize = 11.sp,
+                                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                                color = if (isSelected) Color.White else FutaColors.Navy,
+                                                modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp)
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        Spacer(Modifier.height(8.dp))
                     }
 
-                    itemsIndexed(apartments, key = { idx, item -> (item.id.ifEmpty { "proj-apt" }) + "-$idx" }) { _, apt ->
+                    itemsIndexed(filteredApartments, key = { idx, item -> (item.id.ifEmpty { "proj-apt" }) + "-$idx" }) { _, apt ->
                         Box(modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
                             FutaPropertyCard(
                                 apartment = apt,
@@ -257,6 +420,32 @@ fun ProjectDetailScreen(
                                 onChatClick = { onNavigate(FutaDestinations.INBOX) },
                                 onClick = { onNavigate(FutaDestinations.propertyDetail(apt.id)) }
                             )
+                        }
+                    }
+                }
+            }
+
+            // Full-screen Zoom Plan Dialog
+            if (showZoomPlan) {
+                Dialog(onDismissRequest = { showZoomPlan = false }) {
+                    Surface(
+                        shape = RoundedCornerShape(16.dp),
+                        color = Color.Black,
+                        modifier = Modifier.fillMaxWidth().height(420.dp)
+                    ) {
+                        Box(modifier = Modifier.fillMaxSize()) {
+                            AsyncImage(
+                                model = p["masterPlanUrl"].string.ifEmpty { banner },
+                                contentDescription = "Mặt bằng phóng to",
+                                contentScale = ContentScale.Fit,
+                                modifier = Modifier.fillMaxSize()
+                            )
+                            IconButton(
+                                onClick = { showZoomPlan = false },
+                                modifier = Modifier.align(Alignment.TopEnd).padding(8.dp)
+                            ) {
+                                Icon(Icons.Default.Close, null, tint = Color.White)
+                            }
                         }
                     }
                 }

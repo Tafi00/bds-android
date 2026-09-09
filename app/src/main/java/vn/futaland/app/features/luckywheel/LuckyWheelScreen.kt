@@ -26,20 +26,20 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.Fill
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.google.zxing.BarcodeFormat
-import com.google.zxing.qrcode.QRCodeWriter
-import kotlinx.coroutines.launch
+import vn.futaland.app.designsystem.*
 import vn.futaland.app.core.network.APIClient
 import vn.futaland.app.core.network.JSONValue
-import vn.futaland.app.designsystem.*
+import kotlinx.coroutines.launch
+import com.google.zxing.BarcodeFormat
+import com.google.zxing.qrcode.QRCodeWriter
 import kotlin.math.cos
 import kotlin.math.sin
-
 private object LwColors {
     val Green = Color(0xFF064D3D)
     val ForestSegment = Color(0xFF005442)
@@ -225,11 +225,16 @@ fun LuckyWheelScreen(
                         drawCircle(color = Color.White, radius = 24.dp.toPx(), center = center)
                     }
 
-                    // Pointer Top Needle
+                    // Pointer Top Needle with Dynamic Tick Animation
+                    val pointerWobble = if (isSpinning) (kotlin.math.sin(rotation.value * 0.15f) * 10f) else 0f
                     Canvas(
                         modifier = Modifier
                             .align(Alignment.TopCenter)
                             .size(28.dp)
+                            .graphicsLayer {
+                                rotationZ = pointerWobble
+                                transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0.5f, 0f)
+                            }
                     ) {
                         val path = androidx.compose.ui.graphics.Path().apply {
                             moveTo(size.width / 2, size.height)
@@ -292,29 +297,58 @@ fun LuckyWheelScreen(
         }
     }
 
-    // Win Dialog
-    FutaDialog(
-        visible = winningPrize != null,
-        onDismiss = { winningPrize = null },
-        title = "Chúc mừng bạn!",
-        confirmText = "Nhận thưởng & Đóng",
-        onConfirm = { winningPrize = null },
-        cancelText = null
-    ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
-            Text("Bạn đã trúng phần quà:", fontSize = 13.5.sp, color = FutaColors.Slate)
-            Spacer(Modifier.height(8.dp))
-            Text(winningPrize ?: "", fontSize = 20.sp, fontWeight = FontWeight.Black, color = FutaColors.BrandOrange)
-            Spacer(Modifier.height(14.dp))
-            val qrBitmap = generateQrBitmap("FUTA-PRIZE-${System.currentTimeMillis()}")
-            if (qrBitmap != null) {
-                Image(
-                    bitmap = qrBitmap.asImageBitmap(),
-                    contentDescription = "Mã QR đổi quà",
-                    modifier = Modifier.size(160.dp)
-                )
-                Spacer(Modifier.height(8.dp))
-                Text("Quét mã tại sàn giao dịch FUTA để nhận thưởng", fontSize = 11.sp, color = FutaColors.Slate, textAlign = TextAlign.Center)
+    // Win Dialog with Confetti Celebration Particles (Matching iOS)
+    if (winningPrize != null) {
+        Box(modifier = Modifier.fillMaxSize()) {
+            // Falling Confetti Particle Canvas
+            Canvas(modifier = Modifier.fillMaxSize()) {
+                val confettiColors = listOf(Color(0xFFF59E0B), Color(0xFF10B981), Color(0xFFEF4444), Color(0xFF3B82F6), Color(0xFFEC4899))
+                for (i in 0 until 50) {
+                    val x = (i * 37) % size.width
+                    val y = ((i * 53) + (rotation.value * 0.5f)) % size.height
+                    val color = confettiColors[i % confettiColors.size]
+                    drawCircle(color = color, radius = 5.dp.toPx(), center = Offset(x, y))
+                }
+            }
+
+            FutaDialog(
+                visible = true,
+                onDismiss = { winningPrize = null },
+                title = "Chúc mừng bạn trúng thưởng!",
+                confirmText = "Nhận quà ngay",
+                confirmVariant = FutaButtonVariant.PRIMARY,
+                onConfirm = { winningPrize = null },
+                cancelText = null
+            ) {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Surface(
+                        shape = CircleShape,
+                        color = Color(0xFFFEF3C7),
+                        modifier = Modifier.size(64.dp)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Text("🎁", fontSize = 32.sp)
+                        }
+                    }
+                    Text(
+                        text = winningPrize ?: "",
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Black,
+                        color = FutaColors.Navy,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                    )
+                    Text(
+                        text = "Phần quà đã được lưu vào mục 'Gói tin & Voucher' trong tài khoản FUTA Land của bạn.",
+                        fontSize = 12.5.sp,
+                        color = FutaColors.Slate,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                        lineHeight = 18.sp
+                    )
+                }
             }
         }
     }

@@ -17,6 +17,7 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
@@ -67,6 +68,17 @@ fun PropertyDetailScreen(
     var loanPercent by remember { mutableFloatStateOf(70f) }
     var loanYears by remember { mutableFloatStateOf(20f) }
 
+    // Booking & Holding Sheet States
+    var showBookingSheet by remember { mutableStateOf(false) }
+    var showHoldingSheet by remember { mutableStateOf(false) }
+    var bookingDate by remember { mutableStateOf("Ngày mai (09:00)") }
+    var bookingSlot by remember { mutableStateOf("Sáng (09:00 - 11:30)") }
+    var bookingName by remember { mutableStateOf(AppSession.shared.user?.get("name")?.string.orEmpty()) }
+    var bookingPhone by remember { mutableStateOf(AppSession.shared.user?.get("phone")?.string.orEmpty()) }
+    var holdingName by remember { mutableStateOf(AppSession.shared.user?.get("name")?.string.orEmpty()) }
+    var holdingPhone by remember { mutableStateOf(AppSession.shared.user?.get("phone")?.string.orEmpty()) }
+    var holdingCccd by remember { mutableStateOf("") }
+    var holdingBusy by remember { mutableStateOf(false) }
     LaunchedEffect(propertyId) {
         scope.launch {
             loading = true
@@ -151,7 +163,9 @@ fun PropertyDetailScreen(
                         } else {
                             onNavigate(FutaDestinations.AUTH)
                         }
-                    }
+                    },
+                    onBookVisitClick = { showBookingSheet = true },
+                    onHoldClick = { showHoldingSheet = true }
                 )
             }
         }
@@ -620,10 +634,19 @@ fun PropertyDetailScreen(
                                         modifier = Modifier.size(24.dp)
                                     ) {}
                                 },
-                                colors = SliderDefaults.colors(
-                                    activeTrackColor = Color(0xFF0E7643),
-                                    inactiveTrackColor = Color(0xFFE2E8F0)
-                                )
+                                track = { sliderState ->
+                                    SliderDefaults.Track(
+                                        sliderState = sliderState,
+                                        thumbTrackGapSize = 0.dp,
+                                        trackInsideCornerSize = 0.dp,
+                                        drawStopIndicator = null,
+                                        colors = SliderDefaults.colors(
+                                            activeTrackColor = Color(0xFF0E7643),
+                                            inactiveTrackColor = Color(0xFFE2E8F0)
+                                        ),
+                                        modifier = Modifier.height(6.dp)
+                                    )
+                                }
                             )
 
                             Text(
@@ -645,10 +668,19 @@ fun PropertyDetailScreen(
                                         modifier = Modifier.size(24.dp)
                                     ) {}
                                 },
-                                colors = SliderDefaults.colors(
-                                    activeTrackColor = Color(0xFF0E7643),
-                                    inactiveTrackColor = Color(0xFFE2E8F0)
-                                )
+                                track = { sliderState ->
+                                    SliderDefaults.Track(
+                                        sliderState = sliderState,
+                                        thumbTrackGapSize = 0.dp,
+                                        trackInsideCornerSize = 0.dp,
+                                        drawStopIndicator = null,
+                                        colors = SliderDefaults.colors(
+                                            activeTrackColor = Color(0xFF0E7643),
+                                            inactiveTrackColor = Color(0xFFE2E8F0)
+                                        ),
+                                        modifier = Modifier.height(6.dp)
+                                    )
+                                }
                             )
 
                             val loanAmount = price * (loanPercent / 100.0)
@@ -659,6 +691,7 @@ fun PropertyDetailScreen(
                                         ((1 + monthlyRate).pow(totalMonths) - 1)
                             } else 0.0
 
+                            Spacer(Modifier.height(14.dp))
                             Surface(
                                 shape = RoundedCornerShape(10.dp),
                                 color = Color(0xFFE8F5E9),
@@ -672,6 +705,69 @@ fun PropertyDetailScreen(
                                     Text("Ước tính trả hàng tháng:", fontSize = 12.5.sp, color = FutaColors.Navy)
                                     Text("~${"%,d".format(monthlyPayment.toLong())} đ/tháng", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color(0xFF0E7643))
                                 }
+                            }
+                        }
+                    }
+                }
+
+                // 5. Commission Panel (Sale & Admin View Only - Matching iOS)
+                val isSaleView = AppSession.shared.isAuthenticated && listOf("admin", "sale", "advisor", "agent", "telesale").contains(AppSession.shared.role)
+                if (isSaleView) {
+                    item {
+                        FutaCard(modifier = Modifier.fillMaxWidth()) {
+                            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(Icons.Default.Percent, null, tint = Color(0xFFF97316), modifier = Modifier.size(16.dp))
+                                    Spacer(Modifier.width(6.dp))
+                                    Text(
+                                        text = "HOA HỒNG DỰ KIẾN",
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = FutaColors.Navy,
+                                        letterSpacing = 0.6.sp
+                                    )
+                                }
+
+                                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                    Column {
+                                        Text("Tỷ lệ hoa hồng", fontSize = 11.5.sp, color = FutaColors.Slate)
+                                        Text("2.0%", fontSize = 17.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
+                                    }
+                                    Column(horizontalAlignment = Alignment.End) {
+                                        Text("Tiền hoa hồng ước tính", fontSize = 11.5.sp, color = FutaColors.Slate)
+                                        val commAmount = price * 0.02
+                                        Text(
+                                            text = PropertyFormatters.formatPrice(commAmount),
+                                            fontSize = 17.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = Color(0xFFF97316)
+                                        )
+                                    }
+                                }
+
+                                Surface(
+                                    shape = RoundedCornerShape(10.dp),
+                                    color = Color(0xFFF8FAFC),
+                                    border = BorderStroke(1.dp, Color(0xFFEDF1F5)),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text("Thưởng nóng chiến dịch", fontSize = 12.sp, color = FutaColors.Slate)
+                                        Text("+10.000.000 VNĐ / căn", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color(0xFF0E7643))
+                                    }
+                                }
+
+                                FutaButton(
+                                    text = "Đăng ký bán căn này (còn 3 suất)",
+                                    variant = FutaButtonVariant.SECONDARY,
+                                    height = 42.dp,
+                                    onClick = { ToastCenter.show("Đã gửi yêu cầu đăng ký bán căn hộ này") },
+                                    modifier = Modifier.fillMaxWidth()
+                                )
                             }
                         }
                     }
@@ -800,6 +896,79 @@ fun PropertyDetailScreen(
                         }
                     }
                 }
+                // 8. Legal Documents Section (Matching iOS)
+                item {
+                    FutaCard(modifier = Modifier.fillMaxWidth()) {
+                        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "HỒ SƠ PHÁP LÝ & TÀI LIỆU DỰ ÁN",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = FutaColors.Navy,
+                                    letterSpacing = 0.5.sp
+                                )
+                                Surface(
+                                    shape = CircleShape,
+                                    color = Color(0xFFECFDF5)
+                                ) {
+                                    Row(modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(Icons.Default.CheckCircle, null, tint = Color(0xFF0E7643), modifier = Modifier.size(13.dp))
+                                        Spacer(Modifier.width(4.dp))
+                                        Text("Đã xác minh", fontSize = 10.5.sp, fontWeight = FontWeight.Bold, color = Color(0xFF0E7643))
+                                    }
+                                }
+                            }
+
+                            Surface(
+                                shape = RoundedCornerShape(12.dp),
+                                color = Color.White,
+                                border = BorderStroke(1.dp, Color(0xFFD7DCE2)),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        ToastCenter.show("Đang mở tài liệu: Sổ hồng sở hữu lâu dài.pdf")
+                                    }
+                            ) {
+                                Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    Surface(
+                                        shape = RoundedCornerShape(10.dp),
+                                        color = Color(0xFFFFF1F0),
+                                        modifier = Modifier.size(44.dp)
+                                    ) {
+                                        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+                                            Icon(Icons.Default.Description, null, tint = Color(0xFFDF5D57), modifier = Modifier.size(18.dp))
+                                            Text(
+                                                text = "PDF",
+                                                fontSize = 7.5.sp,
+                                                fontWeight = FontWeight.Black,
+                                                color = Color.White,
+                                                modifier = Modifier
+                                                    .background(Color(0xFFDF5D57), RoundedCornerShape(2.dp))
+                                                    .padding(horizontal = 3.dp)
+                                            )
+                                        }
+                                    }
+                                    Spacer(Modifier.width(12.dp))
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = apt["legal"].string.ifEmpty { "Sổ hồng sở hữu lâu dài" },
+                                            fontSize = 13.5.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = FutaColors.Navy
+                                        )
+                                        Text("Tài liệu tham khảo do FUTA Land xác minh (2.4 MB)", fontSize = 11.5.sp, color = FutaColors.Slate)
+                                    }
+                                    Icon(Icons.Default.Visibility, "Xem", tint = Color(0xFF0E7643), modifier = Modifier.size(18.dp))
+                                }
+                            }
+                        }
+                    }
+                }
 
                 // 8. Advisor Contact Panel (Matching iOS)
                 item {
@@ -856,6 +1025,7 @@ fun PropertyDetailScreen(
                                 }
                                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                     val phone = apt["ownerPhone"].string.ifEmpty { "02838386852" }
+                                    // 1. Phone Call Button
                                     Surface(
                                         shape = CircleShape,
                                         color = Color(0xFFFDF6EE),
@@ -874,6 +1044,26 @@ fun PropertyDetailScreen(
                                             )
                                         }
                                     }
+                                    // 2. Zalo Deep Link Button
+                                    Surface(
+                                        shape = CircleShape,
+                                        color = Color(0xFFEFF6FF),
+                                        modifier = Modifier
+                                            .size(40.dp)
+                                            .clickable {
+                                                val zaloUrl = "https://zalo.me/$phone"
+                                                try {
+                                                    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(zaloUrl)))
+                                                } catch (_: Exception) {
+                                                    ToastCenter.show("Không thể mở Zalo: $zaloUrl")
+                                                }
+                                            }
+                                    ) {
+                                        Box(contentAlignment = Alignment.Center) {
+                                            Text("Zalo", fontSize = 11.sp, fontWeight = FontWeight.Black, color = Color(0xFF0068FF))
+                                        }
+                                    }
+                                    // 3. Native Chat Button
                                     Surface(
                                         shape = CircleShape,
                                         color = Color(0xFFE8F5E9),
@@ -969,6 +1159,145 @@ fun PropertyDetailScreen(
 
                 item {
                     Spacer(Modifier.height(60.dp))
+                }
+            }
+        }
+        // =========================================================================
+        // 1. VISIT BOOKING BOTTOM SHEET (Matching iOS)
+        // =========================================================================
+        if (showBookingSheet) {
+            property?.let { apt ->
+                FutaBottomSheet(
+                    visible = true,
+                    onDismiss = { showBookingSheet = false },
+                    title = "Đặt lịch xem nhà thực tế"
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .verticalScroll(rememberScrollState()),
+                        verticalArrangement = Arrangement.spacedBy(14.dp)
+                    ) {
+                        Surface(
+                            shape = RoundedCornerShape(12.dp),
+                            color = Color(0xFFF8FAFC),
+                            border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(modifier = Modifier.padding(12.dp)) {
+                                Text(apt["title"].string, fontSize = 13.5.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
+                                Text("Mã căn: ${apt["code"].string.ifEmpty { apt["propertyCode"].string }}", fontSize = 11.5.sp, color = FutaColors.BrandGreen)
+                            }
+                        }
+
+                        Text("CHỌN NGÀY XEM", fontSize = 11.5.sp, fontWeight = FontWeight.Bold, color = FutaColors.Slate)
+                        Row(
+                            modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            listOf("Hôm nay", "Ngày mai", "Thứ Bảy", "Chủ Nhật").forEach { d ->
+                                val isSelected = bookingDate == d
+                                Surface(
+                                    shape = CircleShape,
+                                    color = if (isSelected) FutaColors.BrandGreen else Color(0xFFF1F5F9),
+                                    modifier = Modifier.clickable { bookingDate = d }
+                                ) {
+                                    Text(d, fontSize = 12.sp, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal, color = if (isSelected) Color.White else FutaColors.Navy, modifier = Modifier.padding(horizontal = 14.dp, vertical = 7.dp))
+                                }
+                            }
+                        }
+
+                        Text("KHUNG GIỜ THUẬN TIỆN", fontSize = 11.5.sp, fontWeight = FontWeight.Bold, color = FutaColors.Slate)
+                        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            listOf("Sáng (09:00 - 11:30)", "Chiều (14:00 - 16:30)", "Tối (18:00 - 20:00)").forEach { slot ->
+                                val isSelected = bookingSlot == slot
+                                Surface(
+                                    shape = RoundedCornerShape(10.dp),
+                                    color = if (isSelected) Color(0xFFE8F5E9) else Color.White,
+                                    border = BorderStroke(1.dp, if (isSelected) FutaColors.BrandGreen else Color(0xFFE2E8F0)),
+                                    modifier = Modifier.fillMaxWidth().clickable { bookingSlot = slot }
+                                ) {
+                                    Text(slot, fontSize = 12.5.sp, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal, color = if (isSelected) FutaColors.BrandGreen else FutaColors.Navy, modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp))
+                                }
+                            }
+                        }
+
+                        Text("THÔNG TIN KHÁCH HÀNG", fontSize = 11.5.sp, fontWeight = FontWeight.Bold, color = FutaColors.Slate)
+                        FutaInput(value = bookingName, onValueChange = { bookingName = it }, placeholder = "Họ và tên của bạn")
+                        FutaInput(value = bookingPhone, onValueChange = { bookingPhone = it }, placeholder = "Số điện thoại liên hệ")
+
+                        Spacer(Modifier.height(4.dp))
+                        FutaButton(
+                            text = "Xác nhận gửi yêu cầu",
+                            variant = FutaButtonVariant.PRIMARY,
+                            onClick = {
+                                showBookingSheet = false
+                                ToastCenter.show("Đã gửi lịch xem nhà! Chuyên viên FUTA sẽ gọi xác nhận trong 15 phút.")
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        Spacer(Modifier.height(10.dp))
+                    }
+                }
+            }
+        }
+
+        // =========================================================================
+        // 2. HOLDING DEPOSIT BOTTOM SHEET (Matching iOS)
+        // =========================================================================
+        if (showHoldingSheet) {
+            property?.let { apt ->
+                FutaBottomSheet(
+                    visible = true,
+                    onDismiss = { showHoldingSheet = false },
+                    title = "Giữ chỗ căn hộ FUTA Land"
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .verticalScroll(rememberScrollState()),
+                        verticalArrangement = Arrangement.spacedBy(14.dp)
+                    ) {
+                        Surface(
+                            shape = RoundedCornerShape(12.dp),
+                            color = Color(0xFFFEF3C7),
+                            border = BorderStroke(1.dp, Color(0xFFFDE68A)),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Column {
+                                    Text("TIỀN GIỮ CHỖ THƯỜNG NIÊN", fontSize = 10.5.sp, fontWeight = FontWeight.Bold, color = Color(0xFFB45309))
+                                    Text("50.000.000 VNĐ", fontSize = 18.sp, fontWeight = FontWeight.Black, color = Color(0xFFB45309))
+                                    Text("Hoàn 100% trong 24h nếu khách đổi ý không giao dịch", fontSize = 11.sp, color = Color(0xFF92400E))
+                                }
+                            }
+                        }
+
+                        Text("THÔNG TIN ĐỨNG TÊN HỢP ĐỒNG", fontSize = 11.5.sp, fontWeight = FontWeight.Bold, color = FutaColors.Slate)
+                        FutaInput(value = holdingName, onValueChange = { holdingName = it }, placeholder = "Họ và tên người đứng tên cọc")
+                        FutaInput(value = holdingPhone, onValueChange = { holdingPhone = it }, placeholder = "Số điện thoại nhận hợp đồng điện tử")
+                        FutaInput(value = holdingCccd, onValueChange = { holdingCccd = it }, placeholder = "Số CCCD / Hộ chiếu")
+
+                        FutaButton(
+                            text = if (holdingBusy) "Đang xử lý..." else "Xác nhận đặt cọc giữ chỗ",
+                            variant = FutaButtonVariant.SECONDARY,
+                            enabled = !holdingBusy,
+                            onClick = {
+                                scope.launch {
+                                    holdingBusy = true
+                                    try {
+                                        val body = "{\"apartmentId\":\"${apt.id}\",\"customerName\":\"$holdingName\",\"customerPhone\":\"$holdingPhone\",\"amount\":50000000}"
+                                        APIClient.get().request("/sales/holding", method = "POST", bodyJson = body)
+                                    } catch (_: Exception) {}
+                                    holdingBusy = false
+                                    showHoldingSheet = false
+                                    ToastCenter.show("Đã gửi yêu cầu giữ chỗ căn thành công! Bộ phận pháp chế sẽ gọi bàn giao thỏa thuận.")
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        Spacer(Modifier.height(10.dp))
+                    }
                 }
             }
         }
@@ -1125,7 +1454,9 @@ private fun MediaPlaceholderCard(
 private fun StickyContactBottomBar(
     apt: JSONValue,
     onCallClick: () -> Unit,
-    onChatClick: () -> Unit
+    onChatClick: () -> Unit,
+    onBookVisitClick: () -> Unit,
+    onHoldClick: () -> Unit
 ) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
@@ -1137,94 +1468,75 @@ private fun StickyContactBottomBar(
             modifier = Modifier
                 .fillMaxWidth()
                 .navigationBarsPadding()
-                .padding(horizontal = 16.dp, vertical = 10.dp),
+                .padding(horizontal = 14.dp, vertical = 8.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Price & Details on the LEFT (Matching iOS)
+            // Price & Details on the LEFT
             Column(modifier = Modifier.weight(1f)) {
                 val isSell = apt["listingType"].string.lowercase() != "rent"
                 Text(
                     text = if (isSell) "Giá bán dự kiến" else "Giá thuê",
-                    fontSize = 11.sp,
+                    fontSize = 10.5.sp,
                     color = FutaColors.Slate
                 )
-                Spacer(Modifier.height(1.dp))
                 Text(
                     text = PropertyFormatters.listingPrice(apt),
-                    fontSize = 20.sp,
+                    fontSize = 17.sp,
                     fontWeight = FontWeight.Black,
                     color = Color(0xFFF97316),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
-                val price = apt["price"].double
-                val area = apt["areaM2"].double.takeIf { it > 0 }
-                    ?: apt["size_m2"].double.takeIf { it > 0 } ?: 0.0
-                if (price > 0 && area > 0) {
-                    Text(
-                        text = "~${"%.1f".format(price / area / 1_000_000)} tr/m²",
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFF0E7643)
-                    )
-                }
             }
 
-            Spacer(Modifier.width(10.dp))
+            Spacer(Modifier.width(8.dp))
 
-            // Action Buttons: Hotline Call + Advisor Chat on the RIGHT (Matching iOS)
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                // Orange Capsule "Gọi ngay"
+            // Action Buttons: Đặt lịch + Giữ chỗ + Gọi + Chat
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                // Đặt lịch xem nhà
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = Color(0xFFF1F5F9),
+                    modifier = Modifier.clickable(onClick = onBookVisitClick)
+                ) {
+                    Text(
+                        text = "Đặt lịch",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = FutaColors.Navy,
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 9.dp)
+                    )
+                }
+
+                // Giữ chỗ cọc căn hộ
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = Color(0xFF0E7643),
+                    shadowElevation = 2.dp,
+                    modifier = Modifier.clickable(onClick = onHoldClick)
+                ) {
+                    Text(
+                        text = "Giữ chỗ ngay",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White,
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp)
+                    )
+                }
+
+                // Quick phone icon
                 Surface(
                     shape = CircleShape,
                     color = Color(0xFFF97316),
-                    shadowElevation = 2.dp,
-                    modifier = Modifier.clickable(onClick = onCallClick)
+                    modifier = Modifier.size(36.dp).clickable(onClick = onCallClick)
                 ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
+                    Box(contentAlignment = Alignment.Center) {
                         Icon(
                             painter = painterResource(id = R.drawable.sf_btn_phone),
                             contentDescription = "Gọi ngay",
                             tint = Color.White,
                             modifier = Modifier.size(13.dp)
-                        )
-                        Spacer(Modifier.width(6.dp))
-                        Text(
-                            text = "Gọi ngay",
-                            fontSize = 13.5.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White
-                        )
-                    }
-                }
-
-                // Emerald Green Capsule "Tư vấn"
-                Surface(
-                    shape = CircleShape,
-                    color = Color(0xFF0E7643),
-                    shadowElevation = 2.dp,
-                    modifier = Modifier.clickable(onClick = onChatClick)
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            painter = painterResource(id = R.drawable.sf_btn_chat),
-                            contentDescription = "Tư vấn",
-                            tint = Color.White,
-                            modifier = Modifier.size(13.dp)
-                        )
-                        Spacer(Modifier.width(6.dp))
-                        Text(
-                            text = "Tư vấn",
-                            fontSize = 13.5.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White
                         )
                     }
                 }

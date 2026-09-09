@@ -3,6 +3,8 @@ package vn.futaland.app.features.properties
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -31,7 +33,7 @@ fun SavedPropertiesScreen(
     val scope = rememberCoroutineScope()
     var items by remember { mutableStateOf<List<JSONValue>>(emptyList()) }
     var loading by remember { mutableStateOf(true) }
-
+    var selectedFolder by remember { mutableStateOf("all") }
     fun loadFavorites() {
         scope.launch {
             loading = true
@@ -69,21 +71,55 @@ fun SavedPropertiesScreen(
     ) {
         // Top Header
         Surface(color = Color.White, shadowElevation = 1.dp) {
-            Row(
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .statusBarsPadding()
-                    .padding(horizontal = 16.dp, vertical = 14.dp)
             ) {
-                Text(
-                    text = "Căn yêu thích",
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = FutaColors.Navy
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 12.dp)
+                ) {
+                    Text(
+                        text = "Căn yêu thích",
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = FutaColors.Navy
+                    )
+                }
+
+                // Folder Filter Chips
+                val folders = listOf(
+                    "all" to "Tất cả (${items.size})",
+                    "interested" to "Căn hộ quan tâm",
+                    "following" to "Đang theo dõi",
+                    "contacted" to "Đã liên hệ"
                 )
+                androidx.compose.foundation.lazy.LazyRow(
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    items(folders.size) { idx ->
+                        val (key, label) = folders[idx]
+                        val isSelected = selectedFolder == key
+                        Surface(
+                            shape = CircleShape,
+                            color = if (isSelected) FutaColors.BrandGreen else Color(0xFFF1F5F9),
+                            modifier = androidx.compose.ui.Modifier.clickable { selectedFolder = key }
+                        ) {
+                            Text(
+                                text = label,
+                                fontSize = 12.sp,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                color = if (isSelected) Color.White else FutaColors.Navy,
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                            )
+                        }
+                    }
+                }
             }
         }
-
         if (loading) {
             Column(
                 modifier = Modifier.padding(16.dp),

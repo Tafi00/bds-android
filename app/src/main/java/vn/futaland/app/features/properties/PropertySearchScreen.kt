@@ -362,8 +362,42 @@ fun PropertySearchScreen(
                 .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // Price presets
-            Text("KHOẢNG GIÁ NHANH", fontSize = 11.5.sp, fontWeight = FontWeight.Bold, color = FutaColors.Slate)
+            // 1. Price Range with Slider & Presets (Matching iOS)
+            var priceSliderRange by remember(minPrice, maxPrice) {
+                val low = (minPrice.toDoubleOrNull() ?: 0.0) / 1_000_000_000.0
+                val high = (maxPrice.toDoubleOrNull() ?: 20_000_000_000.0) / 1_000_000_000.0
+                mutableStateOf(low.toFloat().coerceIn(0f, 20f)..high.toFloat().coerceIn(0f, 20f))
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("KHOẢNG GIÁ", fontSize = 11.5.sp, fontWeight = FontWeight.Bold, color = FutaColors.Slate)
+                val minLabel = if (priceSliderRange.start <= 0.1f) "0" else String.format(java.util.Locale.US, "%.1f", priceSliderRange.start) + " tỷ"
+                val maxLabel = if (priceSliderRange.endInclusive >= 19.9f) "Trên 20 tỷ" else String.format(java.util.Locale.US, "%.1f", priceSliderRange.endInclusive) + " tỷ"
+                Text("$minLabel - $maxLabel", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = FutaColors.BrandGreen)
+            }
+
+            RangeSlider(
+                value = priceSliderRange,
+                onValueChange = { range ->
+                    priceSliderRange = range
+                    minPrice = if (range.start > 0.1f) (range.start * 1_000_000_000L).toLong().toString() else ""
+                    maxPrice = if (range.endInclusive < 19.9f) (range.endInclusive * 1_000_000_000L).toLong().toString() else ""
+                },
+                valueRange = 0f..20f,
+                steps = 19,
+                colors = SliderDefaults.colors(
+                    thumbColor = FutaColors.BrandGreen,
+                    activeTrackColor = FutaColors.BrandGreen,
+                    inactiveTrackColor = Color(0xFFE2E8F0)
+                ),
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            // Price Quick Presets
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -373,9 +407,9 @@ fun PropertySearchScreen(
                 listOf(
                     "Tất cả" to ("" to ""),
                     "< 2 tỷ" to ("" to "2000000000"),
-                    "2 - 4 tỷ" to ("2000000000" to "4000000000"),
-                    "4 - 7 tỷ" to ("4000000000" to "7000000000"),
-                    "> 7 tỷ" to ("7000000000" to "")
+                    "2 - 5 tỷ" to ("2000000000" to "5000000000"),
+                    "5 - 10 tỷ" to ("5000000000" to "10000000000"),
+                    "> 10 tỷ" to ("10000000000" to "")
                 ).forEach { (label, range) ->
                     val isSelected = minPrice == range.first && maxPrice == range.second
                     QuickChip(title = label, isSelected = isSelected) {
@@ -385,6 +419,61 @@ fun PropertySearchScreen(
                 }
             }
 
+            // 2. Area Range with Slider & Presets
+            var areaSliderRange by remember(minArea, maxArea) {
+                val low = (minArea.toFloatOrNull() ?: 0f).coerceIn(0f, 300f)
+                val high = (maxArea.toFloatOrNull() ?: 300f).coerceIn(0f, 300f)
+                mutableStateOf(low..high)
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("DIỆN TÍCH (M²)", fontSize = 11.5.sp, fontWeight = FontWeight.Bold, color = FutaColors.Slate)
+                val minAreaStr = if (areaSliderRange.start <= 5f) "0" else "${areaSliderRange.start.toInt()}"
+                val maxAreaStr = if (areaSliderRange.endInclusive >= 295f) "Trên 300 m²" else "${areaSliderRange.endInclusive.toInt()} m²"
+                Text("$minAreaStr - $maxAreaStr", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = FutaColors.BrandGreen)
+            }
+
+            RangeSlider(
+                value = areaSliderRange,
+                onValueChange = { range ->
+                    areaSliderRange = range
+                    minArea = if (range.start > 5f) range.start.toInt().toString() else ""
+                    maxArea = if (range.endInclusive < 295f) range.endInclusive.toInt().toString() else ""
+                },
+                valueRange = 0f..300f,
+                steps = 29,
+                colors = SliderDefaults.colors(
+                    thumbColor = FutaColors.BrandGreen,
+                    activeTrackColor = FutaColors.BrandGreen,
+                    inactiveTrackColor = Color(0xFFE2E8F0)
+                ),
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                listOf(
+                    "Tất cả" to ("" to ""),
+                    "< 50 m²" to ("" to "50"),
+                    "50 - 80 m²" to ("50" to "80"),
+                    "80 - 120 m²" to ("80" to "120"),
+                    "> 120 m²" to ("120" to "")
+                ).forEach { (label, range) ->
+                    val isSelected = minArea == range.first && maxArea == range.second
+                    QuickChip(title = label, isSelected = isSelected) {
+                        minArea = range.first
+                        maxArea = range.second
+                    }
+                }
+            }
             // Bedrooms
             Text("SỐ PHÒNG NGỦ", fontSize = 11.5.sp, fontWeight = FontWeight.Bold, color = FutaColors.Slate)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -454,7 +543,7 @@ fun PropertySearchScreen(
                     modifier = Modifier.weight(1f)
                 )
                 FutaButton(
-                    text = "Áp dụng bộ lọc",
+                    text = if (totalCount > 0) "Xem $totalCount bất động sản" else "Áp dụng bộ lọc",
                     variant = FutaButtonVariant.PRIMARY,
                     onClick = {
                         showFilterSheet = false

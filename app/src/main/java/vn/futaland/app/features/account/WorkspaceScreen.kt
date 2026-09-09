@@ -58,13 +58,13 @@ fun WorkspaceScreen(
             WorkspaceModuleItem("advisors", "Duyệt hồ sơ TVV", "Hồ sơ môi giới & chứng chỉ", R.drawable.sf_adm_advisors, Color(0xFF0284C7), "Quản trị", FutaDestinations.ADMIN_ADVISOR_PROFILES),
             WorkspaceModuleItem("ai", "Training AI", "Kiến thức & kịch bản bot tư vấn", R.drawable.sf_adm_ai, Color(0xFFA855F7), "Quản trị", FutaDestinations.ADMIN_AI),
             WorkspaceModuleItem("zalo", "Marketing Zalo", "Chiến dịch gửi tin nhắn OA", R.drawable.sf_adm_zalo, Color(0xFF0284C7), "Quản trị", FutaDestinations.ADMIN_ZALO),
+            WorkspaceModuleItem("admin_wheel", "Quản trị vòng quay", "Tỷ lệ trúng, giải thưởng & cấp lượt", R.drawable.sf_quick_wheel, Color(0xFFD97706), "Quản trị", FutaDestinations.ADMIN_LUCKY_WHEEL),
 
             // KINH DOANH (7 modules)
             WorkspaceModuleItem("customers", "Khách hàng", "Danh bạ khách hàng tiềm năng", R.drawable.sf_adm_users, Color(0xFF2563EB), "Kinh doanh", FutaDestinations.ADMIN_CUSTOMERS),
             WorkspaceModuleItem("crm", "Chăm sóc KH (CRM)", "Kanban pipeline khách hàng", R.drawable.sf_adm_crm, Color(0xFFF97316), "Kinh doanh", FutaDestinations.CRM),
             WorkspaceModuleItem("contracts", "Hợp đồng giao dịch", "Hợp đồng cọc & mua bán BĐS", R.drawable.sf_adm_contracts, Color(0xFF0D9488), "Kinh doanh", FutaDestinations.ADMIN_CONTRACTS),
-            WorkspaceModuleItem("reports", "Báo cáo doanh số", "Báo cáo kinh doanh & hiệu suất", R.drawable.sf_adm_reports, Color(0xFF6366F1), "Kinh doanh", FutaDestinations.ADMIN_REPORTS),
-            WorkspaceModuleItem("advisor_products", "Sản phẩm kinh doanh", "Giỏ hàng căn hộ dành cho TVV", R.drawable.sf_quick_projects, FutaColors.BrandGreen, "Kinh doanh", FutaDestinations.SEARCH),
+            WorkspaceModuleItem("advisor_products", "Sản phẩm kinh doanh", "Giỏ hàng căn hộ dành cho TVV", R.drawable.sf_quick_projects, FutaColors.BrandGreen, "Kinh doanh", FutaDestinations.ADMIN_INVENTORY),
             WorkspaceModuleItem("advisor_registrations", "Đăng ký của tôi", "Lịch sử đăng ký bán căn", R.drawable.sf_adm_registrations, Color(0xFF10B981), "Kinh doanh", FutaDestinations.ADMIN_REGISTRATIONS),
             WorkspaceModuleItem("lucky_wheel", "Vòng quay may mắn", "Game thưởng tri ân khách hàng", R.drawable.sf_quick_wheel, Color(0xFFD97706), "Kinh doanh", FutaDestinations.LUCKY_WHEEL)
         )

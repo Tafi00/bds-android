@@ -21,7 +21,16 @@ object FutaDestinations {
     const val CHAT_CONVERSATION = "chat_conversation/{conversationId}"
     const val NOTIFICATIONS = "notifications"
     const val PRICING = "pricing"
-
+    const val PROFILE = "profile"
+    const val ADMIN_LUCKY_WHEEL = "admin_lucky_wheel"
+    const val NEWS = "news"
+    const val GUIDE = "guide"
+    const val CONTACT = "contact"
+    const val ABOUT = "about"
+    const val POLICIES = "policies"
+    const val BILLING = "billing"
+    const val MY_LISTINGS = "my_listings"
+    const val VIEW_HISTORY = "view_history"
     // Admin & Advisor Modules
     const val ADMIN_DASHBOARD = "admin_dashboard"
     const val ADMIN_INVENTORY = "admin_inventory"

@@ -34,6 +34,7 @@ import vn.futaland.app.core.auth.AppSession
 import vn.futaland.app.designsystem.FutaCard
 import vn.futaland.app.designsystem.FutaColors
 import vn.futaland.app.designsystem.FutaDialog
+import vn.futaland.app.designsystem.FutaButtonVariant
 import vn.futaland.app.navigation.FutaDestinations
 
 @Composable
@@ -125,7 +126,8 @@ fun AccountScreen(
                 // AUTHENTICATED STATE HEADER
                 FutaCard(
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(16.dp)
+                    shape = RoundedCornerShape(16.dp),
+                    onClick = { onNavigate(FutaDestinations.PROFILE) }
                 ) {
                     Row(
                         modifier = Modifier.padding(16.dp),
@@ -279,7 +281,7 @@ fun AccountScreen(
                         AccountMenuItem(
                             iconRes = R.drawable.sf_acc_history,
                             title = "Lịch sử đã xem",
-                            onClick = { onNavigate(FutaDestinations.SAVED) }
+                            onClick = { onNavigate(FutaDestinations.VIEW_HISTORY) }
                         )
 
                         if (isAuthenticated && canManageListings) {
@@ -287,7 +289,7 @@ fun AccountScreen(
                             AccountMenuItem(
                                 iconRes = R.drawable.sf_acc_listings,
                                 title = "Tin đăng của tôi",
-                                onClick = { onNavigate(FutaDestinations.ADMIN_INVENTORY) }
+                                onClick = { onNavigate(FutaDestinations.MY_LISTINGS) }
                             )
                         }
 
@@ -325,7 +327,7 @@ fun AccountScreen(
                             AccountMenuItem(
                                 iconRes = R.drawable.sf_acc_billing,
                                 title = "Gói dịch vụ & Hạn mức",
-                                onClick = { onNavigate(FutaDestinations.SEARCH) }
+                                onClick = { onNavigate(FutaDestinations.BILLING) }
                             )
                         }
                     }
@@ -345,34 +347,31 @@ fun AccountScreen(
                         AccountMenuItem(
                             iconRes = R.drawable.sf_acc_news,
                             title = "Tin tức thị trường",
-                            onClick = { onNavigate(FutaDestinations.DISCOVER) }
+                            onClick = { onNavigate(FutaDestinations.NEWS) }
                         )
                         AccountDivider()
                         AccountMenuItem(
                             iconRes = R.drawable.sf_acc_guide,
                             title = "Hướng dẫn sử dụng",
-                            onClick = { showAboutDialog = true }
+                            onClick = { onNavigate(FutaDestinations.GUIDE) }
                         )
                         AccountDivider()
                         AccountMenuItem(
                             iconRes = R.drawable.sf_acc_contact,
                             title = "Liên hệ hỗ trợ",
-                            onClick = {
-                                val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:02838386852"))
-                                context.startActivity(intent)
-                            }
+                            onClick = { onNavigate(FutaDestinations.CONTACT) }
                         )
                         AccountDivider()
                         AccountMenuItem(
                             iconRes = R.drawable.sf_acc_policies,
                             title = "Chính sách & Quy chế",
-                            onClick = { showTermsDialog = true }
+                            onClick = { onNavigate(FutaDestinations.POLICIES) }
                         )
                         AccountDivider()
                         AccountMenuItem(
                             iconRes = R.drawable.sf_acc_about,
                             title = "Về FUTA Land",
-                            onClick = { showAboutDialog = true }
+                            onClick = { onNavigate(FutaDestinations.ABOUT) }
                         )
                     }
                 }
@@ -423,6 +422,7 @@ fun AccountScreen(
         onDismiss = { showSignOutDialog = false },
         title = "Đăng xuất tài khoản?",
         confirmText = "Đăng xuất",
+        confirmVariant = FutaButtonVariant.DANGER,
         cancelText = "Hủy",
         onConfirm = {
             showSignOutDialog = false

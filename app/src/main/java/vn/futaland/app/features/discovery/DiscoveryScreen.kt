@@ -17,9 +17,11 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -132,7 +134,15 @@ fun DiscoveryScreen(
             Spacer(Modifier.height(20.dp))
         }
 
-        // 6. Segment Pills for Apartments
+        // 6. Strategic Bank Partners Policy Card (Matching iOS HomeBankPolicyCard)
+        item {
+            HomeBankPolicyCard(
+                onConsultClick = { onNavigate(FutaDestinations.INBOX) }
+            )
+            Spacer(Modifier.height(20.dp))
+        }
+
+        // 7. Segment Pills for Apartments
         item {
             ApartmentSegmentFilter(
                 selectedSegment = selectedSegment,
@@ -189,7 +199,7 @@ fun DiscoveryScreen(
             }
         }
 
-        // 8. 24/7 AI Hotline Card
+        // 9. 24/7 AI Hotline Card
         item {
             Spacer(Modifier.height(16.dp))
             AiHotlineCard(
@@ -211,7 +221,8 @@ private fun TopBrandedHeader(
     onSelectCity: (String) -> Unit,
     onNotificationClick: () -> Unit
 ) {
-    var menuExpanded by remember { mutableStateOf(false) }
+    var showCitySheet by remember { mutableStateOf(false) }
+    var citySearch by remember { mutableStateOf("") }
 
     Row(
         modifier = Modifier
@@ -229,59 +240,104 @@ private fun TopBrandedHeader(
         Spacer(Modifier.weight(1f))
 
         // Market Switcher Pill
-        Box {
-            Surface(
-                shape = CircleShape,
-                color = Color.White,
-                border = BorderStroke(1.dp, FutaColors.LightBlueBorder),
-                modifier = Modifier.clickable { menuExpanded = true }
+        Surface(
+            shape = CircleShape,
+            color = Color.White,
+            border = BorderStroke(1.dp, FutaColors.LightBlueBorder),
+            modifier = Modifier.clickable { showCitySheet = true }
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = if (selectedCity == "Tất cả") "Toàn quốc" else selectedCity,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = FutaColors.Navy
-                    )
-                    Spacer(Modifier.width(4.dp))
-                    Icon(
-                        painter = painterResource(id = R.drawable.sf_chevron_down),
-                        contentDescription = null,
-                        modifier = Modifier.size(8.dp),
-                        tint = Color.Unspecified
-                    )
-                }
-            }
-            FutaPopover(
-                expanded = menuExpanded,
-                onDismissRequest = { menuExpanded = false },
-                items = availableCities,
-                onItemSelected = { onSelectCity(it) },
-                itemTrailingIcon = { city ->
-                    val isSelected = (city == "Tất cả" && (selectedCity == "Tất cả" || selectedCity.isEmpty())) || city == selectedCity
-                    if (isSelected) {
-                        Icon(
-                            imageVector = Icons.Default.Check,
-                            contentDescription = null,
-                            tint = FutaColors.BrandGreen,
-                            modifier = Modifier.size(16.dp)
-                        )
-                    }
-                }
-            ) { city ->
-                val isSelected = (city == "Tất cả" && (selectedCity == "Tất cả" || selectedCity.isEmpty())) || city == selectedCity
                 Text(
-                    text = if (city == "Tất cả") "Toàn quốc" else city,
-                    color = if (isSelected) FutaColors.BrandGreen else FutaColors.Navy,
-                    fontSize = 13.5.sp,
-                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                    text = if (selectedCity == "Tất cả") "Toàn quốc" else selectedCity,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = FutaColors.Navy
+                )
+                Spacer(Modifier.width(4.dp))
+                Icon(
+                    painter = painterResource(id = R.drawable.sf_chevron_down),
+                    contentDescription = null,
+                    modifier = Modifier.size(8.dp),
+                    tint = Color.Unspecified
                 )
             }
         }
 
+        if (showCitySheet) {
+            FutaBottomSheet(
+                visible = true,
+                onDismiss = { showCitySheet = false },
+                title = "Chọn khu vực thị trường"
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 4.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    FutaInput(
+                        value = citySearch,
+                        onValueChange = { citySearch = it },
+                        placeholder = "Tìm tỉnh, thành phố...",
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    val filtered = availableCities.filter {
+                        citySearch.isEmpty() || it.contains(citySearch, ignoreCase = true)
+                    }
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .verticalScroll(rememberScrollState())
+                    ) {
+                        filtered.forEach { city ->
+                            val isSelected = (city == "Tất cả" && (selectedCity == "Tất cả" || selectedCity.isEmpty())) || city == selectedCity
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .clickable {
+                                        onSelectCity(city)
+                                        showCitySheet = false
+                                    }
+                                    .padding(horizontal = 12.dp, vertical = 13.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        Icons.Default.LocationOn,
+                                        null,
+                                        tint = if (isSelected) FutaColors.BrandGreen else Color(0xFF94A3B8),
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                    Spacer(Modifier.width(10.dp))
+                                    Text(
+                                        text = if (city == "Tất cả") "Toàn quốc (Tất cả khu vực)" else city,
+                                        fontSize = 14.sp,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                        color = if (isSelected) FutaColors.BrandGreen else FutaColors.Navy
+                                    )
+                                }
+                                if (isSelected) {
+                                    Icon(
+                                        Icons.Default.Check,
+                                        null,
+                                        tint = FutaColors.BrandGreen,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
+                            }
+                            HorizontalDivider(color = Color(0xFFF1F5F9))
+                        }
+                    }
+                    Spacer(Modifier.height(16.dp))
+                }
+            }
+        }
         Spacer(Modifier.width(10.dp))
 
         // Notification Bell
@@ -1068,5 +1124,113 @@ private fun formatPrice(price: Double): String {
         price >= 1_000_000_000 -> "%.2f TỶ".format(price / 1_000_000_000.0).replace(".00", "")
         price >= 1_000_000 -> "%.0f TRIỆU".format(price / 1_000_000.0)
         else -> "%.0f đ".format(price)
+    }
+}
+@Composable
+private fun HomeBankPolicyCard(
+    onConsultClick: () -> Unit
+) {
+    FutaCard(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp),
+        borderColor = FutaColors.BrandGreen.copy(alpha = 0.25f)
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.Top
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "ĐỐI TÁC TÀI CHÍNH CHIẾN LƯỢC",
+                        fontSize = 10.5.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = FutaColors.BrandGreen,
+                        letterSpacing = 0.5.sp
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        text = "Gói vay mua nhà ưu đãi 0% lãi suất",
+                        fontSize = 15.5.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = FutaColors.Navy
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        text = "Hỗ trợ giải ngân đến 70% GTHĐ · Ân hạn nợ gốc đến 24 tháng",
+                        fontSize = 12.sp,
+                        color = FutaColors.Slate,
+                        lineHeight = 17.sp
+                    )
+                }
+                Spacer(Modifier.width(8.dp))
+                Surface(
+                    shape = CircleShape,
+                    color = FutaColors.MintBg,
+                    modifier = Modifier.size(44.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Text("%", fontSize = 20.sp, fontWeight = FontWeight.Black, color = FutaColors.BrandGreen)
+                    }
+                }
+            }
+
+            // Partner Banks Pills
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                listOf("VietinBank", "BIDV", "VPBank", "MBBank").forEach { bank ->
+                    Surface(
+                        shape = CircleShape,
+                        color = Color(0xFFF1F5F9),
+                        border = BorderStroke(0.5.dp, Color(0xFFE2E8F0))
+                    ) {
+                        Text(
+                            text = bank,
+                            fontSize = 10.5.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = FutaColors.Slate,
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                        )
+                    }
+                }
+            }
+
+            // Action Button
+            Surface(
+                shape = RoundedCornerShape(10.dp),
+                color = FutaColors.MintBg,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(onClick = onConsultClick)
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Nhận tư vấn phương án vay",
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = FutaColors.BrandGreen
+                    )
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                        contentDescription = null,
+                        tint = FutaColors.BrandGreen,
+                        modifier = Modifier.size(15.dp)
+                    )
+                }
+            }
+        }
     }
 }

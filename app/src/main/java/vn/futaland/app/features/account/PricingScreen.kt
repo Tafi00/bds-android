@@ -2,11 +2,14 @@ package vn.futaland.app.features.account
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
@@ -18,15 +21,17 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import vn.futaland.app.core.auth.AppSession
 import vn.futaland.app.designsystem.*
 
-data class PricingPlan(
+data class PricingPlanModel(
     val id: String,
     val name: String,
-    val priceMonthly: Long,
-    val priceYearly: Long,
+    val monthlyPrice: Long,
+    val sixMonthDiscount: Double,
     val isPopular: Boolean = false,
     val features: List<String>
 )
@@ -35,33 +40,52 @@ data class PricingPlan(
 fun PricingScreen(
     onBack: () -> Unit
 ) {
-    var isYearly by remember { mutableStateOf(false) }
+    var selectedCycle by remember { mutableStateOf("monthly") } // "monthly", "six_months"
+    var planToCheckout by remember { mutableStateOf<PricingPlanModel?>(null) }
 
     val plans = remember {
         listOf(
-            PricingPlan(
-                "bronze",
-                "Gói Khởi Đầu",
-                199_000L,
-                149_000L,
-                false,
-                listOf("Đăng tối đa 5 tin BĐS", "Đẩy tin tự động 1 lần/tuần", "Hỗ trợ duyệt tin trong 24h", "Báo cáo lượt xem cơ bản")
+            PricingPlanModel(
+                id = "free",
+                name = "GÓI CƠ BẢN (FREE)",
+                monthlyPrice = 0L,
+                sixMonthDiscount = 0.0,
+                isPopular = false,
+                features = listOf(
+                    "Đăng tối đa 3 tin BĐS",
+                    "Hiển thị tiêu chuẩn trên hệ thống",
+                    "Báo cáo thống kê lượt xem cơ bản",
+                    "Hỗ trợ qua trung tâm trợ giúp"
+                )
             ),
-            PricingPlan(
-                "silver",
-                "Gói Tiêu Chuẩn",
-                499_000L,
-                379_000L,
-                false,
-                listOf("Đăng tối đa 20 tin BĐS", "Đẩy tin tự động 3 lần/tuần", "Ưu tiên hiển thị trang tìm kiếm", "Huy hiệu môi giới xác thực", "Hỗ trợ 24/7 qua Zalo OA")
+            PricingPlanModel(
+                id = "pro",
+                name = "GÓI CHUYÊN NGHIỆP (PRO)",
+                monthlyPrice = 5_000_000L,
+                sixMonthDiscount = 0.15,
+                isPopular = true,
+                features = listOf(
+                    "Đẩy tin tự động 3 lần / ngày",
+                    "Huy hiệu Môi giới xác thực uy tín",
+                    "Trợ lý AI hỗ trợ viết tin bán hàng",
+                    "Báo cáo phân tích khách hàng nâng cao",
+                    "Hỗ trợ kỹ thuật ưu tiên 24/7 qua hotline"
+                )
             ),
-            PricingPlan(
-                "gold",
-                "Gói Chuyên Nghiệp (VIP)",
-                999_000L,
-                749_000L,
-                true,
-                listOf("Đăng không giới hạn tin BĐS", "Đẩy tin tự động hàng ngày", "Top 1 trang chủ & khu vực trọng điểm", "Huy hiệu VIP Kim Cương", "Tiếp cận nguồn khách hàng CRM", "Trợ lý ảo AI tư vấn độc quyền")
+            PricingPlanModel(
+                id = "vip",
+                name = "GÓI ĐỐI TÁC VIP (DIAMOND)",
+                monthlyPrice = 10_000_000L,
+                sixMonthDiscount = 0.25,
+                isPopular = false,
+                features = listOf(
+                    "Đăng không giới hạn tin BĐS",
+                    "Top 1 ưu tiên trang chủ & phân khu tâm điểm",
+                    "Đẩy tin tự động 10 lần / ngày",
+                    "Huy hiệu VIP Kim Cương chính thức",
+                    "Kết nối dữ liệu khách hàng tiềm năng CRM",
+                    "Chuyên viên chăm sóc tài khoản riêng 1:1"
+                )
             )
         )
     }
@@ -81,7 +105,7 @@ fun PricingScreen(
                     }
                     Text(
                         text = "Bảng giá dịch vụ FUTA",
-                        fontSize = 16.sp,
+                        fontSize = 17.sp,
                         fontWeight = FontWeight.Bold,
                         color = FutaColors.Navy,
                         modifier = Modifier.weight(1f)
@@ -98,70 +122,82 @@ fun PricingScreen(
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // Header
+            // Hero Header
             item {
                 Column(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Text("NÂNG TẦM HIỆU QUẢ KINH DOANH", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = FutaColors.BrandGreen)
+                    Text("CHỌN GIẢI PHÁP PHÙ HỢP", fontSize = 11.5.sp, fontWeight = FontWeight.Bold, color = FutaColors.BrandGreen, letterSpacing = 0.5.sp)
                     Spacer(Modifier.height(4.dp))
-                    Text("Gói Dịch Vụ Môi Giới VIP", fontSize = 20.sp, fontWeight = FontWeight.Black, color = FutaColors.Navy)
+                    Text("Bảng Giá Gói Dịch Vụ Môi Giới", fontSize = 20.sp, fontWeight = FontWeight.Black, color = FutaColors.Navy)
                     Spacer(Modifier.height(4.dp))
-                    Text("Tiếp cận hàng triệu khách hàng tiềm năng FUTA Land", fontSize = 12.5.sp, color = FutaColors.Slate)
+                    Text(
+                        text = "Đẩy mạnh hiệu quả bán hàng và mở rộng tệp khách hàng với các tính năng chuyên biệt từ FUTA Land.",
+                        fontSize = 12.5.sp,
+                        color = FutaColors.Slate,
+                        textAlign = TextAlign.Center,
+                        lineHeight = 17.sp,
+                        modifier = Modifier.padding(horizontal = 12.dp)
+                    )
 
                     Spacer(Modifier.height(16.dp))
 
-                    // Billing cycle switcher
+                    // Billing Cycle Selector (Matching iOS Segmented Picker)
                     Surface(
                         shape = CircleShape,
                         color = Color(0xFFF1F5F9),
-                        modifier = Modifier.padding(4.dp)
+                        border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                        modifier = Modifier.fillMaxWidth()
                     ) {
                         Row(modifier = Modifier.padding(4.dp)) {
                             Surface(
-                                onClick = { isYearly = false },
                                 shape = CircleShape,
-                                color = if (!isYearly) Color.White else Color.Transparent,
-                                shadowElevation = if (!isYearly) 2.dp else 0.dp
+                                color = if (selectedCycle == "monthly") Color.White else Color.Transparent,
+                                shadowElevation = if (selectedCycle == "monthly") 2.dp else 0.dp,
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clickable { selectedCycle = "monthly" }
                             ) {
                                 Text(
                                     text = "Theo tháng",
                                     fontSize = 12.5.sp,
-                                    fontWeight = if (!isYearly) FontWeight.Bold else FontWeight.Medium,
-                                    color = if (!isYearly) FutaColors.Navy else FutaColors.Slate,
-                                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 7.dp)
+                                    fontWeight = if (selectedCycle == "monthly") FontWeight.Bold else FontWeight.Medium,
+                                    color = if (selectedCycle == "monthly") FutaColors.Navy else FutaColors.Slate,
+                                    textAlign = TextAlign.Center,
+                                    modifier = Modifier.padding(vertical = 8.dp)
                                 )
                             }
+
                             Surface(
-                                onClick = { isYearly = true },
                                 shape = CircleShape,
-                                color = if (isYearly) FutaColors.BrandGreen else Color.Transparent,
-                                shadowElevation = if (isYearly) 2.dp else 0.dp
+                                color = if (selectedCycle == "six_months") Color.White else Color.Transparent,
+                                shadowElevation = if (selectedCycle == "six_months") 2.dp else 0.dp,
+                                modifier = Modifier
+                                    .weight(1.3f)
+                                    .clickable { selectedCycle = "six_months" }
                             ) {
                                 Row(
-                                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 7.dp),
+                                    modifier = Modifier.padding(vertical = 8.dp),
+                                    horizontalArrangement = Arrangement.Center,
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     Text(
-                                        text = "Theo năm",
+                                        text = "Gói 6 tháng",
                                         fontSize = 12.5.sp,
-                                        fontWeight = if (isYearly) FontWeight.Bold else FontWeight.Medium,
-                                        color = if (isYearly) Color.White else FutaColors.Slate
+                                        fontWeight = if (selectedCycle == "six_months") FontWeight.Bold else FontWeight.Medium,
+                                        color = if (selectedCycle == "six_months") FutaColors.Navy else FutaColors.Slate
                                     )
                                     Spacer(Modifier.width(4.dp))
-                                    Surface(
-                                        shape = CircleShape,
-                                        color = if (isYearly) Color.White else FutaColors.BrandOrange
-                                    ) {
-                                        Text(
-                                            text = "-25%",
-                                            fontSize = 9.5.sp,
-                                            fontWeight = FontWeight.Black,
-                                            color = if (isYearly) FutaColors.BrandGreen else Color.White,
-                                            modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp)
-                                        )
-                                    }
+                                    Text(
+                                        text = "-25%",
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Black,
+                                        color = Color.White,
+                                        modifier = Modifier
+                                            .background(FutaColors.BrandOrange, RoundedCornerShape(4.dp))
+                                            .padding(horizontal = 4.dp, vertical = 1.dp)
+                                    )
                                 }
                             }
                         }
@@ -170,25 +206,37 @@ fun PricingScreen(
             }
 
             // Plan Cards
-            itemsIndexed(plans, key = { _, plan -> plan.id }) { _, plan ->
-                val price = if (isYearly) plan.priceYearly else plan.priceMonthly
+            itemsIndexed(plans) { _, plan ->
+                val isSixMonths = selectedCycle == "six_months"
+                val finalMonthlyPrice = if (isSixMonths && plan.sixMonthDiscount > 0) {
+                    (plan.monthlyPrice * (1.0 - plan.sixMonthDiscount)).toLong()
+                } else {
+                    plan.monthlyPrice
+                }
+
                 FutaCard(
                     modifier = Modifier.fillMaxWidth(),
-                    borderColor = if (plan.isPopular) FutaColors.BrandGreen else FutaColors.LightBlueBorder,
-                    borderWidth = if (plan.isPopular) 2.dp else 1.dp
+                    borderColor = if (plan.isPopular) FutaColors.BrandGreen else FutaColors.LightBlueBorder
                 ) {
-                    Column(modifier = Modifier.padding(18.dp)) {
+                    Column(
+                        modifier = Modifier.padding(18.dp),
+                        verticalArrangement = Arrangement.spacedBy(14.dp)
+                    ) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text(plan.name, fontSize = 16.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
+                            Text(
+                                text = plan.name,
+                                fontSize = 13.5.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = if (plan.isPopular) FutaColors.BrandGreen else FutaColors.Navy
+                            )
                             if (plan.isPopular) {
                                 Surface(
                                     shape = CircleShape,
-                                    color = FutaColors.MintBg,
-                                    border = BorderStroke(1.dp, FutaColors.BrandGreen.copy(alpha = 0.3f))
+                                    color = FutaColors.MintBg
                                 ) {
                                     Row(
                                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
@@ -196,56 +244,152 @@ fun PricingScreen(
                                     ) {
                                         Icon(Icons.Default.Star, null, tint = FutaColors.BrandGreen, modifier = Modifier.size(12.dp))
                                         Spacer(Modifier.width(3.dp))
-                                        Text("PHỔ BIẾN NHẤT", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = FutaColors.BrandGreen)
+                                        Text("Phổ biến nhất", fontSize = 10.5.sp, fontWeight = FontWeight.Bold, color = FutaColors.BrandGreen)
                                     }
                                 }
                             }
                         }
 
-                        Spacer(Modifier.height(10.dp))
-
+                        // Price
                         Row(verticalAlignment = Alignment.Bottom) {
-                            Text(
-                                text = "${"%,d".format(price).replace(",", ".")} đ",
-                                fontSize = 24.sp,
-                                fontWeight = FontWeight.Black,
-                                color = if (plan.isPopular) FutaColors.BrandGreen else FutaColors.Navy
-                            )
-                            Text(" / tháng", fontSize = 12.sp, color = FutaColors.Slate, modifier = Modifier.padding(bottom = 3.dp))
+                            if (finalMonthlyPrice == 0L) {
+                                Text("Miễn phí", fontSize = 24.sp, fontWeight = FontWeight.Black, color = FutaColors.Navy)
+                            } else {
+                                Text(
+                                    text = "${"%,d".format(finalMonthlyPrice)} đ",
+                                    fontSize = 22.sp,
+                                    fontWeight = FontWeight.Black,
+                                    color = FutaColors.Navy
+                                )
+                                Text(" / tháng", fontSize = 12.sp, color = FutaColors.Slate, modifier = Modifier.padding(bottom = 2.dp))
+                            }
                         }
 
-                        Spacer(Modifier.height(14.dp))
-                        HorizontalDivider(color = FutaColors.RowDivider)
-                        Spacer(Modifier.height(14.dp))
+                        if (isSixMonths && plan.sixMonthDiscount > 0) {
+                            Text(
+                                text = "Tiết kiệm ${(plan.sixMonthDiscount * 100).toInt()}% khi thanh toán kỳ hạn 6 tháng",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = FutaColors.BrandOrange
+                            )
+                        }
 
+                        HorizontalDivider(color = Color(0xFFF1F5F9))
+
+                        // Feature Checklist
                         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             plan.features.forEach { feat ->
                                 Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Surface(
-                                        shape = CircleShape,
-                                        color = FutaColors.MintBg,
-                                        modifier = Modifier.size(18.dp)
-                                    ) {
-                                        Box(contentAlignment = Alignment.Center) {
-                                            Icon(Icons.Default.Check, null, tint = FutaColors.BrandGreen, modifier = Modifier.size(12.dp))
-                                        }
-                                    }
+                                    Icon(
+                                        imageVector = Icons.Default.Check,
+                                        contentDescription = null,
+                                        tint = FutaColors.BrandGreen,
+                                        modifier = Modifier.size(16.dp)
+                                    )
                                     Spacer(Modifier.width(8.dp))
                                     Text(feat, fontSize = 12.5.sp, color = FutaColors.Navy)
                                 }
                             }
                         }
 
-                        Spacer(Modifier.height(18.dp))
-
                         FutaButton(
-                            text = if (plan.isPopular) "Đăng ký gói VIP ngay" else "Chọn gói này",
+                            text = if (plan.id == "free") "Đang sử dụng" else "Chọn gói ${plan.name.split(" ")[1]}",
                             variant = if (plan.isPopular) FutaButtonVariant.PRIMARY else FutaButtonVariant.OUTLINE,
-                            onClick = { ToastCenter.show("Hệ thống thanh toán gói ${plan.name} đang kết nối...") },
+                            enabled = plan.id != "free",
+                            onClick = { planToCheckout = plan },
                             modifier = Modifier.fillMaxWidth()
                         )
                     }
                 }
+            }
+
+            // FAQ Section (Matching iOS PricingView)
+            item {
+                FutaCard(modifier = Modifier.fillMaxWidth()) {
+                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Text("CÂU HỎI THƯỜNG GẶP", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
+                        Text("• Tôi có thể nâng cấp hoặc hủy gói bất kỳ lúc nào không?", fontSize = 12.5.sp, fontWeight = FontWeight.SemiBold, color = FutaColors.Navy)
+                        Text("Có. Khi nâng cấp, số ngày còn lại của gói cũ sẽ được quy đổi tương đương vào gói mới.", fontSize = 11.5.sp, color = FutaColors.Slate)
+                        Spacer(Modifier.height(4.dp))
+                        Text("• Hình thức thanh toán gồm những gì?", fontSize = 12.5.sp, fontWeight = FontWeight.SemiBold, color = FutaColors.Navy)
+                        Text("Hỗ trợ quét mã VietQR tự động xác nhận qua ngân hàng hoặc chuyển khoản đối soát SePay.", fontSize = 11.5.sp, color = FutaColors.Slate)
+                    }
+                }
+                Spacer(Modifier.height(40.dp))
+            }
+        }
+    }
+
+    // Checkout Sheet (Matching iOS CheckoutSheet)
+    planToCheckout?.let { plan ->
+        FutaBottomSheet(
+            visible = true,
+            onDismiss = { planToCheckout = null },
+            title = "Thanh toán gói dịch vụ"
+        ) {
+            val isSixMonths = selectedCycle == "six_months"
+            val totalAmount = if (isSixMonths) {
+                ((plan.monthlyPrice * (1.0 - plan.sixMonthDiscount)) * 6).toLong()
+            } else {
+                plan.monthlyPrice
+            }
+
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = Color(0xFFF8FAFC),
+                    border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text(plan.name, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
+                        Text("Chu kỳ: ${if (isSixMonths) "Gói 6 tháng" else "Gói 1 tháng"}", fontSize = 12.sp, color = FutaColors.Slate)
+                        Text("Tổng thanh toán: ${"%,d".format(totalAmount)} VNĐ", fontSize = 16.sp, fontWeight = FontWeight.Black, color = FutaColors.BrandGreen)
+                    }
+                }
+
+                Text("HƯỚNG DẪN CHUYỂN KHOẢN VIETQR", fontSize = 11.5.sp, fontWeight = FontWeight.Bold, color = FutaColors.Slate)
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = Color.White,
+                    border = BorderStroke(1.dp, Color(0xFFCBD5E1)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text("Ngân hàng:", fontSize = 12.5.sp, color = FutaColors.Slate)
+                            Text("VietinBank (ICB)", fontSize = 12.5.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
+                        }
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text("Số tài khoản:", fontSize = 12.5.sp, color = FutaColors.Slate)
+                            Text("0858606168", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = FutaColors.BrandGreen)
+                        }
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text("Chủ tài khoản:", fontSize = 12.5.sp, color = FutaColors.Slate)
+                            Text("CTCP BAT DONG SAN FUTA LAND", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
+                        }
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text("Nội dung CK:", fontSize = 12.5.sp, color = FutaColors.Slate)
+                            Text("FUTA ${plan.id.uppercase()} ${AppSession.shared.user?.get("phone")?.string.orEmpty().ifEmpty { "0858606168" }}", fontSize = 12.5.sp, fontWeight = FontWeight.Bold, color = FutaColors.BrandOrange)
+                        }
+                    }
+                }
+
+                FutaButton(
+                    text = "Tôi đã hoàn tất chuyển khoản",
+                    variant = FutaButtonVariant.PRIMARY,
+                    onClick = {
+                        planToCheckout = null
+                        ToastCenter.show("Hệ thống đang đối soát giao dịch SePay, gói sẽ kích hoạt trong 2 phút!")
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(Modifier.height(10.dp))
             }
         }
     }

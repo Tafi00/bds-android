@@ -64,7 +64,8 @@ enum class FutaButtonVariant {
     CREAM,          // Warm cream #FFF7ED, Orange text
     MINT,           // Mint #ECFDF5, Green text
     OUTLINE,        // White bg, #DFE6ED border, Navy text
-    GHOST           // Transparent bg, Navy/Green text
+    GHOST,          // Transparent bg, Navy/Green text
+    DANGER          // Destructive Red #DC2626, white text
 }
 
 @Composable
@@ -111,6 +112,11 @@ fun FutaButton(
         FutaButtonVariant.GHOST -> Triple(
             Color.Transparent,
             FutaColors.BrandGreen,
+            null
+        )
+        FutaButtonVariant.DANGER -> Triple(
+            if (enabled) Color(0xFFDC2626) else Color(0xFFCBD5E1),
+            Color.White,
             null
         )
     }
@@ -455,6 +461,7 @@ fun FutaDialog(
     onDismiss: () -> Unit,
     title: String,
     confirmText: String = "Xác nhận",
+    confirmVariant: FutaButtonVariant = FutaButtonVariant.PRIMARY,
     onConfirm: () -> Unit,
     cancelText: String? = "Hủy",
     onCancel: (() -> Unit)? = null,
@@ -515,7 +522,7 @@ fun FutaDialog(
                         }
                         FutaButton(
                             text = confirmText,
-                            variant = FutaButtonVariant.PRIMARY,
+                            variant = confirmVariant,
                             height = 40.dp,
                             onClick = {
                                 onConfirm()

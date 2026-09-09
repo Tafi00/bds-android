@@ -93,7 +93,7 @@ fun FutaAccessGate(
                         )
                         Spacer(Modifier.height(18.dp))
                         FutaButton(
-                            text = "Đăng nhập ngay",
+                            text = "Đăng nhập",
                             variant = FutaButtonVariant.PRIMARY,
                             onClick = onRequireLogin,
                             modifier = Modifier.fillMaxWidth()
