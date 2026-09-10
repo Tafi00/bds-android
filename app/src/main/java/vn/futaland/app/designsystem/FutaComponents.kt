@@ -11,8 +11,22 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import android.graphics.BlurMaskFilter
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Canvas
+import androidx.compose.ui.graphics.Outline
+import androidx.compose.ui.graphics.Paint
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.composed
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -28,6 +42,7 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
+import androidx.compose.material3.Surface
 import androidx.compose.runtime.*
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
@@ -271,7 +286,9 @@ fun FutaTextArea(
     placeholder: String = "",
     minLines: Int = 3,
     maxLines: Int = 6,
-    enabled: Boolean = true
+    enabled: Boolean = true,
+    keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
+    keyboardActions: KeyboardActions = KeyboardActions.Default
 ) {
     var isFocused by remember { mutableStateOf(false) }
 
@@ -303,6 +320,8 @@ fun FutaTextArea(
                 .fillMaxWidth()
                 .onFocusChanged { isFocused = it.isFocused },
             enabled = enabled,
+            keyboardOptions = keyboardOptions,
+            keyboardActions = keyboardActions,
             cursorBrush = SolidColor(FutaColors.BrandGreen),
             textStyle = TextStyle(
                 color = FutaColors.Navy,
@@ -378,6 +397,7 @@ fun FutaBottomSheet(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
+                    .imePadding()
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null,
@@ -388,7 +408,7 @@ fun FutaBottomSheet(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .heightIn(max = 760.dp)
+                        .heightIn(max = 700.dp)
                         .clickable(enabled = false) {}
                         .clip(RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp))
                         .background(Color.White)
@@ -443,19 +463,98 @@ fun FutaBottomSheet(
                             .background(FutaColors.LightBlueBorder)
                     )
 
-                    // Body
+                    // Body: wrapped in verticalScroll so content can scroll when keyboard opens
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
                             .weight(1f, fill = false)
                             .padding(horizontal = 16.dp, vertical = 8.dp)
-                            .padding(bottom = 16.dp),
+                            .padding(bottom = 16.dp)
+                            .verticalScroll(rememberScrollState()),
                         content = content
                     )
                 }
             }
         }
     }
+}
+
+/**
+ * Modifier extension to dismiss keyboard when tapping outside of inputs.
+ */
+fun Modifier.clearFocusOnTap(): Modifier = composed {
+    val focusManager = LocalFocusManager.current
+    this.pointerInput(Unit) {
+        detectTapGestures(onTap = {
+            focusManager.clearFocus()
+        })
+    }
+}
+
+/**
+ * iOS-grade feathered soft shadow with custom tint, blur, and directional Y-offset.
+ * Replaces harsh Android Material ambient/spot gray rings with soft, elegant diffuse drop shadows.
+ */
+fun Modifier.futaDropShadow(
+    shape: Shape,
+    color: Color = Color(0x12061D3D),
+    blur: androidx.compose.ui.unit.Dp = 14.dp,
+    offsetY: androidx.compose.ui.unit.Dp = 5.dp,
+    offsetX: androidx.compose.ui.unit.Dp = 0.dp,
+    spread: androidx.compose.ui.unit.Dp = 0.dp
+): Modifier = this.drawBehind {
+    if (color.alpha <= 0f) return@drawBehind
+
+    drawIntoCanvas { canvas ->
+        val paint = Paint()
+        val frameworkPaint = paint.asFrameworkPaint()
+        frameworkPaint.color = color.toArgb()
+        if (blur > 0.dp) {
+            frameworkPaint.maskFilter = BlurMaskFilter(blur.toPx(), BlurMaskFilter.Blur.NORMAL)
+        }
+        val left = offsetX.toPx() - spread.toPx()
+        val top = offsetY.toPx() - spread.toPx()
+        val right = size.width + offsetX.toPx() + spread.toPx()
+        val bottom = size.height + offsetY.toPx() + spread.toPx()
+
+        val outline = shape.createOutline(
+            size = Size(right - left, bottom - top),
+            layoutDirection = layoutDirection,
+            density = this
+        )
+
+        canvas.save()
+        canvas.translate(left, top)
+        when (outline) {
+            is Outline.Rectangle -> canvas.drawRect(outline.rect, paint)
+            is Outline.Rounded -> canvas.drawRoundRect(
+                outline.roundRect.left,
+                outline.roundRect.top,
+                outline.roundRect.right,
+                outline.roundRect.bottom,
+                outline.roundRect.topLeftCornerRadius.x,
+                outline.roundRect.topLeftCornerRadius.y,
+                paint
+            )
+            is Outline.Generic -> canvas.drawPath(outline.path, paint)
+        }
+        canvas.restore()
+    }
+}
+
+/**
+ * GPU-accelerated soft elevation with navy/slate tint instead of harsh black rings.
+ */
+fun Modifier.futaSoftElevation(
+    elevation: androidx.compose.ui.unit.Dp = 4.dp,
+    shape: Shape = RoundedCornerShape(16.dp),
+    tint: Color = Color(0xFF061D3D)
+): Modifier = this.graphicsLayer {
+    this.shadowElevation = elevation.toPx()
+    this.shape = shape
+    this.clip = false
+    this.ambientShadowColor = tint.copy(alpha = 0.04f)
+    this.spotShadowColor = tint.copy(alpha = 0.09f)
 }
 
 // ============================================================================
@@ -482,6 +581,7 @@ fun FutaDialog(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
+                    .imePadding()
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null,
@@ -492,7 +592,13 @@ fun FutaDialog(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth(0.9f)
-                        .shadow(12.dp, RoundedCornerShape(18.dp))
+                        .heightIn(max = 580.dp)
+                        .futaDropShadow(
+                            shape = RoundedCornerShape(18.dp),
+                            color = Color(0x1F061D3D),
+                            blur = 24.dp,
+                            offsetY = 8.dp
+                        )
                         .clip(RoundedCornerShape(18.dp))
                         .background(Color.White)
                         .border(1.dp, Color(0xFFE2E8F0), RoundedCornerShape(18.dp))
@@ -507,9 +613,15 @@ fun FutaDialog(
                     )
                     Spacer(Modifier.height(12.dp))
 
-                    content()
+                    Box(
+                        modifier = Modifier
+                            .weight(1f, fill = false)
+                            .verticalScroll(rememberScrollState())
+                    ) {
+                        content()
+                    }
 
-                    Spacer(Modifier.height(20.dp))
+                    Spacer(Modifier.height(16.dp))
 
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -628,9 +740,79 @@ fun FutaSwitch(
             modifier = Modifier
                 .offset(x = thumbOffset)
                 .size(26.dp)
-                .shadow(elevation = 2.5.dp, shape = CircleShape)
+                .futaDropShadow(
+                    shape = CircleShape,
+                    color = Color(0x18000000),
+                    blur = 4.dp,
+                    offsetY = 1.5.dp
+                )
                 .clip(CircleShape)
                 .background(Color.White)
+        )
+    }
+}
+
+// ============================================================================
+// 9. UNIFIED HEADER BUTTONS (Single & Group Button Styles matching iOS)
+// ============================================================================
+
+@Composable
+fun FutaHeaderIconButton(
+    icon: ImageVector,
+    contentDescription: String?,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    tint: Color = FutaColors.Navy,
+    size: androidx.compose.ui.unit.Dp = 40.dp
+) {
+    Surface(
+        shape = CircleShape,
+        color = Color.White,
+        shadowElevation = 0.dp,
+        border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+        modifier = modifier
+            .size(size)
+            .futaDropShadow(
+                shape = CircleShape,
+                color = Color(0x0C061D3D),
+                blur = 8.dp,
+                offsetY = 2.dp
+            )
+            .clickable(onClick = onClick)
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            Icon(
+                imageVector = icon,
+                contentDescription = contentDescription,
+                tint = tint,
+                modifier = Modifier.size(18.dp)
+            )
+        }
+    }
+}
+
+@Composable
+fun FutaHeaderActionGroup(
+    modifier: Modifier = Modifier,
+    content: @Composable RowScope.() -> Unit
+) {
+    Surface(
+        shape = RoundedCornerShape(20.dp),
+        color = Color.White,
+        shadowElevation = 0.dp,
+        border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+        modifier = modifier.futaDropShadow(
+            shape = RoundedCornerShape(20.dp),
+            color = Color(0x0C061D3D),
+            blur = 8.dp,
+            offsetY = 2.dp
+        )
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            content = content
         )
     }
 }

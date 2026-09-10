@@ -23,6 +23,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import vn.futaland.app.R
 import vn.futaland.app.designsystem.FutaColors
+import vn.futaland.app.designsystem.futaDropShadow
 
 data class BottomNavItemSpec(
     val route: String,
@@ -70,11 +71,17 @@ fun FutaBottomBar(
             Surface(
                 shape = capsuleShape,
                 color = Color.White,
-                shadowElevation = 3.dp,
+                shadowElevation = 0.dp,
                 border = BorderStroke(1.dp, Color(0xFFF1F5F9)),
                 modifier = Modifier
                     .weight(1f)
                     .height(64.dp)
+                    .futaDropShadow(
+                        shape = capsuleShape,
+                        color = Color(0x14061D3D),
+                        blur = 16.dp,
+                        offsetY = 6.dp
+                    )
             ) {
                 Row(
                     modifier = Modifier
@@ -149,10 +156,16 @@ fun FutaBottomBar(
             Surface(
                 shape = CircleShape,
                 color = if (searchSelected) brandGreen else Color.White,
-                shadowElevation = 3.dp,
+                shadowElevation = 0.dp,
                 border = BorderStroke(1.dp, if (searchSelected) brandGreen else Color(0xFFF1F5F9)),
                 modifier = Modifier
                     .size(64.dp)
+                    .futaDropShadow(
+                        shape = CircleShape,
+                        color = if (searchSelected) brandGreen.copy(alpha = 0.32f) else Color(0x14061D3D),
+                        blur = 14.dp,
+                        offsetY = 5.dp
+                    )
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null,

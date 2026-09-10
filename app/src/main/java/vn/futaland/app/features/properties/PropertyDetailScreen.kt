@@ -18,6 +18,9 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
@@ -1290,8 +1293,18 @@ fun PropertyDetailScreen(
                         }
 
                         Text("THÔNG TIN KHÁCH HÀNG", fontSize = 11.5.sp, fontWeight = FontWeight.Bold, color = FutaColors.Slate)
-                        FutaInput(value = bookingName, onValueChange = { bookingName = it }, placeholder = "Họ và tên của bạn")
-                        FutaInput(value = bookingPhone, onValueChange = { bookingPhone = it }, placeholder = "Số điện thoại liên hệ")
+                        FutaInput(
+                            value = bookingName,
+                            onValueChange = { bookingName = it },
+                            placeholder = "Họ và tên của bạn",
+                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next)
+                        )
+                        FutaInput(
+                            value = bookingPhone,
+                            onValueChange = { bookingPhone = it },
+                            placeholder = "Số điện thoại liên hệ",
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone, imeAction = ImeAction.Done)
+                        )
 
                         Spacer(Modifier.height(4.dp))
                         FutaButton(
@@ -1341,9 +1354,24 @@ fun PropertyDetailScreen(
                         }
 
                         Text("THÔNG TIN ĐỨNG TÊN HỢP ĐỒNG", fontSize = 11.5.sp, fontWeight = FontWeight.Bold, color = FutaColors.Slate)
-                        FutaInput(value = holdingName, onValueChange = { holdingName = it }, placeholder = "Họ và tên người đứng tên cọc")
-                        FutaInput(value = holdingPhone, onValueChange = { holdingPhone = it }, placeholder = "Số điện thoại nhận hợp đồng điện tử")
-                        FutaInput(value = holdingCccd, onValueChange = { holdingCccd = it }, placeholder = "Số CCCD / Hộ chiếu")
+                        FutaInput(
+                            value = holdingName,
+                            onValueChange = { holdingName = it },
+                            placeholder = "Họ và tên người đứng tên cọc",
+                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next)
+                        )
+                        FutaInput(
+                            value = holdingPhone,
+                            onValueChange = { holdingPhone = it },
+                            placeholder = "Số điện thoại nhận hợp đồng điện tử",
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone, imeAction = ImeAction.Next)
+                        )
+                        FutaInput(
+                            value = holdingCccd,
+                            onValueChange = { holdingCccd = it },
+                            placeholder = "Số CCCD / Hộ chiếu",
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done)
+                        )
 
                         FutaButton(
                             text = if (holdingBusy) "Đang xử lý..." else "Xác nhận đặt cọc giữ chỗ",

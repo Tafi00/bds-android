@@ -105,24 +105,7 @@ fun AdminDashboardScreen(
                     )
 
                     // Elevated Circular Refresh Button matching iOS
-                    Surface(
-                        shape = CircleShape,
-                        color = Color.White,
-                        shadowElevation = 2.dp,
-                        border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
-                        modifier = Modifier.size(40.dp).clickable {
-                            isRefreshing = true
-                            scope.launch {
-                                kotlinx.coroutines.delay(800)
-                                isRefreshing = false
-                                ToastCenter.show("Đã đồng bộ số liệu thời gian thực")
-                            }
-                        }
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Icon(Icons.Default.Refresh, contentDescription = "Làm mới", tint = FutaColors.Navy, modifier = Modifier.size(18.dp))
-                        }
-                    }
+                    Spacer(Modifier.width(40.dp))
                 }
             }
         }

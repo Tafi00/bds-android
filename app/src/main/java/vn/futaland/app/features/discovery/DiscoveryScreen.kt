@@ -137,13 +137,6 @@ fun DiscoveryScreen(
             Spacer(Modifier.height(20.dp))
         }
 
-        // 6. Strategic Bank Partners Policy Card (Matching iOS HomeBankPolicyCard)
-        item {
-            HomeBankPolicyCard(
-                onConsultClick = { onNavigate(FutaDestinations.INBOX) }
-            )
-            Spacer(Modifier.height(20.dp))
-        }
 
         // 7. Segment Pills for Apartments
         item {
@@ -782,6 +775,7 @@ private fun FeaturedSecondaryProjectsSection(
                 FutaCard(
                     modifier = Modifier
                         .width(220.dp)
+                        .height(232.dp)
                         .clickable { onProjectClick(proj.id) }
                 ) {
                     Column {
@@ -812,7 +806,7 @@ private fun FeaturedSecondaryProjectsSection(
                             }
                         }
 
-                        Column(modifier = Modifier.padding(12.dp)) {
+                        Column(modifier = Modifier.fillMaxSize().padding(12.dp)) {
                             Text(
                                 text = title,
                                 fontSize = 14.sp,
@@ -822,29 +816,42 @@ private fun FeaturedSecondaryProjectsSection(
                                 overflow = TextOverflow.Ellipsis
                             )
                             Spacer(Modifier.height(4.dp))
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(painter = painterResource(id = R.drawable.sf_mappin_circle_green), null, tint = Color.Unspecified, modifier = Modifier.size(12.dp))
+                            Row(
+                                modifier = Modifier.height(34.dp),
+                                verticalAlignment = Alignment.Top
+                            ) {
+                                Icon(painter = painterResource(id = R.drawable.sf_mappin_circle_green), null, tint = Color.Unspecified, modifier = Modifier.padding(top = 2.dp).size(12.dp))
                                 Spacer(Modifier.width(3.dp))
                                 Text(
                                     text = location,
                                     fontSize = 11.5.sp,
+                                    lineHeight = 16.sp,
                                     color = FutaColors.Slate,
-                                    maxLines = 1,
+                                    maxLines = 2,
                                     overflow = TextOverflow.Ellipsis
                                 )
                             }
-                            Spacer(Modifier.height(8.dp))
+                            Spacer(Modifier.weight(1f))
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Text(
-                                    text = if (totalUnits > 0) "$totalUnits sản phẩm" else "Quy mô lớn",
-                                    fontSize = 11.5.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = FutaColors.BrandGreen
-                                )
+                                if (totalUnits > 0) {
+                                    Text(
+                                        text = "$totalUnits sản phẩm",
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = FutaColors.BrandGreen
+                                    )
+                                } else {
+                                    Text(
+                                        text = "Quy mô lớn",
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = FutaColors.Slate
+                                    )
+                                }
                                 Icon(
                                     painter = painterResource(id = R.drawable.sf_arrow_right_circle_green),
                                     contentDescription = null,
@@ -1128,119 +1135,3 @@ private fun AiHotlineCard(
     }
 }
 
-private fun formatPrice(price: Double): String {
-    return when {
-        price <= 0 -> "Liên hệ"
-        price >= 1_000_000_000 -> "%.2f TỶ".format(price / 1_000_000_000.0).replace(".00", "")
-        price >= 1_000_000 -> "%.0f TRIỆU".format(price / 1_000_000.0)
-        else -> "%.0f đ".format(price)
-    }
-}
-@Composable
-private fun HomeBankPolicyCard(
-    onConsultClick: () -> Unit
-) {
-    FutaCard(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp),
-        borderColor = FutaColors.BrandGreen.copy(alpha = 0.25f)
-    ) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.Top
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = "ĐỐI TÁC TÀI CHÍNH CHIẾN LƯỢC",
-                        fontSize = 10.5.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = FutaColors.BrandGreen,
-                        letterSpacing = 0.5.sp
-                    )
-                    Spacer(Modifier.height(4.dp))
-                    Text(
-                        text = "Gói vay mua nhà ưu đãi 0% lãi suất",
-                        fontSize = 15.5.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = FutaColors.Navy
-                    )
-                    Spacer(Modifier.height(4.dp))
-                    Text(
-                        text = "Hỗ trợ giải ngân đến 70% GTHĐ · Ân hạn nợ gốc đến 24 tháng",
-                        fontSize = 12.sp,
-                        color = FutaColors.Slate,
-                        lineHeight = 17.sp
-                    )
-                }
-                Spacer(Modifier.width(8.dp))
-                Surface(
-                    shape = CircleShape,
-                    color = FutaColors.MintBg,
-                    modifier = Modifier.size(44.dp)
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Text("%", fontSize = 20.sp, fontWeight = FontWeight.Black, color = FutaColors.BrandGreen)
-                    }
-                }
-            }
-
-            // Partner Banks Pills
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                listOf("VietinBank", "BIDV", "VPBank", "MBBank").forEach { bank ->
-                    Surface(
-                        shape = CircleShape,
-                        color = Color(0xFFF1F5F9),
-                        border = BorderStroke(0.5.dp, Color(0xFFE2E8F0))
-                    ) {
-                        Text(
-                            text = bank,
-                            fontSize = 10.5.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = FutaColors.Slate,
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
-                        )
-                    }
-                }
-            }
-
-            // Action Button
-            Surface(
-                shape = RoundedCornerShape(10.dp),
-                color = FutaColors.MintBg,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable(onClick = onConsultClick)
-            ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "Nhận tư vấn phương án vay",
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = FutaColors.BrandGreen
-                    )
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                        contentDescription = null,
-                        tint = FutaColors.BrandGreen,
-                        modifier = Modifier.size(15.dp)
-                    )
-                }
-            }
-        }
-    }
-}

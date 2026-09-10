@@ -12,6 +12,9 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
@@ -525,7 +528,12 @@ private fun AdvisorProfileSheet(
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Text("Số Căn cước công dân (12 số) *", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
-            FutaInput(value = idNumber, onValueChange = { idNumber = it.filter { c -> c.isDigit() }.take(12) }, placeholder = "Ví dụ: 048095001234")
+            FutaInput(
+                value = idNumber,
+                onValueChange = { idNumber = it.filter { c -> c.isDigit() }.take(12) },
+                placeholder = "Ví dụ: 048095001234",
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next)
+            )
 
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -544,11 +552,21 @@ private fun AdvisorProfileSheet(
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text("Số tài khoản *", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
-                    FutaInput(value = bankAccount, onValueChange = { bankAccount = it }, placeholder = "Số tài khoản nhận tiền")
+                    FutaInput(
+                        value = bankAccount,
+                        onValueChange = { bankAccount = it },
+                        placeholder = "Số tài khoản nhận tiền",
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next)
+                    )
                 }
                 Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text("Chủ tài khoản *", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
-                    FutaInput(value = bankHolder, onValueChange = { bankHolder = it.uppercase() }, placeholder = "NGUYEN VAN A")
+                    FutaInput(
+                        value = bankHolder,
+                        onValueChange = { bankHolder = it.uppercase() },
+                        placeholder = "NGUYEN VAN A",
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done)
+                    )
                 }
             }
 

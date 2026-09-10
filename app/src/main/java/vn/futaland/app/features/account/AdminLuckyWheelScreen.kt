@@ -12,6 +12,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -22,97 +23,146 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
 import vn.futaland.app.core.network.APIClient
+import vn.futaland.app.core.network.JSONValue
 import vn.futaland.app.designsystem.*
-
-data class WheelPrizeConfig(
-    val name: String,
-    val value: String,
-    val probability: Float,
-    val active: Boolean
-)
-
 @Composable
 fun AdminLuckyWheelScreen(
     onBack: () -> Unit
 ) {
     val scope = rememberCoroutineScope()
-    var selectedTab by remember { mutableIntStateOf(0) } // 0: Cài đặt, 1: Cấp lượt, 2: Tra cứu
+    var selectedTab by remember { mutableIntStateOf(0) } // 0: Cài đặt, 1: Cấp lượt, 2: Đối soát
 
-    var globalWinRate by remember { mutableFloatStateOf(45f) }
-    var dailySpins by remember { mutableFloatStateOf(3f) }
+    var adminState by remember { mutableStateOf<JSONValue>(JSONValue.Null) }
+    var spinsSummary by remember { mutableStateOf<JSONValue>(JSONValue.Null) }
+    var recentGrants by remember { mutableStateOf<List<JSONValue>>(emptyList()) }
+    var usersWithSpins by remember { mutableStateOf<List<JSONValue>>(emptyList()) }
+    var loading by remember { mutableStateOf(true) }
 
-    var targetPhone by remember { mutableStateOf("") }
-    var grantSpinsCount by remember { mutableStateOf("3") }
-    var grantReason by remember { mutableStateOf("Tri ân khách hàng thân thiết") }
-    var isSavingConfig by remember { mutableStateOf(false) }
+    // Tab 0 states
+    var isWheelEnabled by remember { mutableStateOf(true) }
+    var campaignTitle by remember { mutableStateOf("") }
+    var campaignDesc by remember { mutableStateOf("") }
+    var dailyLimit by remember { mutableStateOf("1") }
+    var prizesList by remember { mutableStateOf<List<JSONValue>>(emptyList()) }
+    var isSavingSettings by remember { mutableStateOf(false) }
+
+    // Tab 1 states
+    var grantSearchQuery by remember { mutableStateOf("") }
+    var searchResults by remember { mutableStateOf<List<JSONValue>>(emptyList()) }
+    var selectedUserForGrant by remember { mutableStateOf<JSONValue?>(null) }
+    var grantSpinsCount by remember { mutableStateOf("5") }
+    var grantNote by remember { mutableStateOf("") }
     var isGranting by remember { mutableStateOf(false) }
+
+    // Tab 2 states
+    var rewardCodeQuery by remember { mutableStateOf("") }
+    var lookupSpinResult by remember { mutableStateOf<JSONValue?>(null) }
+    var isLookingUp by remember { mutableStateOf(false) }
+    var isUpdatingFulfillment by remember { mutableStateOf(false) }
+
     val tabs = remember {
         listOf(
-            "Cài đặt & Giải thưởng",
-            "Cấp lượt & VIP",
-            "Tra cứu trúng thưởng"
+            "1. Cài đặt",
+            "2. Cấp lượt & VIP",
+            "3. Đối soát quà"
         )
     }
 
-    val prizes = remember {
-        mutableStateListOf(
-            WheelPrizeConfig("Chiết khấu 1%", "CK 1%", 0.20f, true),
-            WheelPrizeConfig("Voucher 50 Triệu", "Voucher 50tr", 0.05f, true),
-            WheelPrizeConfig("Chỉ Vàng 9999", "1 Chỉ Vàng", 0.02f, true),
-            WheelPrizeConfig("Gói Nội Thất", "Nội thất 20tr", 0.10f, true),
-            WheelPrizeConfig("Quà lưu niệm FUTA", "Quà tặng FUTA", 0.35f, true),
-            WheelPrizeConfig("May mắn lần sau", "May mắn", 0.28f, true)
-        )
+    fun loadAllData() {
+        scope.launch {
+            loading = true
+            try {
+                val sRes = APIClient.get().request("/lucky-wheel/admin/settings")
+                adminState = sRes["data"]
+                val settings = sRes["data"]["settings"]
+                isWheelEnabled = settings["enabled"].bool
+                campaignTitle = settings["title"].string
+                campaignDesc = settings["description"].string
+                dailyLimit = "${settings["dailySpinLimit"].int.takeIf { it > 0 } ?: 1}"
+                prizesList = settings["prizes"].array
+
+                val sumRes = APIClient.get().request("/lucky-wheel/admin/users/spins-summary")
+                spinsSummary = sumRes["data"]
+                usersWithSpins = sumRes["data"]["users"].array
+
+                val grRes = APIClient.get().request("/lucky-wheel/admin/grants")
+                recentGrants = grRes["data"].array
+            } catch (_: Exception) {
+            } finally {
+                loading = false
+            }
+        }
     }
+
+    LaunchedEffect(Unit) {
+        loadAllData()
+    }
+
+    val totalUnused = spinsSummary["totalUnusedSpins"].int
+    val usersWithSpinsCount = spinsSummary["totalUsersWithSpins"].int.takeIf { it > 0 } ?: usersWithSpins.size
+    val playedSpins = adminState["totalSpins"].int.takeIf { it > 0 } ?: adminState["recentSpins"].array.size
+    val manualGrantsCount = recentGrants.sumOf { it["spins"].int }
 
     Scaffold(
         topBar = {
-            Surface(color = Color.White, shadowElevation = 1.dp) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .statusBarsPadding()
-                ) {
+            Surface(
+                color = FutaColors.PageBg,
+                modifier = Modifier.fillMaxWidth().statusBarsPadding()
+            ) {
+                Column {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 8.dp, vertical = 6.dp),
+                            .padding(horizontal = 16.dp, vertical = 10.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        IconButton(onClick = onBack) {
-                            Icon(Icons.Default.ArrowBack, null, tint = FutaColors.Navy)
-                        }
+                        FutaHeaderIconButton(
+                            icon = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Quay lại",
+                            onClick = onBack
+                        )
                         Text(
-                            text = "Quản trị vòng quay may mắn",
-                            fontSize = 17.sp,
+                            text = "Quản trị vòng quay",
+                            fontSize = 17.5.sp,
                             fontWeight = FontWeight.Bold,
-                            color = FutaColors.Navy,
-                            modifier = Modifier.weight(1f)
+                            color = FutaColors.Navy
+                        )
+                        FutaHeaderIconButton(
+                            icon = Icons.Default.Refresh,
+                            contentDescription = "Làm mới",
+                            tint = FutaColors.BrandGreen,
+                            onClick = { loadAllData() }
                         )
                     }
 
-                    // 3 Tabs matching iOS AdminLuckyWheelView
-                    Row(
+                    // Native Segmented Control
+                    Surface(
+                        shape = RoundedCornerShape(10.dp),
+                        color = Color(0xFFE2E8F0),
                         modifier = Modifier
                             .fillMaxWidth()
-                            .horizontalScroll(rememberScrollState())
-                            .padding(horizontal = 16.dp, vertical = 6.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            .padding(horizontal = 16.dp, vertical = 6.dp)
                     ) {
-                        tabs.forEachIndexed { idx, label ->
-                            val isSelected = selectedTab == idx
-                            Surface(
-                                shape = CircleShape,
-                                color = if (isSelected) FutaColors.Navy else Color(0xFFF1F5F9),
-                                modifier = Modifier.clickable { selectedTab = idx }
-                            ) {
-                                Text(
-                                    text = label,
-                                    fontSize = 12.5.sp,
-                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                    color = if (isSelected) Color.White else FutaColors.Navy,
-                                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp)
-                                )
+                        Row(modifier = Modifier.padding(2.dp), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                            tabs.forEachIndexed { idx, label ->
+                                val isSelected = selectedTab == idx
+                                Surface(
+                                    shape = RoundedCornerShape(8.dp),
+                                    color = if (isSelected) Color.White else Color.Transparent,
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .clickable { selectedTab = idx }
+                                ) {
+                                    Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(vertical = 7.dp)) {
+                                        Text(
+                                            text = label,
+                                            fontSize = 12.sp,
+                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                            color = if (isSelected) FutaColors.Navy else FutaColors.Slate
+                                        )
+                                    }
+                                }
                             }
                         }
                     }
@@ -126,164 +176,363 @@ fun AdminLuckyWheelScreen(
                 .background(FutaColors.PageBg)
                 .padding(padding),
             contentPadding = PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
+            // 1. Overview 4-Metric Strip (Web & iOS Parity)
+            item {
+                Surface(
+                    shape = RoundedCornerShape(14.dp),
+                    color = Color.White,
+                    shadowElevation = 1.dp,
+                    border = BorderStroke(1.dp, Color(0xFFE1D9CB)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier.padding(12.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        MetricItem(label = "Lượt tồn kho", value = "$totalUnused")
+                        HorizontalDivider(modifier = Modifier.height(24.dp).width(1.dp), color = Color(0xFFE2E8F0))
+                        MetricItem(label = "Có lượt quay", value = "$usersWithSpinsCount")
+                        HorizontalDivider(modifier = Modifier.height(24.dp).width(1.dp), color = Color(0xFFE2E8F0))
+                        MetricItem(label = "Đã quay", value = "$playedSpins")
+                        HorizontalDivider(modifier = Modifier.height(24.dp).width(1.dp), color = Color(0xFFE2E8F0))
+                        MetricItem(label = "Cấp thủ công", value = "$manualGrantsCount")
+                    }
+                }
+            }
+
             when (selectedTab) {
                 0 -> {
-                    // TAB 1: Cài đặt & Giải thưởng
+                    // TAB 0: Cài đặt & Giải thưởng
                     item {
                         FutaCard(modifier = Modifier.fillMaxWidth()) {
                             Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                                Text("THÔNG SỐ VẬN HÀNG TOÀN HỆ THỐNG", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
+                                Text("CẤU HÌNH CHIẾN DỊCH", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
 
-                                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                    Text("Tỷ lệ trúng quà chung", fontSize = 12.5.sp, color = FutaColors.Slate)
-                                    Text("${globalWinRate.toInt()}%", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = FutaColors.BrandGreen)
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text("Kích hoạt vòng quay", fontSize = 13.5.sp, fontWeight = FontWeight.SemiBold, color = FutaColors.Navy)
+                                    FutaSwitch(checked = isWheelEnabled, onCheckedChange = { isWheelEnabled = it })
                                 }
-                                Slider(
-                                    value = globalWinRate,
-                                    onValueChange = { globalWinRate = it },
-                                    valueRange = 10f..90f,
-                                    colors = SliderDefaults.colors(activeTrackColor = FutaColors.BrandGreen)
-                                )
 
-                                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                    Text("Số lượt quay miễn phí mỗi ngày", fontSize = 12.5.sp, color = FutaColors.Slate)
-                                    Text("${dailySpins.toInt()} lượt/ngày", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
-                                }
-                                Slider(
-                                    value = dailySpins,
-                                    onValueChange = { dailySpins = it },
-                                    valueRange = 1f..10f,
-                                    colors = SliderDefaults.colors(activeTrackColor = FutaColors.Navy)
-                                )
+                                FutaInput(value = campaignTitle, onValueChange = { campaignTitle = it }, placeholder = "Tiêu đề chiến dịch")
+                                FutaInput(value = campaignDesc, onValueChange = { campaignDesc = it }, placeholder = "Mô tả hiển thị")
+                                FutaInput(value = dailyLimit, onValueChange = { dailyLimit = it }, placeholder = "Giới hạn lượt quay / ngày")
                             }
                         }
                     }
 
+                    // Danh sách giải thưởng
+                    item {
+                        FutaCard(modifier = Modifier.fillMaxWidth()) {
+                            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                                Text("DANH SÁCH GIẢI THƯỞNG TRÊN VÒNG QUAY (${prizesList.size})", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
+
+                                for (p in prizesList) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                                            Surface(
+                                                shape = CircleShape,
+                                                color = Color(0xFFEAF5EF),
+                                                modifier = Modifier.size(36.dp)
+                                            ) {
+                                                Box(contentAlignment = Alignment.Center) {
+                                                    Icon(Icons.Default.CardGiftcard, contentDescription = null, tint = FutaColors.BrandGreen, modifier = Modifier.size(18.dp))
+                                                }
+                                            }
+                                            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                                Text(p["label"].string.ifEmpty { p["name"].string }, fontSize = 13.5.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
+                                                Text("Tỷ lệ: ${(p["probability"].double * 100).toInt()}% · Loại: ${if (p["fulfillmentType"].string == "physical") "Hiện vật" else "Voucher"}", fontSize = 11.5.sp, color = FutaColors.Slate)
+                                            }
+                                        }
+                                        Surface(shape = CircleShape, color = if (p["enabled"].bool) Color(0xFFEAF5EF) else Color(0xFFFFF7ED)) {
+                                            Text(
+                                                if (p["enabled"].bool) "Bật" else "Tắt",
+                                                fontSize = 11.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = if (p["enabled"].bool) FutaColors.BrandGreen else Color(0xFFF97316),
+                                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+                                            )
+                                        }
+                                    }
+                                    HorizontalDivider(color = Color(0xFFF1F5F9))
+                                }
+
+                                FutaButton(
+                                    text = if (isSavingSettings) "Đang lưu..." else "Lưu cài đặt vòng quay",
+                                    variant = FutaButtonVariant.PRIMARY,
+                                    enabled = !isSavingSettings,
+                                    onClick = {
+                                        scope.launch {
+                                            isSavingSettings = true
+                                            try {
+                                                val limit = dailyLimit.toIntOrNull() ?: 1
+                                                val body = """
+                                                    {
+                                                        "enabled": $isWheelEnabled,
+                                                        "title": "${campaignTitle.replace("\"", "\\\"")}",
+                                                        "description": "${campaignDesc.replace("\"", "\\\"")}",
+                                                        "dailySpinLimit": $limit
+                                                    }
+                                                """.trimIndent()
+                                                APIClient.get().request("/lucky-wheel/admin/settings", method = "PUT", bodyJson = body)
+                                                ToastCenter.show("Đã cập nhật cài đặt vòng quay thành công!")
+                                                loadAllData()
+                                            } catch (e: Exception) {
+                                                ToastCenter.show("Lỗi: ${e.message}", isError = true)
+                                            } finally {
+                                                isSavingSettings = false
+                                            }
+                                        }
+                                    },
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                            }
+                        }
+                    }
+                }
+
+                1 -> {
+                    // TAB 1: Cấp lượt quay & VIP
+                    item {
+                        FutaCard(modifier = Modifier.fillMaxWidth()) {
+                            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                                Text("TÌM KIẾM & CẤP LƯỢT THỦ CÔNG", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
+
+                                FutaInput(
+                                    value = grantSearchQuery,
+                                    onValueChange = {
+                                        grantSearchQuery = it
+                                        if (it.trim().length >= 2) {
+                                            scope.launch {
+                                                try {
+                                                    val res = APIClient.get().request("/lucky-wheel/admin/users/search", query = mapOf("q" to it.trim()))
+                                                    searchResults = res["data"].array
+                                                } catch (_: Exception) {}
+                                            }
+                                        }
+                                    },
+                                    placeholder = "Tìm theo tên, SĐT (ví dụ: 090...)",
+                                    leadingIcon = Icons.Default.Search
+                                )
+
+                                if (searchResults.isNotEmpty()) {
+                                    Text("Kết quả tìm kiếm (${searchResults.size})", fontSize = 11.5.sp, color = FutaColors.Slate)
+                                    for (u in searchResults) {
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Column {
+                                                Text(u["name"].string.ifEmpty { "Khách hàng" }, fontSize = 13.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
+                                                Text("${u["phone"].string.ifEmpty { u["phoneNumber"].string }} · Lượt: ${u["manualBonusSpins"].int}", fontSize = 11.5.sp, color = FutaColors.Slate)
+                                            }
+                                            FutaButton(
+                                                text = "Chọn",
+                                                variant = FutaButtonVariant.OUTLINE,
+                                                onClick = {
+                                                    selectedUserForGrant = u
+                                                    searchResults = emptyList()
+                                                }
+                                            )
+                                        }
+                                        HorizontalDivider(color = Color(0xFFF1F5F9))
+                                    }
+                                }
+
+                                selectedUserForGrant?.let { u ->
+                                    Surface(shape = RoundedCornerShape(10.dp), color = Color(0xFFEAF5EF), modifier = Modifier.fillMaxWidth()) {
+                                        Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                            Text("Đang chọn: ${u["name"].string.ifEmpty { "Khách hàng" }} (${u["phone"].string.ifEmpty { u["phoneNumber"].string }})", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = FutaColors.BrandGreen)
+                                            FutaInput(value = grantSpinsCount, onValueChange = { grantSpinsCount = it }, placeholder = "Số lượt tặng (ví dụ: 5)")
+                                            FutaInput(value = grantNote, onValueChange = { grantNote = it }, placeholder = "Ghi chú cấp lượt")
+                                            FutaButton(
+                                                text = if (isGranting) "Đang cấp..." else "Xác nhận cấp lượt ngay",
+                                                variant = FutaButtonVariant.PRIMARY,
+                                                enabled = !isGranting && grantSpinsCount.isNotBlank(),
+                                                onClick = {
+                                                    scope.launch {
+                                                        isGranting = true
+                                                        try {
+                                                            val spins = grantSpinsCount.toIntOrNull() ?: 1
+                                                            val body = """{"userId":"${u.id}","spins":$spins,"note":"${grantNote.replace("\"", "\\\"")}"}"""
+                                                            APIClient.get().request("/lucky-wheel/admin/grant-spins", method = "POST", bodyJson = body)
+                                                            ToastCenter.show("Đã cấp $spins lượt quay cho người dùng!")
+                                                            selectedUserForGrant = null
+                                                            grantNote = ""
+                                                            loadAllData()
+                                                        } catch (e: Exception) {
+                                                            ToastCenter.show("Lỗi: ${e.message}", isError = true)
+                                                        } finally {
+                                                            isGranting = false
+                                                        }
+                                                    }
+                                                },
+                                                modifier = Modifier.fillMaxWidth()
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // Tài khoản có lượt quay tồn
                     item {
                         FutaCard(modifier = Modifier.fillMaxWidth()) {
                             Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                                Text("DANH SÁCH GIẢI THƯỞNG HIỆN HÀNH", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
-
-                                prizes.forEach { p ->
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Column {
-                                            Text(p.name, fontSize = 13.5.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
-                                            Text("Tỷ lệ xác suất: ${(p.probability * 100).toInt()}%", fontSize = 11.5.sp, color = FutaColors.Slate)
-                                        }
-                                        FutaSwitch(checked = p.active, onCheckedChange = {})
-                                    }
-                                    HorizontalDivider(color = Color(0xFFF1F5F9))
-                                }
-
-                                FutaButton(
-                                    text = if (isSavingConfig) "Đang lưu cấu hình..." else "Lưu cấu hình giải thưởng",
-                                    variant = FutaButtonVariant.PRIMARY,
-                                    enabled = !isSavingConfig,
-                                    onClick = {
-                                        scope.launch {
-                                            isSavingConfig = true
-                                            try {
-                                                val body = "{\"globalWinRate\":$globalWinRate,\"dailySpins\":$dailySpins}"
-                                                APIClient.get().request("/lucky-wheel/admin/config", method = "PUT", bodyJson = body)
-                                                ToastCenter.show("Đã lưu cấu hình vòng quay may mắn lên máy chủ!")
-                                            } catch (_: Exception) {
-                                                ToastCenter.show("Đã lưu cấu hình vòng quay may mắn!")
-                                            } finally {
-                                                isSavingConfig = false
+                                Text("TÀI KHOẢN CÒN LƯỢT QUAY TỒN (${usersWithSpins.size})", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
+                                if (usersWithSpins.isEmpty()) {
+                                    Text("Không có tài khoản nào còn lượt tồn.", fontSize = 12.sp, color = FutaColors.Slate)
+                                } else {
+                                    for (u in usersWithSpins) {
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Column {
+                                                Text(u["name"].string.ifEmpty { "Khách hàng" }, fontSize = 13.5.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
+                                                Text("${u["phone"].string.ifEmpty { u["phoneNumber"].string }} · ${u["manualBonusSpins"].int} lượt tồn", fontSize = 11.5.sp, color = FutaColors.BrandGreen)
                                             }
+                                            FutaButton(
+                                                text = "+ Lượt",
+                                                variant = FutaButtonVariant.OUTLINE,
+                                                onClick = { selectedUserForGrant = u }
+                                            )
                                         }
-                                    },
-                                    modifier = Modifier.fillMaxWidth()
-                                )
+                                        HorizontalDivider(color = Color(0xFFF1F5F9))
+                                    }
+                                }
                             }
                         }
                     }
                 }
-                1 -> {
-                    // TAB 2: Cấp lượt quay & VIP
+
+                else -> {
+                    // TAB 2: Đối soát trao quà
                     item {
                         FutaCard(modifier = Modifier.fillMaxWidth()) {
                             Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                                Text("CẤP THÊM LƯỢT QUAY CHO KHÁCH HÀNG", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
+                                Text("TRA CỨU & XÁC NHẬN TRAO THƯỞNG", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
 
-                                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                    Text("Số điện thoại khách hàng *", fontSize = 11.5.sp, fontWeight = FontWeight.SemiBold, color = FutaColors.Slate)
-                                    FutaInput(value = targetPhone, onValueChange = { targetPhone = it }, placeholder = "Nhập SĐT nhận lượt quay (ví dụ: 0901234567)")
-                                }
-
-                                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                    Text("Số lượt cấp thêm", fontSize = 11.5.sp, fontWeight = FontWeight.SemiBold, color = FutaColors.Slate)
-                                    FutaInput(value = grantSpinsCount, onValueChange = { grantSpinsCount = it }, placeholder = "Số lượt (ví dụ: 5)")
-                                }
-
-                                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                    Text("Lý do cấp lượt", fontSize = 11.5.sp, fontWeight = FontWeight.SemiBold, color = FutaColors.Slate)
-                                    FutaInput(value = grantReason, onValueChange = { grantReason = it }, placeholder = "Nhập lý do...")
-                                }
-
-                                FutaButton(
-                                    text = if (isGranting) "Đang xử lý cấp lượt..." else "Xác nhận cấp lượt quay",
-                                    variant = FutaButtonVariant.SECONDARY,
-                                    enabled = !isGranting,
-                                    onClick = {
-                                        if (targetPhone.isNotEmpty()) {
+                                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    Box(modifier = Modifier.weight(1f)) {
+                                        FutaInput(
+                                            value = rewardCodeQuery,
+                                            onValueChange = { rewardCodeQuery = it.uppercase() },
+                                            placeholder = "Nhập mã quà (FUTA-XXXX...)"
+                                        )
+                                    }
+                                    FutaButton(
+                                        text = if (isLookingUp) "Đang tìm..." else "Kiểm tra",
+                                        variant = FutaButtonVariant.PRIMARY,
+                                        enabled = !isLookingUp && rewardCodeQuery.isNotBlank(),
+                                        onClick = {
                                             scope.launch {
-                                                isGranting = true
+                                                isLookingUp = true
                                                 try {
-                                                    val count = grantSpinsCount.toIntOrNull() ?: 1
-                                                    val body = "{\"phone\":\"$targetPhone\",\"spins\":$count,\"reason\":\"$grantReason\"}"
-                                                    APIClient.get().request("/lucky-wheel/admin/grant-spins", method = "POST", bodyJson = body)
-                                                    ToastCenter.show("Đã cấp thành công $count lượt quay cho $targetPhone!")
-                                                    targetPhone = ""
-                                                } catch (_: Exception) {
-                                                    ToastCenter.show("Đã gửi yêu cầu cấp lượt quay!")
-                                                    targetPhone = ""
+                                                    val clean = rewardCodeQuery.trim()
+                                                    val res = APIClient.get().request("/lucky-wheel/admin/rewards/$clean")
+                                                    lookupSpinResult = res["data"]
+                                                } catch (e: Exception) {
+                                                    ToastCenter.show("Không tìm thấy mã quà tặng này", isError = true)
+                                                    lookupSpinResult = null
                                                 } finally {
-                                                    isGranting = false
+                                                    isLookingUp = false
                                                 }
                                             }
-                                        } else {
-                                            ToastCenter.show("Vui lòng nhập số điện thoại khách hàng", isError = true)
                                         }
-                                    },
-                                    modifier = Modifier.fillMaxWidth()
-                                )
+                                    )
+                                }
+
+                                lookupSpinResult?.let { spin ->
+                                    Surface(shape = RoundedCornerShape(10.dp), color = Color(0xFFF8FAFC), modifier = Modifier.fillMaxWidth()) {
+                                        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                            Text("Giải thưởng: ${spin["prizeLabel"].string}", fontSize = 13.5.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
+                                            Text("Người trúng: ${spin["user"]["name"].string.ifEmpty { "Khách hàng" }} (${spin["user"]["phone"].string.ifEmpty { spin["user"]["phoneNumber"].string }})", fontSize = 12.sp, color = FutaColors.Slate)
+                                            Text("Trạng thái: ${spin["fulfillmentStatus"].string}", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = if (spin["fulfillmentStatus"].string == "received") FutaColors.BrandGreen else Color(0xFFF97316))
+
+                                            if (spin["fulfillmentStatus"].string != "received") {
+                                                FutaButton(
+                                                    text = if (isUpdatingFulfillment) "Đang cập nhật..." else "Xác nhận đã trao quà",
+                                                    variant = FutaButtonVariant.PRIMARY,
+                                                    enabled = !isUpdatingFulfillment,
+                                                    onClick = {
+                                                        scope.launch {
+                                                            isUpdatingFulfillment = true
+                                                            try {
+                                                                val body = """{"fulfillmentStatus":"received","recipientVerified":true}"""
+                                                                APIClient.get().request("/lucky-wheel/admin/spins/${spin.id}/fulfillment", method = "PATCH", bodyJson = body)
+                                                                ToastCenter.show("Đã xác nhận trao quà thành công!")
+                                                                lookupSpinResult = null
+                                                                rewardCodeQuery = ""
+                                                                loadAllData()
+                                                            } catch (e: Exception) {
+                                                                ToastCenter.show("Lỗi: ${e.message}", isError = true)
+                                                            } finally {
+                                                                isUpdatingFulfillment = false
+                                                            }
+                                                        }
+                                                    },
+                                                    modifier = Modifier.fillMaxWidth()
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
-                }
-                else -> {
-                    // TAB 3: Tra cứu & Đổi quà
+
+                    // Danh sách lượt trúng gần đây
+                    val winningSpins = adminState["recentSpins"].array.filter { it["isWin"].bool }
                     item {
                         FutaCard(modifier = Modifier.fillMaxWidth()) {
-                            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                                Text("LỊCH SỬ TRÚNG THƯỞNG VỪA PHÁT SINH", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
-
-                                listOf(
-                                    Triple("0905123456", "Voucher 50 Triệu VNĐ", "Hôm nay, 10:45"),
-                                    Triple("0914987654", "Chỉ Vàng 9999", "Hôm qua"),
-                                    Triple("0858606168", "Chiết khấu 1% hợp đồng", "14/05")
-                                ).forEach { (phone, gift, time) ->
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Column {
-                                            Text(gift, fontSize = 13.5.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
-                                            Text("SĐT: $phone · $time", fontSize = 11.5.sp, color = FutaColors.Slate)
+                            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                                Text("LƯỢT TRÚNG THƯỞNG PHÁT SINH (${winningSpins.size})", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
+                                if (winningSpins.isEmpty()) {
+                                    Text("Chưa có lượt trúng thưởng nào.", fontSize = 12.sp, color = FutaColors.Slate)
+                                } else {
+                                    for (spin in winningSpins) {
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                                Text(spin["prizeLabel"].string, fontSize = 13.5.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
+                                                val uName = spin["user"]["name"].string.ifEmpty { "Khách hàng" }
+                                                val uPhone = spin["user"]["phone"].string.ifEmpty { spin["user"]["phoneNumber"].string }
+                                                Text("$uName · $uPhone", fontSize = 11.5.sp, color = FutaColors.Slate)
+                                                val rCode = spin["rewardCode"].string
+                                                if (rCode.isNotEmpty()) {
+                                                    Text("Mã: $rCode", fontSize = 10.5.sp, color = FutaColors.BrandGreen)
+                                                }
+                                            }
+                                            val st = spin["fulfillmentStatus"].string
+                                            Surface(shape = CircleShape, color = if (st == "received") Color(0xFFEAF5EF) else Color(0xFFFFF7ED)) {
+                                                Text(
+                                                    if (st == "received") "Đã trao" else "Chờ trao",
+                                                    fontSize = 11.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = if (st == "received") FutaColors.BrandGreen else Color(0xFFF97316),
+                                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.5.dp)
+                                                )
+                                            }
                                         }
-                                        Surface(shape = CircleShape, color = FutaColors.MintBg) {
-                                            Text("Đã trao", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = FutaColors.BrandGreen, modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp))
-                                        }
+                                        HorizontalDivider(color = Color(0xFFF1F5F9))
                                     }
-                                    HorizontalDivider(color = Color(0xFFF1F5F9))
                                 }
                             }
                         }
@@ -294,5 +543,13 @@ fun AdminLuckyWheelScreen(
                 Spacer(Modifier.height(40.dp))
             }
         }
+    }
+}
+
+@Composable
+private fun MetricItem(label: String, value: String) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        Text(value, fontSize = 16.sp, fontWeight = FontWeight.Black, color = FutaColors.Navy)
+        Text(label, fontSize = 10.5.sp, color = FutaColors.Slate)
     }
 }

@@ -1,0 +1,14 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+  <!-- XY Axes -->
+  <path
+      android:fillColor="#FF000000"
+      android:pathData="M3,3h2v14h16v2H3V3z"/>
+  <!-- Trend line with dots -->
+  <path
+      android:fillColor="#FF000000"
+      android:pathData="M8,13l3.5,-3.5 3,3 5.5,-6 1.41,1.41L14.5,14.83l-3,-3L9.41,14.41z"/>
+</vector>

@@ -12,6 +12,7 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -76,33 +77,35 @@ fun AdminCRMScreen(
 
     Scaffold(
         topBar = {
-            Surface(color = Color.White, shadowElevation = 1.dp) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .statusBarsPadding()
-                ) {
+            Surface(
+                color = FutaColors.PageBg,
+                modifier = Modifier.fillMaxWidth().statusBarsPadding()
+            ) {
+                Column {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 8.dp, vertical = 6.dp),
+                            .padding(horizontal = 16.dp, vertical = 10.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        IconButton(onClick = onBack) {
-                            Icon(Icons.Default.ArrowBack, null, tint = FutaColors.Navy)
-                        }
-                        Text(
-                            text = "Chăm sóc khách hàng (CRM)",
-                            fontSize = 17.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = FutaColors.Navy,
-                            modifier = Modifier.weight(1f)
+                        FutaHeaderIconButton(
+                            icon = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Quay lại",
+                            onClick = onBack
                         )
-                        IconButton(onClick = {
-                            ToastCenter.show("Tạo hồ sơ khách hàng mới")
-                        }) {
-                            Icon(Icons.Default.Add, null, tint = FutaColors.BrandGreen)
-                        }
+                        Text(
+                            text = "Chăm sóc khách hàng",
+                            fontSize = 17.5.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = FutaColors.Navy
+                        )
+                        FutaHeaderIconButton(
+                            icon = Icons.Default.Add,
+                            contentDescription = "Thêm mới",
+                            tint = FutaColors.BrandGreen,
+                            onClick = { ToastCenter.show("Tạo hồ sơ khách hàng mới") }
+                        )
                     }
 
                     // Kanban Stage Pills

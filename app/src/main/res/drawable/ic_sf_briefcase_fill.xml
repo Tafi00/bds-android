@@ -1,0 +1,14 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+  <!-- Briefcase handle -->
+  <path
+      android:fillColor="#FF000000"
+      android:pathData="M10,4h4c0.55,0 1,0.45 1,1v2H9V5c0,-0.55 0.45,-1 1,-1z"/>
+  <!-- Briefcase body matching SF Symbol briefcase.fill -->
+  <path
+      android:fillColor="#FF000000"
+      android:pathData="M4,7h16c1.1,0 2,0.9 2,2v3.5c0,0.28 -0.22,0.5 -0.5,0.5h-5.62c-0.45,1.19 -1.6,2 -2.88,2h-2c-1.28,0 -2.43,-0.81 -2.88,-2H2.5c-0.28,0 -0.5,-0.22 -0.5,-0.5V9C2,7.9 2.9,7 4,7zM2,14.5c0,-0.28 0.22,-0.5 0.5,-0.5h5.12c0.45,1.19 1.6,2 2.88,2h3c1.28,0 2.43,-0.81 2.88,-2H21.5c0.28,0 0.5,0.22 0.5,0.5V19c0,1.1 -0.9,2 -2,2H4c-1.1,0 -2,-0.9 -2,-2V14.5z"/>
+</vector>

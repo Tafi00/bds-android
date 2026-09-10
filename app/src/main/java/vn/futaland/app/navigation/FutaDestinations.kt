@@ -44,6 +44,7 @@ object FutaDestinations {
     const val ADMIN_ROLES = "admin_roles"
     const val ADMIN_ADVISOR_PROFILES = "admin_advisor_profiles"
     const val ADMIN_AI = "admin_ai"
+    const val ADMIN_EXAMS = "admin_exams"
     const val ADMIN_ZALO = "admin_zalo"
     const val ADMIN_CUSTOMERS = "admin_customers"
     const val ADMIN_CONTRACTS = "admin_contracts"

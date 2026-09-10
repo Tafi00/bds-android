@@ -184,23 +184,30 @@ fun AccountScreen(
                             Spacer(Modifier.height(6.dp))
                             Surface(
                                 shape = CircleShape,
-                                color = FutaColors.MintBg
+                                color = Color(0xFFEAF5EF)
                             ) {
                                 val roleBadgeText = when (role) {
-                                    "admin" -> "QUẢN TRỊ VIÊN"
-                                    "advisor", "agent" -> "CHUYÊN VIÊN TƯ VẤN"
-                                    "sale", "staff" -> "NHÂN VIÊN KINH DOANH"
-                                    else -> "KHÁCH HÀNG THÀNH VIÊN"
+                                    "admin" -> "Quản trị viên"
+                                    "advisor", "agent" -> "Chuyên viên tư vấn"
+                                    "sale", "staff" -> "Nhân viên kinh doanh"
+                                    else -> "Khách hàng thành viên"
                                 }
                                 Text(
                                     text = roleBadgeText,
                                     color = FutaColors.BrandGreen,
-                                    fontSize = 10.sp,
+                                    fontSize = 11.sp,
                                     fontWeight = FontWeight.Bold,
                                     modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
                                 )
                             }
                         }
+
+                        Icon(
+                            painter = painterResource(id = R.drawable.sf_chevron_right_light),
+                            contentDescription = null,
+                            tint = Color.Unspecified,
+                            modifier = Modifier.size(11.dp)
+                        )
                     }
                 }
             }
@@ -222,13 +229,13 @@ fun AccountScreen(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Surface(
-                                shape = RoundedCornerShape(12.dp),
-                                color = FutaColors.MintBg,
+                                shape = RoundedCornerShape(10.dp),
+                                color = Color(0xFFEAF5EF),
                                 modifier = Modifier.size(44.dp)
                             ) {
                                 Box(contentAlignment = Alignment.Center) {
                                     Icon(
-                                        painter = painterResource(id = R.drawable.sf_acc_listings),
+                                        painter = painterResource(id = R.drawable.ic_sf_briefcase_fill),
                                         contentDescription = null,
                                         tint = FutaColors.BrandGreen,
                                         modifier = Modifier.size(22.dp)
@@ -238,16 +245,18 @@ fun AccountScreen(
                             Spacer(Modifier.width(12.dp))
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
-                                    text = if (role == "admin") "Không gian quản trị & kinh doanh" else "Trung tâm làm việc TVV",
+                                    text = if (role == "admin") "Trang quản trị hệ thống" else "Trung tâm làm việc TVV",
                                     fontSize = 15.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = FutaColors.Navy
                                 )
                                 Spacer(Modifier.height(2.dp))
                                 Text(
-                                    text = if (role == "admin") "Bảng hàng ERP, duyệt đăng ký, CRM khách hàng" else "Quản lý kinh doanh, khách hàng, giao dịch",
+                                    text = if (role == "admin") "Bảng điều khiển, dự án, kho căn, CMS, người dùng" else "Quản lý kinh doanh, khách hàng, giao dịch",
                                     fontSize = 12.sp,
-                                    color = FutaColors.Slate
+                                    color = FutaColors.Slate,
+                                    maxLines = 1,
+                                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                                 )
                             }
                             Icon(

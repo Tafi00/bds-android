@@ -74,4 +74,21 @@ class AppSession private constructor() {
         _currentUser.value = null
         _permissions.value = emptySet()
     }
+    suspend fun ensureGuest(): Boolean {
+        if (isAuthenticated) return true
+        val currentToken = APIClient.get().tokenStorage.accessToken
+        if (!currentToken.isNullOrEmpty()) return true
+        return try {
+            val res = APIClient.get().request("/auth/guest", method = "POST", bodyJson = "{}")
+            val data = res["data"]
+            val token = data["accessToken"].string
+            if (token.isNotEmpty()) {
+                APIClient.get().tokenStorage.accessToken = token
+                APIClient.get().tokenStorage.guestToken = token
+                true
+            } else false
+        } catch (_: Exception) {
+            false
+        }
+    }
 }

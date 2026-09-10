@@ -30,14 +30,20 @@ fun FutaCard(
     onClick: (() -> Unit)? = null,
     content: @Composable BoxScope.() -> Unit
 ) {
+    val cardModifier = modifier.futaDropShadow(
+        shape = shape,
+        color = Color(0x08061D3D),
+        blur = 8.dp,
+        offsetY = 2.dp
+    )
     if (onClick != null) {
         Card(
             onClick = onClick,
-            modifier = modifier,
+            modifier = cardModifier,
             shape = shape,
             colors = CardDefaults.cardColors(containerColor = containerColor),
             border = BorderStroke(borderWidth, borderColor),
-            elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
         ) {
             Box {
                 content()
@@ -45,11 +51,11 @@ fun FutaCard(
         }
     } else {
         Card(
-            modifier = modifier,
+            modifier = cardModifier,
             shape = shape,
             colors = CardDefaults.cardColors(containerColor = containerColor),
             border = BorderStroke(borderWidth, borderColor),
-            elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
         ) {
             Box {
                 content()

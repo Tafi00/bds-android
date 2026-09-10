@@ -8,6 +8,9 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.isImeVisible
+import vn.futaland.app.designsystem.clearFocusOnTap
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -17,6 +20,15 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import vn.futaland.app.features.account.AdminRegistrationsScreen
+import vn.futaland.app.features.account.AdminTransactionsScreen
+import vn.futaland.app.features.account.AdminCMSScreen
+import vn.futaland.app.features.account.AdminUsersScreen
+import vn.futaland.app.features.account.AdminAdvisorProfilesScreen
+import vn.futaland.app.features.account.AdminCustomersScreen
+import vn.futaland.app.features.account.AdminExamsScreen
+import vn.futaland.app.features.account.AdminContractsScreen
+import vn.futaland.app.features.account.AdminReportsScreen
 import vn.futaland.app.core.auth.AppSession
 import vn.futaland.app.core.network.APIClient
 import vn.futaland.app.designsystem.FutaLandTheme
@@ -142,6 +154,12 @@ class MainActivity : ComponentActivity() {
                                 "crm" -> safeNavigate(FutaDestinations.CRM)
                                 "lucky-wheel" -> safeNavigate(FutaDestinations.ADMIN_LUCKY_WHEEL)
                             }
+                        } else if (path == "/customers") {
+                            safeNavigate(FutaDestinations.ADMIN_CUSTOMERS)
+                        } else if (path == "/contracts") {
+                            safeNavigate(FutaDestinations.ADMIN_CONTRACTS)
+                        } else if (path == "/reports") {
+                            safeNavigate(FutaDestinations.ADMIN_REPORTS)
                         } else if (path == "/advisor") {
                             safeNavigate(FutaDestinations.ADVISOR)
                         } else if (path == "/my-listings") {
@@ -159,9 +177,10 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                 }
-                val isRootTab = currentRoute in BottomNavRoutes
+                val isImeVisible = WindowInsets.isImeVisible
+                val isRootTab = (currentRoute in BottomNavRoutes) && (currentRoute != FutaDestinations.INBOX) && !isImeVisible
 
-                Box(modifier = Modifier.fillMaxSize()) {
+                Box(modifier = Modifier.fillMaxSize().clearFocusOnTap()) {
                     Scaffold(
                         containerColor = Color.White,
                         bottomBar = {
@@ -207,15 +226,9 @@ class MainActivity : ComponentActivity() {
 
                             // 3. Inbox Tab
                             composable(FutaDestinations.INBOX) {
-                                FutaAccessGate(
-                                    access = NativeAccess.SignedIn,
-                                    session = AppSession.shared,
-                                    onRequireLogin = { safeNavigate(FutaDestinations.AUTH) }
-                                ) {
-                                    ChatScreen(
-                                        onBack = if (!isRootTab) ({ navController.popBackStack() }) else null
-                                    )
-                                }
+                                ChatScreen(
+                                    onBack = if (!isRootTab) ({ navController.popBackStack() }) else null
+                                )
                             }
 
                             // 4. Account Tab
@@ -322,40 +335,43 @@ class MainActivity : ComponentActivity() {
                                 AdminModuleScreen("Quản lý sản phẩm", "/apartments") { navController.popBackStack() }
                             }
                             composable(FutaDestinations.ADMIN_REGISTRATIONS) {
-                                AdminModuleScreen("Duyệt đăng ký bán", "/sales/registrations") { navController.popBackStack() }
+                                AdminRegistrationsScreen { navController.popBackStack() }
                             }
                             composable(FutaDestinations.ADMIN_TRANSACTIONS) {
-                                AdminModuleScreen("Quản lý giao dịch", "/advisor/transactions") { navController.popBackStack() }
+                                AdminTransactionsScreen { navController.popBackStack() }
                             }
                             composable(FutaDestinations.ADMIN_CMS) {
-                                AdminModuleScreen("CMS Bài viết", "/cms/admin/news") { navController.popBackStack() }
+                                AdminCMSScreen { navController.popBackStack() }
                             }
                             composable(FutaDestinations.ADMIN_SETTINGS) {
                                 AdminSettingsScreen { navController.popBackStack() }
                             }
                             composable(FutaDestinations.ADMIN_USERS) {
-                                AdminModuleScreen("Quản lý người dùng", "/users") { navController.popBackStack() }
+                                AdminUsersScreen { navController.popBackStack() }
                             }
                             composable(FutaDestinations.ADMIN_ROLES) {
                                 AdminRolesScreen { navController.popBackStack() }
                             }
                             composable(FutaDestinations.ADMIN_ADVISOR_PROFILES) {
-                                AdminModuleScreen("Duyệt hồ sơ TVV", "/advisor/profile-requests") { navController.popBackStack() }
+                                AdminAdvisorProfilesScreen { navController.popBackStack() }
                             }
                             composable(FutaDestinations.ADMIN_AI) {
                                 AdminAIScreen { navController.popBackStack() }
+                            }
+                            composable(FutaDestinations.ADMIN_EXAMS) {
+                                AdminExamsScreen { navController.popBackStack() }
                             }
                             composable(FutaDestinations.ADMIN_ZALO) {
                                 AdminModuleScreen("Marketing Zalo", "/zalo/campaigns") { navController.popBackStack() }
                             }
                             composable(FutaDestinations.ADMIN_CUSTOMERS) {
-                                AdminModuleScreen("Khách hàng", "/customers") { navController.popBackStack() }
+                                AdminCustomersScreen { navController.popBackStack() }
                             }
                             composable(FutaDestinations.ADMIN_CONTRACTS) {
-                                AdminModuleScreen("Hợp đồng giao dịch", "/contracts") { navController.popBackStack() }
+                                AdminContractsScreen { navController.popBackStack() }
                             }
                             composable(FutaDestinations.ADMIN_REPORTS) {
-                                AdminModuleScreen("Báo cáo doanh số", "/crm/reports") { navController.popBackStack() }
+                                AdminReportsScreen { navController.popBackStack() }
                             }
                             composable(FutaDestinations.ADMIN_DASHBOARD) {
                                 AdminDashboardScreen { navController.popBackStack() }

@@ -13,6 +13,7 @@ import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -199,10 +200,17 @@ fun FutaStickyActionBar(
     content: @Composable RowScope.() -> Unit
 ) {
     Surface(
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier
+            .fillMaxWidth()
+            .futaDropShadow(
+                shape = RectangleShape,
+                color = Color(0x0C061D3D),
+                blur = 12.dp,
+                offsetY = (-3).dp
+            ),
         color = Color.White,
         border = BorderStroke(1.dp, FutaColors.LightBlueBorder),
-        shadowElevation = 8.dp
+        shadowElevation = 0.dp
     ) {
         Row(
             modifier = Modifier

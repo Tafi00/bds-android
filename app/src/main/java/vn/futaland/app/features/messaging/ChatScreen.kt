@@ -12,11 +12,12 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Send
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -25,20 +26,24 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
+import vn.futaland.app.R
+import vn.futaland.app.core.auth.AppSession
 import vn.futaland.app.core.network.APIClient
 import vn.futaland.app.core.network.JSONValue
 import vn.futaland.app.designsystem.*
-
 data class ConversationItem(
     val id: String,
     val name: String,
     val lastMessage: String,
     val time: String,
     val unreadCount: Int = 0,
-    val isOnline: Boolean = true
+    val isOnline: Boolean = true,
+    val isAi: Boolean = false,
+    val badge: String = ""
 )
 
 data class ChatMessage(
@@ -56,30 +61,69 @@ fun ChatScreen(
     onBack: (() -> Unit)? = null
 ) {
     val scope = rememberCoroutineScope()
+    val isStaff = AppSession.shared.role != "customer" && AppSession.shared.role != "guest"
 
-    var activeConversationId by remember { mutableStateOf(initialConversationId) }
-    var activeConversationName by remember { mutableStateOf("Trợ lý FUTA AI") }
+    var activeConversationId by remember { mutableStateOf(if (!isStaff) (initialConversationId ?: "ai_agent") else initialConversationId) }
+    var activeConversationName by remember { mutableStateOf("Trợ lý AI FUTA Land") }
 
     var search by remember { mutableStateOf("") }
     var filterTab by remember { mutableStateOf("all") }
 
-    // Connect WebSocket on launch
+    val conversations = remember {
+        mutableStateListOf<ConversationItem>()
+    }
+
+    // Ensure guest session & connect WebSocket on launch
     LaunchedEffect(Unit) {
+        if (!AppSession.shared.isAuthenticated) {
+            AppSession.shared.ensureGuest()
+        }
         ChatWebSocketManager.shared.connect()
+        try {
+            val res = APIClient.get().request("/chat/conversations", query = mapOf("limit" to "50"))
+            val list = res["data"].array
+            val isStaff = AppSession.shared.role != "customer" && AppSession.shared.role != "guest"
+            if (!isStaff && list.isEmpty()) {
+                val createRes = APIClient.get().request("/chat/conversations", method = "POST", bodyJson = "{}")
+                val newConv = createRes["data"]
+                if (!newConv.id.isEmpty()) {
+                    conversations.clear()
+                    conversations.add(ConversationItem(newConv.id, "Trợ lý AI FUTA Land", "Bắt đầu cuộc trò chuyện...", "Bây giờ", 0, true, true, "Trợ lý AI"))
+                    activeConversationId = newConv.id
+                    activeConversationName = "Trợ lý AI FUTA Land"
+                }
+            } else if (list.isNotEmpty()) {
+                conversations.clear()
+                for (c in list) {
+                    val advId = c["advisorId"].string
+                    val isAi = !isStaff && advId.isEmpty()
+                    val name = if (isStaff) {
+                        val cName = c["customer"]["customerName"].string
+                        cName.ifEmpty { c["customerPhone"].string.ifEmpty { "Khách hàng" } }
+                    } else {
+                        if (isAi) "Trợ lý AI FUTA Land" else c["advisor"]["name"].string.ifEmpty { "Sale phụ trách điều phối" }
+                    }
+                    val badge = if (isStaff) "" else (if (isAi) "Trợ lý AI" else "Sale phụ trách")
+                    val lastMsg = c["lastMessageContent"].string.ifEmpty { "Bắt đầu cuộc trò chuyện..." }
+                    val time = c["lastMessageAt"].string.take(16).replace("T", " ")
+                    conversations.add(ConversationItem(c.id, name, lastMsg, time, 0, true, isAi, badge))
+                }
+                if (!isStaff) {
+                    val aiConv = conversations.find { it.isAi } ?: conversations.firstOrNull()
+                    if (aiConv != null) {
+                        activeConversationId = aiConv.id
+                        activeConversationName = aiConv.name
+                    }
+                }
+            }
+        } catch (_: Exception) {}
     }
 
     val isConnected by ChatWebSocketManager.shared.isConnected.collectAsState()
     val typingUsers by ChatWebSocketManager.shared.typingUsers.collectAsState()
 
-    val conversations = remember {
-        mutableStateListOf(
-            ConversationItem("1", "Trợ lý ảo FUTA AI", "Dự án Times Square Đà Nẵng hiện đang mở bán các căn 2PN view biển.", "10:03", 1, true),
-            ConversationItem("2", "Nguyễn Văn Tuấn (Môi giới FUTA)", "Em đã gửi bảng tính dòng tiền ngân hàng qua email cho anh rồi ạ.", "Hôm qua", 0, false),
-            ConversationItem("3", "CSKH FUTA Land", "Hệ thống đã ghi nhận phiếu đặt cọc của quý khách.", "15/05", 0, true)
-        )
-    }
-    if (activeConversationId.isNullOrEmpty()) {
-        // VIEW 1: CONVERSATION LIST (Matching iOS ChatView.swift)
+    if (isStaff && activeConversationId.isNullOrEmpty()) {
+        // VIEW 1: CONVERSATION LIST (Staff & Advisors only)
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -196,14 +240,30 @@ fun ChatScreen(
                                     horizontalArrangement = Arrangement.SpaceBetween,
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Text(
-                                        text = conv.name,
-                                        fontSize = 14.5.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = FutaColors.Navy,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis
-                                    )
+                                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                        Text(
+                                            text = conv.name,
+                                            fontSize = 14.5.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = FutaColors.Navy,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                        if (conv.badge.isNotEmpty()) {
+                                            Surface(
+                                                shape = CircleShape,
+                                                color = if (conv.isAi) FutaColors.MintBg else Color(0xFFEFF6FF)
+                                            ) {
+                                                Text(
+                                                    text = conv.badge,
+                                                    color = if (conv.isAi) FutaColors.BrandGreen else Color(0xFF1D4ED8),
+                                                    fontSize = 10.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                                )
+                                            }
+                                        }
+                                    }
                                     Text(
                                         text = conv.time,
                                         fontSize = 11.sp,
@@ -251,20 +311,47 @@ fun ChatScreen(
             }
         }
     } else {
-        // VIEW 2: ACTIVE CONVERSATION THREAD (Matching iOS ChatConversationView)
+        // VIEW 2: ACTIVE CONVERSATION THREAD (Default for customer & guest, matching web)
         val listState = rememberLazyListState()
         var messageText by remember { mutableStateOf("") }
         val messages = remember {
-            mutableStateListOf(
-                ChatMessage("1", "bot", activeConversationName, "Xin chào quý khách! FUTA Land có thể hỗ trợ quý khách tìm căn hộ hoặc tính dòng tiền vay dự án nào ạ?", false, "10:00"),
-                ChatMessage("2", "me", "Tôi", "Tôi đang quan tâm căn hộ 2 phòng ngủ dự án Times Square Đà Nẵng", true, "10:02"),
-                ChatMessage("3", "bot", activeConversationName, "Dự án Times Square Đà Nẵng hiện đang mở bán các căn 2PN diện tích từ 68m² đến 74m², view biển Mỹ Khê với mức giá từ 3.2 Tỷ. Bạn có muốn nhận bảng tính lãi suất vay ngân hàng không?", false, "10:03")
-            )
+            mutableStateListOf<ChatMessage>()
         }
+        val isImeVisible = WindowInsets.isImeVisible
+        LaunchedEffect(isImeVisible, messages.size) {
+            if (messages.isNotEmpty()) {
+                listState.animateScrollToItem(messages.size - 1)
+            }
+        }
+
         LaunchedEffect(activeConversationId) {
             activeConversationId?.let { convId ->
                 ChatWebSocketManager.shared.join(convId)
                 ChatWebSocketManager.shared.markRead(convId)
+                if (convId != "ai_agent") {
+                    try {
+                        val msgRes = APIClient.get().request("/chat/conversations/$convId/messages", query = mapOf("limit" to "50"))
+                        val msgList = msgRes["data"].array
+                        if (msgList.isNotEmpty()) {
+                            messages.clear()
+                            for (m in msgList.reversed()) {
+                                val sType = m["senderType"].string
+                                val isMe = sType == "customer"
+                                val timeStr = m["createdAt"].string.take(16).replace("T", " ")
+                                messages.add(
+                                    ChatMessage(
+                                        id = m.id,
+                                        senderId = m["senderId"].string,
+                                        senderName = if (isMe) "Tôi" else (if (sType == "bot") "Trợ lý AI FUTA Land" else "Tư vấn viên"),
+                                        content = m["content"].string,
+                                        isMe = isMe,
+                                        time = timeStr
+                                    )
+                                )
+                            }
+                        }
+                    } catch (_: Exception) {}
+                }
             }
         }
 
@@ -272,7 +359,7 @@ fun ChatScreen(
         DisposableEffect(activeConversationId) {
             ChatWebSocketManager.shared.onNewMessage = { jsonMsg ->
                 val convId = jsonMsg["conversationId"].string
-                if (convId == activeConversationId || activeConversationId == null) {
+                if (convId == activeConversationId || activeConversationId == null || activeConversationId == "ai_agent") {
                     val newMsg = ChatMessage(
                         id = jsonMsg["id"].string.ifEmpty { System.currentTimeMillis().toString() },
                         senderId = jsonMsg["senderId"].string,
@@ -295,8 +382,7 @@ fun ChatScreen(
         fun sendMessage(customText: String? = null) {
             val textToSend = (customText ?: messageText).trim()
             if (textToSend.isEmpty()) return
-            val convId = activeConversationId ?: "1"
-            ChatWebSocketManager.shared.sendMessage(convId, textToSend)
+            val convId = activeConversationId ?: "ai_agent"
             val newMsg = ChatMessage(
                 id = System.currentTimeMillis().toString(),
                 senderId = "me",
@@ -310,46 +396,117 @@ fun ChatScreen(
             scope.launch {
                 listState.animateScrollToItem(messages.size - 1)
             }
+
+            scope.launch {
+                try {
+                    var targetConvId = activeConversationId ?: "ai_agent"
+                    if (targetConvId == "ai_agent") {
+                        val createRes = APIClient.get().request("/chat/conversations", method = "POST", bodyJson = "{}")
+                        val newConv = createRes["data"]
+                        if (!newConv.id.isEmpty()) {
+                            targetConvId = newConv.id
+                            activeConversationId = newConv.id
+                            ChatWebSocketManager.shared.join(newConv.id)
+                        }
+                    }
+                    ChatWebSocketManager.shared.sendMessage(targetConvId, textToSend)
+                    val escaped = textToSend.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n")
+                    APIClient.get().request(
+                        "/chat/conversations/$targetConvId/messages",
+                        method = "POST",
+                        bodyJson = "{\"content\":\"$escaped\"}"
+                    )
+                } catch (_: Exception) {}
+            }
         }
 
         Scaffold(
             topBar = {
                 Surface(color = Color.White, shadowElevation = 1.dp) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .statusBarsPadding()
-                            .padding(horizontal = 8.dp, vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        IconButton(onClick = {
-                            activeConversationId = null
-                            onBack?.invoke()
-                        }) {
-                            Icon(Icons.Default.ArrowBack, null, tint = FutaColors.Navy)
-                        }
-                        Surface(
-                            shape = CircleShape,
-                            color = FutaColors.MintBg,
-                            modifier = Modifier.size(36.dp)
+                    Column(modifier = Modifier.fillMaxWidth().statusBarsPadding()) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 8.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Box(contentAlignment = Alignment.Center) {
-                                Text(activeConversationName.take(1), color = FutaColors.BrandGreen, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                            if (isStaff || onBack != null) {
+                                IconButton(onClick = {
+                                    activeConversationId = null
+                                    onBack?.invoke()
+                                }) {
+                                    Icon(Icons.AutoMirrored.Filled.ArrowBack, null, tint = FutaColors.Navy)
+                                }
+                            }
+                            Surface(
+                                shape = CircleShape,
+                                color = FutaColors.MintBg,
+                                modifier = Modifier.size(40.dp)
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    if (!isStaff && activeConversationName.contains("AI")) {
+                                        Icon(painterResource(R.drawable.ic_lucide_bot), null, tint = FutaColors.BrandGreen, modifier = Modifier.size(24.dp))
+                                    } else {
+                                        Text(activeConversationName.take(1).uppercase(), color = FutaColors.BrandGreen, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                                    }
+                                }
+                            }
+                            Spacer(Modifier.width(10.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = activeConversationName,
+                                    fontSize = 15.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = FutaColors.Navy
+                                )
+                                Text(
+                                    text = if (isConnected) (if (!isStaff && activeConversationName.contains("AI")) "Trực tuyến 24/7 · Tư vấn tự động" else "Đang trực tuyến") else "Đang kết nối lại...",
+                                    fontSize = 11.5.sp,
+                                    color = if (isConnected) FutaColors.BrandGreen else FutaColors.BrandOrange
+                                )
                             }
                         }
-                        Spacer(Modifier.width(10.dp))
-                        Column {
-                            Text(
-                                text = activeConversationName,
-                                fontSize = 14.5.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = FutaColors.Navy
-                            )
-                            Text(
-                                text = if (isConnected) "Đang trực tuyến 24/7" else "Đang kết nối lại...",
-                                fontSize = 11.sp,
-                                color = if (isConnected) FutaColors.BrandGreen else FutaColors.BrandOrange
-                            )
+
+                        // Switcher pill if customer has an assigned advisor
+                        val assignedAdvisor = conversations.firstOrNull { !it.isAi }
+                        val aiConv = conversations.firstOrNull { it.isAi }
+                        if (!isStaff && assignedAdvisor != null) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 12.dp, vertical = 4.dp),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                val isAiSelected = activeConversationId == (aiConv?.id ?: "ai_agent") || activeConversationName.contains("AI")
+                                Surface(
+                                    shape = CircleShape,
+                                    color = if (isAiSelected) FutaColors.BrandGreen else Color(0xFFF1F5F9),
+                                    modifier = Modifier.clickable {
+                                        activeConversationId = aiConv?.id ?: "ai_agent"
+                                        activeConversationName = "Trợ lý AI FUTA Land"
+                                    }
+                                ) {
+                                    Row(modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                        Icon(painterResource(R.drawable.ic_lucide_bot), null, tint = if (isAiSelected) Color.White else FutaColors.Navy, modifier = Modifier.size(15.dp))
+                                        Text("Trợ lý AI (24/7)", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = if (isAiSelected) Color.White else FutaColors.Navy)
+                                    }
+                                }
+
+                                val isAdvisorSelected = activeConversationId == assignedAdvisor.id
+                                Surface(
+                                    shape = CircleShape,
+                                    color = if (isAdvisorSelected) FutaColors.BrandGreen else Color(0xFFF1F5F9),
+                                    modifier = Modifier.clickable {
+                                        activeConversationId = assignedAdvisor.id
+                                        activeConversationName = assignedAdvisor.name
+                                    }
+                                ) {
+                                    Row(modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                        Icon(Icons.Default.Person, null, tint = if (isAdvisorSelected) Color.White else FutaColors.Navy, modifier = Modifier.size(13.dp))
+                                        Text("Sale: ${assignedAdvisor.name}", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = if (isAdvisorSelected) Color.White else FutaColors.Navy)
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -377,34 +534,36 @@ fun ChatScreen(
                         }
                     }
 
-                    // Quick Reply Suggestion Chips
-                    val quickReplies = listOf(
-                        "Tôi muốn xem căn này",
-                        "Gửi bảng giá chi tiết",
-                        "Tư vấn chính sách vay",
-                        "Đặt lịch xem nhà thực tế"
-                    )
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .horizontalScroll(rememberScrollState())
-                            .padding(horizontal = 12.dp, vertical = 6.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        quickReplies.forEach { reply ->
-                            Surface(
-                                shape = RoundedCornerShape(16.dp),
-                                color = Color(0xFFF1F5F9),
-                                border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
-                                modifier = Modifier.clickable { sendMessage(reply) }
-                            ) {
-                                Text(
-                                    text = reply,
-                                    fontSize = 11.5.sp,
-                                    fontWeight = FontWeight.Medium,
-                                    color = FutaColors.Navy,
-                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
-                                )
+                    // Quick Reply Suggestion Chips (Staff only, hidden for customer)
+                    if (isStaff) {
+                        val quickReplies = listOf(
+                            "Tôi muốn xem căn này",
+                            "Gửi bảng giá chi tiết",
+                            "Tư vấn chính sách vay",
+                            "Đặt lịch xem nhà thực tế"
+                        )
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .horizontalScroll(rememberScrollState())
+                                .padding(horizontal = 12.dp, vertical = 6.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            quickReplies.forEach { reply ->
+                                Surface(
+                                    shape = RoundedCornerShape(16.dp),
+                                    color = Color(0xFFF1F5F9),
+                                    border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                                    modifier = Modifier.clickable { sendMessage(reply) }
+                                ) {
+                                    Text(
+                                        text = reply,
+                                        fontSize = 11.5.sp,
+                                        fontWeight = FontWeight.Medium,
+                                        color = FutaColors.Navy,
+                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
+                                    )
+                                }
                             }
                         }
                     }
@@ -438,7 +597,9 @@ fun ChatScreen(
                                     }
                                 },
                                 placeholder = "Nhập tin nhắn tư vấn...",
-                                modifier = Modifier.weight(1f)
+                                modifier = Modifier.weight(1f),
+                                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
+                                keyboardActions = KeyboardActions(onSend = { sendMessage() })
                             )
                             Spacer(Modifier.width(8.dp))
                             IconButton(
@@ -455,6 +616,7 @@ fun ChatScreen(
             }
         ) { padding ->
             LazyColumn(
+                state = listState,
                 modifier = Modifier
                     .fillMaxSize()
                     .background(FutaColors.PageBg)
@@ -462,6 +624,96 @@ fun ChatScreen(
                 contentPadding = PaddingValues(16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
+                if (messages.isEmpty()) {
+                    item {
+                        Surface(
+                            shape = RoundedCornerShape(20.dp),
+                            color = Color.White,
+                            border = BorderStroke(1.dp, FutaColors.LightBlueBorder),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(20.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Surface(
+                                    shape = CircleShape,
+                                    color = FutaColors.MintBg,
+                                    modifier = Modifier.size(56.dp)
+                                ) {
+                                    Box(contentAlignment = Alignment.Center) {
+                                        Icon(
+                                            painter = painterResource(R.drawable.ic_lucide_bot),
+                                            contentDescription = null,
+                                            tint = FutaColors.BrandGreen,
+                                            modifier = Modifier.size(32.dp)
+                                        )
+                                    }
+                                }
+                                Spacer(Modifier.height(12.dp))
+                                Text(
+                                    text = "Xin chào quý khách!",
+                                    fontSize = 17.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = FutaColors.Navy
+                                )
+                                Spacer(Modifier.height(4.dp))
+                                Text(
+                                    text = "Tôi là Trợ lý AI của FUTA Land. Tôi có thể giải đáp thông tin các dự án, căn hộ đang mở bán, chính sách chiết khấu và tính lãi suất vay 24/7.",
+                                    fontSize = 13.sp,
+                                    color = FutaColors.Slate,
+                                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                                    lineHeight = 18.sp
+                                )
+                                Spacer(Modifier.height(16.dp))
+                                Text(
+                                    text = "CÂU HỎI GỢI Ý",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = FutaColors.BrandGreen
+                                )
+                                Spacer(Modifier.height(8.dp))
+                                val suggestions = listOf(
+                                    "Dự án Times Square Đà Nẵng có những căn nào?",
+                                    "Tư vấn bảng tính dòng tiền và lãi suất vay",
+                                    "Chính sách ưu đãi và chiết khấu thanh toán",
+                                    "Kết nối với tư vấn viên phụ trách"
+                                )
+                                suggestions.forEach { prompt ->
+                                    Surface(
+                                        shape = RoundedCornerShape(12.dp),
+                                        color = Color(0xFFF8FAFC),
+                                        border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(vertical = 4.dp)
+                                            .clickable { sendMessage(prompt) }
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.SpaceBetween
+                                        ) {
+                                            Text(
+                                                text = prompt,
+                                                fontSize = 12.5.sp,
+                                                fontWeight = FontWeight.Medium,
+                                                color = FutaColors.Navy,
+                                                modifier = Modifier.weight(1f)
+                                            )
+                                            Icon(
+                                                Icons.AutoMirrored.Filled.ArrowForward,
+                                                contentDescription = null,
+                                                tint = FutaColors.BrandGreen,
+                                                modifier = Modifier.size(16.dp)
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
                 itemsIndexed(messages, key = { _, msg -> msg.id }) { _, msg ->
                     MessageBubble(msg = msg)
                 }
