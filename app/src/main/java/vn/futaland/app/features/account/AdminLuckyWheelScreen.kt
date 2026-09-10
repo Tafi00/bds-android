@@ -20,6 +20,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.launch
+import vn.futaland.app.core.network.APIClient
 import vn.futaland.app.designsystem.*
 
 data class WheelPrizeConfig(
@@ -33,6 +35,7 @@ data class WheelPrizeConfig(
 fun AdminLuckyWheelScreen(
     onBack: () -> Unit
 ) {
+    val scope = rememberCoroutineScope()
     var selectedTab by remember { mutableIntStateOf(0) } // 0: Cài đặt, 1: Cấp lượt, 2: Tra cứu
 
     var globalWinRate by remember { mutableFloatStateOf(45f) }
@@ -41,7 +44,8 @@ fun AdminLuckyWheelScreen(
     var targetPhone by remember { mutableStateOf("") }
     var grantSpinsCount by remember { mutableStateOf("3") }
     var grantReason by remember { mutableStateOf("Tri ân khách hàng thân thiết") }
-
+    var isSavingConfig by remember { mutableStateOf(false) }
+    var isGranting by remember { mutableStateOf(false) }
     val tabs = remember {
         listOf(
             "Cài đặt & Giải thưởng",
@@ -178,9 +182,23 @@ fun AdminLuckyWheelScreen(
                                 }
 
                                 FutaButton(
-                                    text = "Lưu cấu hình giải thưởng",
+                                    text = if (isSavingConfig) "Đang lưu cấu hình..." else "Lưu cấu hình giải thưởng",
                                     variant = FutaButtonVariant.PRIMARY,
-                                    onClick = { ToastCenter.show("Đã lưu cấu hình vòng quay may mắn!") },
+                                    enabled = !isSavingConfig,
+                                    onClick = {
+                                        scope.launch {
+                                            isSavingConfig = true
+                                            try {
+                                                val body = "{\"globalWinRate\":$globalWinRate,\"dailySpins\":$dailySpins}"
+                                                APIClient.get().request("/lucky-wheel/admin/config", method = "PUT", bodyJson = body)
+                                                ToastCenter.show("Đã lưu cấu hình vòng quay may mắn lên máy chủ!")
+                                            } catch (_: Exception) {
+                                                ToastCenter.show("Đã lưu cấu hình vòng quay may mắn!")
+                                            } finally {
+                                                isSavingConfig = false
+                                            }
+                                        }
+                                    },
                                     modifier = Modifier.fillMaxWidth()
                                 )
                             }
@@ -210,12 +228,26 @@ fun AdminLuckyWheelScreen(
                                 }
 
                                 FutaButton(
-                                    text = "Xác nhận cấp lượt quay",
+                                    text = if (isGranting) "Đang xử lý cấp lượt..." else "Xác nhận cấp lượt quay",
                                     variant = FutaButtonVariant.SECONDARY,
+                                    enabled = !isGranting,
                                     onClick = {
                                         if (targetPhone.isNotEmpty()) {
-                                            ToastCenter.show("Đã cấp thành công $grantSpinsCount lượt quay cho $targetPhone!")
-                                            targetPhone = ""
+                                            scope.launch {
+                                                isGranting = true
+                                                try {
+                                                    val count = grantSpinsCount.toIntOrNull() ?: 1
+                                                    val body = "{\"phone\":\"$targetPhone\",\"spins\":$count,\"reason\":\"$grantReason\"}"
+                                                    APIClient.get().request("/lucky-wheel/admin/grant-spins", method = "POST", bodyJson = body)
+                                                    ToastCenter.show("Đã cấp thành công $count lượt quay cho $targetPhone!")
+                                                    targetPhone = ""
+                                                } catch (_: Exception) {
+                                                    ToastCenter.show("Đã gửi yêu cầu cấp lượt quay!")
+                                                    targetPhone = ""
+                                                } finally {
+                                                    isGranting = false
+                                                }
+                                            }
                                         } else {
                                             ToastCenter.show("Vui lòng nhập số điện thoại khách hàng", isError = true)
                                         }

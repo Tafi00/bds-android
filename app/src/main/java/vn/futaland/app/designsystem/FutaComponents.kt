@@ -370,7 +370,10 @@ fun FutaBottomSheet(
     if (visible) {
         Dialog(
             onDismissRequest = onDismiss,
-            properties = DialogProperties(usePlatformDefaultWidth = false)
+            properties = DialogProperties(
+                usePlatformDefaultWidth = false,
+                decorFitsSystemWindows = false
+            )
         ) {
             Box(
                 modifier = Modifier
@@ -385,7 +388,7 @@ fun FutaBottomSheet(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .heightIn(max = 640.dp)
+                        .heightIn(max = 760.dp)
                         .clickable(enabled = false) {}
                         .clip(RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp))
                         .background(Color.White)
@@ -442,7 +445,11 @@ fun FutaBottomSheet(
 
                     // Body
                     Column(
-                        modifier = Modifier.padding(16.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f, fill = false)
+                            .padding(horizontal = 16.dp, vertical = 8.dp)
+                            .padding(bottom = 16.dp),
                         content = content
                     )
                 }

@@ -40,6 +40,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil3.compose.AsyncImage
+import coil3.request.ImageRequest
+import coil3.request.transformations
+import coil3.compose.LocalPlatformContext
 import vn.futaland.app.R
 import vn.futaland.app.designsystem.*
 import vn.futaland.app.navigation.FutaDestinations
@@ -356,14 +359,16 @@ private fun TopBrandedHeader(
                     modifier = Modifier.size(16.dp),
                     tint = Color.Unspecified
                 )
-                // Red unread badge matching iOS offset
-                Box(
-                    modifier = Modifier
-                        .size(8.dp)
-                        .align(Alignment.TopEnd)
-                        .background(Color(0xFFEF4444), CircleShape)
-                        .border(1.5.dp, Color.White, CircleShape)
-                )
+                // Red unread badge only when user is authenticated
+                if (AppSession.shared.isAuthenticated) {
+                    Box(
+                        modifier = Modifier
+                            .size(8.dp)
+                            .align(Alignment.TopEnd)
+                            .background(Color(0xFFEF4444), CircleShape)
+                            .border(1.5.dp, Color.White, CircleShape)
+                    )
+                }
             }
         }
     }
@@ -443,8 +448,8 @@ private fun QuickActionsGrid(
     ) {
         listOf(
             Triple("Dự án FUTA", R.drawable.sf_quick_projects, FutaDestinations.PROJECTS_LIST),
-            Triple("Căn hộ", R.drawable.sf_quick_apartment, FutaDestinations.SEARCH),
-            Triple("Nhà phố", R.drawable.sf_quick_house, FutaDestinations.SEARCH),
+            Triple("Căn hộ", R.drawable.sf_quick_apartment, FutaDestinations.search("can-ho-chung-cu")),
+            Triple("Nhà phố", R.drawable.sf_quick_house, FutaDestinations.search("biet-thu-lien-ke")),
             Triple("Vòng quay", R.drawable.sf_quick_wheel, FutaDestinations.LUCKY_WHEEL)
         ).forEach { (title, iconRes, dest) ->
             Column(
@@ -544,7 +549,10 @@ private fun HeroCarouselSection(
                 val banner = proj["bannerImage"].string
                 val displayImg = if (banner.isNotEmpty()) banner else proj["image"].string
                 AsyncImage(
-                    model = displayImg,
+                    model = ImageRequest.Builder(LocalPlatformContext.current)
+                        .data(displayImg)
+                        .transformations(ProjectBannerTransformation())
+                        .build(),
                     contentDescription = null,
                     contentScale = ContentScale.Crop,
                     alignment = Alignment.CenterEnd,
@@ -771,7 +779,6 @@ private fun FeaturedSecondaryProjectsSection(
                 val banner = PropertyFormatters.resolveProjectBanner(proj)
                 val location = proj["location"].string.ifEmpty { proj["address"].string }
                 val totalUnits = proj["totalUnits"].int
-
                 FutaCard(
                     modifier = Modifier
                         .width(220.dp)
@@ -780,7 +787,10 @@ private fun FeaturedSecondaryProjectsSection(
                     Column {
                         Box(modifier = Modifier.fillMaxWidth().height(125.dp).background(Color(0xFFE2E8F0))) {
                             AsyncImage(
-                                model = banner,
+                                model = ImageRequest.Builder(LocalPlatformContext.current)
+                                    .data(banner)
+                                    .transformations(ProjectBannerTransformation())
+                                    .build(),
                                 contentDescription = title,
                                 contentScale = ContentScale.Crop,
                                 modifier = Modifier.fillMaxSize()

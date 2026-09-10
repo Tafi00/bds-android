@@ -12,6 +12,7 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
@@ -821,6 +822,8 @@ fun AboutScreen(
 fun PoliciesScreen(
     onBack: () -> Unit
 ) {
+    var selectedPolicy by remember { mutableStateOf<Pair<String, String>?>(null) }
+
     val policies = remember {
         listOf(
             "Chính sách bán hàng & Quy chế giao dịch" to "Quy định đặt cọc, giữ chỗ 24h và đối soát hợp đồng điện tử.",
@@ -830,7 +833,6 @@ fun PoliciesScreen(
             "Chính sách hoàn tiền giữ chỗ" to "Cam kết hoàn trả 100% tiền giữ chỗ nếu khách hàng không chọn được căn ưng ý."
         )
     }
-
     Scaffold(
         topBar = {
             Surface(color = Color.White, shadowElevation = 1.dp) {
@@ -854,7 +856,7 @@ fun PoliciesScreen(
             itemsIndexed(policies) { _, (title, desc) ->
                 FutaCard(
                     modifier = Modifier.fillMaxWidth(),
-                    onClick = { ToastCenter.show("Đang mở văn bản: $title") }
+                    onClick = { selectedPolicy = (title to desc) }
                 ) {
                     Row(
                         modifier = Modifier.padding(14.dp),
@@ -872,6 +874,77 @@ fun PoliciesScreen(
                         Icon(Icons.AutoMirrored.Filled.ArrowForward, null, tint = FutaColors.Slate, modifier = Modifier.size(16.dp))
                     }
                 }
+            }
+        }
+    }
+
+    // Policy Detail Sheet
+    selectedPolicy?.let { (pTitle, pDesc) ->
+        FutaBottomSheet(
+            visible = true,
+            onDismiss = { selectedPolicy = null },
+            title = pTitle
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
+                    .padding(bottom = 24.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = FutaColors.MintBg,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        text = pDesc,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = FutaColors.BrandGreen,
+                        modifier = Modifier.padding(14.dp)
+                    )
+                }
+
+                Text("1. NGUYÊN TẮC CHUNG", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
+                Text(
+                    text = "Quy định này áp dụng cho toàn bộ khách hàng, nhà đầu tư và chuyên viên tư vấn tham gia giao dịch bất động sản trực tuyến qua nền tảng công nghệ FUTA Land. Mọi sản phẩm niêm yết đều được thẩm định pháp lý minh bạch.",
+                    fontSize = 12.5.sp,
+                    color = FutaColors.Slate,
+                    lineHeight = 18.sp
+                )
+
+                Text("2. QUYỀN VÀ NGHĨA VỤ KHÁCH HÀNG", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
+                Text(
+                    text = "Khách hàng có quyền yêu cầu cung cấp đầy đủ hồ sơ pháp lý, bản vẽ quy hoạch và chính sách bán hàng chính thức. Khách hàng cam kết cung cấp thông tin trung thực khi đặt chỗ giữ cọc căn hộ.",
+                    fontSize = 12.5.sp,
+                    color = FutaColors.Slate,
+                    lineHeight = 18.sp
+                )
+
+                Text("3. QUY TRÌNH GIỮ CHỖ & HOÀN TIỀN", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
+                Text(
+                    text = "Khoản tiền giữ chỗ tiêu chuẩn 50.000.000 VNĐ sẽ được phong tỏa tại tài khoản chuyên dụng của FUTA Land. Khách hàng được quyền hủy giữ chỗ và nhận hoàn tiền 100% trong vòng 24 giờ kể từ thời điểm phát sinh giao dịch.",
+                    fontSize = 12.5.sp,
+                    color = FutaColors.Slate,
+                    lineHeight = 18.sp
+                )
+
+                Text("4. HIỆU LỰC ÁP DỤNG", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
+                Text(
+                    text = "Văn bản chính sách này có hiệu lực từ ngày 01/01/2026 và được cập nhật định kỳ theo quy định pháp luật và thông báo từ Tập đoàn FUTA.",
+                    fontSize = 12.5.sp,
+                    color = FutaColors.Slate,
+                    lineHeight = 18.sp
+                )
+
+                Spacer(Modifier.height(8.dp))
+                FutaButton(
+                    text = "Tôi đã hiểu & Đồng ý",
+                    variant = FutaButtonVariant.PRIMARY,
+                    onClick = { selectedPolicy = null },
+                    modifier = Modifier.fillMaxWidth()
+                )
             }
         }
     }

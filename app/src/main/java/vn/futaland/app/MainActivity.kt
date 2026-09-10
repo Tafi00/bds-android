@@ -41,6 +41,7 @@ import vn.futaland.app.features.account.AdminAIScreen
 import vn.futaland.app.features.account.AdminRolesScreen
 import vn.futaland.app.features.account.AdminLuckyWheelScreen
 import vn.futaland.app.features.account.ProfileScreen
+import vn.futaland.app.features.account.AdvisorWorkspaceScreen
 import vn.futaland.app.features.account.NewsScreen
 import vn.futaland.app.features.account.NewsDetailScreen
 import vn.futaland.app.features.account.GuideScreen
@@ -90,29 +91,8 @@ class MainActivity : ComponentActivity() {
                     pendingRoute?.let { intent ->
                         RouteCoordinator.consume(intent)
                         val path = intent.route
-                        if (path == "/login-admin") {
-                            kotlinx.coroutines.CoroutineScope(Dispatchers.IO).launch {
-                                try {
-                                    val res = APIClient.get().request(
-                                        "/auth/login",
-                                        method = "POST",
-                                        bodyJson = "{\"phone\":\"0858606168\",\"password\":\"adminpro123Aa@\"}"
-                                    )
-                                    val data = res["data"]
-                                    val access = data["accessToken"].string
-                                    val refresh = data["refreshToken"].string
-                                    val user = data["user"]
-                                    AppSession.shared.login(access, refresh, user)
-                                    withContext(Dispatchers.Main) {
-                                        ToastCenter.show("Đã đăng nhập Admin FutaLand")
-                                        navController.navigate(FutaDestinations.ACCOUNT)
-                                    }
-                                } catch (e: Exception) {
-                                    withContext(Dispatchers.Main) {
-                                        ToastCenter.show("Lỗi login: ${e.message}", isError = true)
-                                    }
-                                }
-                            }
+                        if (path == "/login-admin" || path == "/admin-login" || path == "/auth" || path == "/login") {
+                            safeNavigate(FutaDestinations.AUTH)
                         } else if (path == "/logout") {
                             AppSession.shared.logout()
                             navController.navigate(FutaDestinations.ACCOUNT)
@@ -162,6 +142,14 @@ class MainActivity : ComponentActivity() {
                                 "crm" -> safeNavigate(FutaDestinations.CRM)
                                 "lucky-wheel" -> safeNavigate(FutaDestinations.ADMIN_LUCKY_WHEEL)
                             }
+                        } else if (path == "/advisor") {
+                            safeNavigate(FutaDestinations.ADVISOR)
+                        } else if (path == "/my-listings") {
+                            safeNavigate(FutaDestinations.MY_LISTINGS)
+                        } else if (path == "/history") {
+                            safeNavigate(FutaDestinations.VIEW_HISTORY)
+                        } else if (path == "/billing") {
+                            safeNavigate(FutaDestinations.BILLING)
                         } else if (path == "/profile") {
                             safeNavigate(FutaDestinations.PROFILE)
                         } else if (path == "/auth-password") {
@@ -243,6 +231,20 @@ class MainActivity : ComponentActivity() {
                                     onNavigate = { route -> safeNavigate(route) }
                                 )
                             }
+                            composable(
+                                route = FutaDestinations.SEARCH_ROUTE,
+                                arguments = listOf(navArgument("propertyType") {
+                                    type = NavType.StringType
+                                    nullable = true
+                                    defaultValue = null
+                                })
+                            ) { backStack ->
+                                val propType = backStack.arguments?.getString("propertyType")
+                                PropertySearchScreen(
+                                    initialPropertyType = propType,
+                                    onNavigate = { route -> safeNavigate(route) }
+                                )
+                            }
 
                             // Auth Modal / Destination
                             composable(FutaDestinations.AUTH) {
@@ -289,7 +291,8 @@ class MainActivity : ComponentActivity() {
                             // Secondary: Notifications
                             composable(FutaDestinations.NOTIFICATIONS) {
                                 NotificationsScreen(
-                                    onBack = { navController.popBackStack() }
+                                    onBack = { navController.popBackStack() },
+                                    onNavigate = { route -> safeNavigate(route) }
                                 )
                             }
 
@@ -352,7 +355,7 @@ class MainActivity : ComponentActivity() {
                                 AdminModuleScreen("Hợp đồng giao dịch", "/contracts") { navController.popBackStack() }
                             }
                             composable(FutaDestinations.ADMIN_REPORTS) {
-                                AdminModuleScreen("Báo cáo doanh số", "/sales/campaigns") { navController.popBackStack() }
+                                AdminModuleScreen("Báo cáo doanh số", "/crm/reports") { navController.popBackStack() }
                             }
                             composable(FutaDestinations.ADMIN_DASHBOARD) {
                                 AdminDashboardScreen { navController.popBackStack() }
@@ -367,7 +370,10 @@ class MainActivity : ComponentActivity() {
                                 ProfileScreen { navController.popBackStack() }
                             }
                             composable(FutaDestinations.ADVISOR) {
-                                AdminModuleScreen("Trở thành tư vấn viên", "/advisor/profile-requests") { navController.popBackStack() }
+                                AdvisorWorkspaceScreen(
+                                    onBack = { navController.popBackStack() },
+                                    onNavigate = { route -> safeNavigate(route) }
+                                )
                             }
                             // Secondary: Authentication (Login / Register)
                             composable(FutaDestinations.AUTH) {

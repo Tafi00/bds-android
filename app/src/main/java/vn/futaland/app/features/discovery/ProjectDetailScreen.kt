@@ -29,6 +29,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import coil3.compose.AsyncImage
+import coil3.request.ImageRequest
+import coil3.request.transformations
+import coil3.compose.LocalPlatformContext
 import kotlinx.coroutines.launch
 import vn.futaland.app.core.network.APIClient
 import vn.futaland.app.core.network.JSONValue
@@ -136,8 +139,8 @@ fun ProjectDetailScreen(
             val p = project!!
             val title = p["displayName"].string.ifEmpty { p["name"].string }
             val banner = p["bannerImage"].string.ifEmpty { p["image"].string }
-            val location = p["location"].string.ifEmpty { p["address"].string }
-            val developer = p["developer"].string.ifEmpty { "Tập đoàn Phương Trang (FUTA Group)" }
+            val location = p["address"].string.ifEmpty { p["location"].string }.ifEmpty { p["province"].string }
+            val developer = p["developer"].string
             val totalUnits = p["totalUnits"].int
             val desc = p["description"].string.ifEmpty { p["overview"].string }
             val listState = rememberLazyListState()
@@ -164,7 +167,10 @@ fun ProjectDetailScreen(
                             .background(Color(0xFFE2E8F0))
                     ) {
                         AsyncImage(
-                            model = banner,
+                            model = ImageRequest.Builder(LocalPlatformContext.current)
+                                .data(banner)
+                                .transformations(ProjectBannerTransformation())
+                                .build(),
                             contentDescription = title,
                             contentScale = ContentScale.Crop,
                             modifier = Modifier.fillMaxSize()

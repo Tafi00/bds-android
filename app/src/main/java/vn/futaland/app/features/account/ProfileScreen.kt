@@ -1,5 +1,8 @@
 package vn.futaland.app.features.account
 
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -32,6 +35,7 @@ fun ProfileScreen(
 ) {
     val session = AppSession.shared
     val user = session.user
+    val context = androidx.compose.ui.platform.LocalContext.current
     val scope = rememberCoroutineScope()
 
     var name by remember { mutableStateOf(user?.get("name")?.string.orEmpty().ifEmpty { "Người dùng FUTA" }) }
@@ -42,7 +46,40 @@ fun ProfileScreen(
     var avatarUrl by remember { mutableStateOf(user?.get("avatar")?.string.orEmpty()) }
     var gender by remember { mutableStateOf("male") } // "male", "female"
     var isSaving by remember { mutableStateOf(false) }
+    var isUploadingPhoto by remember { mutableStateOf(false) }
 
+    val photoPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        if (uri != null) {
+            scope.launch {
+                isUploadingPhoto = true
+                try {
+                    val bytes = context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
+                    if (bytes != null) {
+                        val res = APIClient.get().upload(
+                            data = bytes,
+                            filename = "avatar_${System.currentTimeMillis()}.jpg",
+                            mimeType = "image/jpeg",
+                            path = "/upload/document",
+                            field = "document"
+                        )
+                        val uploadedUrl = res["data"]["url"].string.ifEmpty { res["url"].string }
+                        if (uploadedUrl.isNotEmpty()) {
+                            avatarUrl = uploadedUrl
+                            ToastCenter.show("Đã tải ảnh đại diện lên thành công!")
+                        } else {
+                            avatarUrl = uri.toString()
+                        }
+                    }
+                } catch (e: Exception) {
+                    ToastCenter.show("Lỗi tải ảnh: ${e.message}", isError = true)
+                } finally {
+                    isUploadingPhoto = false
+                }
+            }
+        }
+    }
     Scaffold(
         topBar = {
             Surface(color = Color.White, shadowElevation = 1.dp) {
@@ -115,11 +152,19 @@ fun ProfileScreen(
                             modifier = Modifier
                                 .size(30.dp)
                                 .clickable {
-                                    ToastCenter.show("Chọn ảnh đại diện từ thư viện ảnh")
+                                    photoPickerLauncher.launch("image/*")
                                 }
                         ) {
                             Box(contentAlignment = Alignment.Center) {
-                                Icon(Icons.Default.CameraAlt, null, tint = Color.White, modifier = Modifier.size(16.dp))
+                                if (isUploadingPhoto) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(16.dp),
+                                        color = Color.White,
+                                        strokeWidth = 2.dp
+                                    )
+                                } else {
+                                    Icon(Icons.Default.CameraAlt, null, tint = Color.White, modifier = Modifier.size(16.dp))
+                                }
                             }
                         }
                     }
@@ -216,12 +261,20 @@ fun ProfileScreen(
                         scope.launch {
                             isSaving = true
                             try {
-                                val body = "{\"name\":\"$name\",\"email\":\"$email\",\"address\":\"$address\",\"bio\":\"$bio\"}"
-                                APIClient.get().request("/auth/profile", method = "PUT", bodyJson = body)
-                            } catch (_: Exception) {}
-                            isSaving = false
-                            ToastCenter.show("Cập nhật thông tin hồ sơ thành công!")
-                            onBack()
+                                val body = "{\"name\":\"$name\",\"email\":\"$email\",\"address\":\"$address\",\"bio\":\"$bio\",\"avatar\":\"$avatarUrl\"}"
+                                try {
+                                    APIClient.get().request("/auth/me", method = "PUT", bodyJson = body)
+                                } catch (_: Exception) {
+                                    APIClient.get().request("/auth/profile", method = "PUT", bodyJson = body)
+                                }
+                                session.restore()
+                                ToastCenter.show("Cập nhật thông tin hồ sơ thành công!")
+                                onBack()
+                            } catch (e: Exception) {
+                                ToastCenter.show("Lỗi cập nhật: ${e.message}", isError = true)
+                            } finally {
+                                isSaving = false
+                            }
                         }
                     },
                     modifier = Modifier.fillMaxWidth()

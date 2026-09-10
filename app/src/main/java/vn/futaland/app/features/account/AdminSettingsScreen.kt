@@ -59,8 +59,12 @@ fun AdminSettingsScreen(
         scope.launch {
             loading = true
             try {
-                val res = APIClient.get().request("/cms/settings")
-                val data = res["data"]
+                val res = try {
+                    APIClient.get().request("/cms/admin")
+                } catch (_: Exception) {
+                    APIClient.get().request("/cms/settings")
+                }
+                val data = if (!res["data"]["settings"].isNull) res["data"]["settings"] else res["data"]
                 siteName = data["siteName"].string.ifEmpty { "FUTA Land" }
                 footerDesc = data["footerDescription"].string.ifEmpty { "FUTA Land – Chất lượng là danh dự." }
 
@@ -153,7 +157,11 @@ fun AdminSettingsScreen(
                                     }
                                 }""".trimIndent()
 
-                                APIClient.get().request("/cms/settings", method = "PUT", bodyJson = body)
+                                try {
+                                    APIClient.get().request("/cms/settings", method = "PUT", bodyJson = body)
+                                } catch (_: Exception) {
+                                    APIClient.get().request("/cms/admin/settings", method = "PUT", bodyJson = body)
+                                }
                                 ToastCenter.show("Đã lưu thiết lập hệ thống thành công")
                                 onBack()
                             } catch (e: Exception) {

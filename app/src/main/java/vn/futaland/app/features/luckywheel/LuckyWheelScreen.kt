@@ -12,10 +12,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.CardGiftcard
-import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -29,6 +25,8 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
+import vn.futaland.app.R
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -99,7 +97,17 @@ fun LuckyWheelScreen(
         if (isSpinning || remainingSpins <= 0) return
         scope.launch {
             isSpinning = true
-            val prizeIndex = (0 until defaultPrizes.size).random()
+            var prizeIndex = (0 until defaultPrizes.size).random()
+            try {
+                val spinRes = APIClient.get().request("/lucky-wheel/spin", method = "POST")
+                val serverPrizeId = spinRes["data"]["prizeId"].string.ifEmpty { spinRes["prizeId"].string }
+                val serverPrizeName = spinRes["data"]["prizeName"].string.ifEmpty { spinRes["prizeName"].string }
+                val foundIdx = defaultPrizes.indexOfFirst { it.id == serverPrizeId || it.name == serverPrizeName }
+                if (foundIdx >= 0) prizeIndex = foundIdx
+                val serverRemaining = spinRes["data"]["remainingSpins"].int
+                if (serverRemaining >= 0) remainingSpins = serverRemaining
+            } catch (_: Exception) {}
+
             val sectorAngle = 360f / defaultPrizes.size
             val targetRotation = rotation.value + (360f * 5) + (360f - (prizeIndex * sectorAngle) - sectorAngle / 2)
 
@@ -128,7 +136,12 @@ fun LuckyWheelScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowBack, null, tint = FutaColors.Navy)
+                        Icon(
+                            painter = painterResource(R.drawable.sf_chevron_left),
+                            contentDescription = "Quay lại",
+                            tint = FutaColors.Navy,
+                            modifier = Modifier.size(15.dp)
+                        )
                     }
                     Text(
                         text = "Vòng quay may mắn",
@@ -331,7 +344,12 @@ fun LuckyWheelScreen(
                         modifier = Modifier.size(64.dp)
                     ) {
                         Box(contentAlignment = Alignment.Center) {
-                            Text("🎁", fontSize = 32.sp)
+                            Icon(
+                                painter = painterResource(R.drawable.sf_quick_wheel),
+                                contentDescription = null,
+                                tint = FutaColors.BrandGreen,
+                                modifier = Modifier.size(32.dp)
+                            )
                         }
                     }
                     Text(

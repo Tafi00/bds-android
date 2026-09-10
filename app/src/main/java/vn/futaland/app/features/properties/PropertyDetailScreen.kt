@@ -29,6 +29,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -578,7 +579,8 @@ fun PropertyDetailScreen(
                             if (dir.isNotEmpty()) specsList.add(Triple(R.drawable.sf_spec_compass, "Hướng cửa chính", dir))
                             val balcony = apt["balconyDirection"].string
                             if (balcony.isNotEmpty()) specsList.add(Triple(R.drawable.sf_spec_compass, "Hướng ban công", balcony))
-                            specsList.add(Triple(R.drawable.sf_acc_policies, "Pháp lý", apt["legal"].string.ifEmpty { "Sổ hồng" }))
+                            val legalText = apt["legalStatus"].string.ifEmpty { apt["legal"].string }.ifEmpty { "Sổ hồng" }
+                            specsList.add(Triple(R.drawable.sf_acc_policies, "Pháp lý", legalText))
                             specsList.add(Triple(R.drawable.sf_quick_house, "Nội thất", apt["furniture"].string.ifEmpty { "Cơ bản cao cấp" }))
 
                             // 2-column grid rows
@@ -709,6 +711,20 @@ fun PropertyDetailScreen(
                         }
                     }
                 }
+                // 4B. Townhouse Floor Breakdown (Matching Web & iOS)
+                val isTownhouse = run {
+                    val type = apt["propertyType"].string.lowercase()
+                    val code = apt["propertyCode"].string.lowercase()
+                    type.contains("nha-pho") || type.contains("biet-thu") || type.contains("townhouse") ||
+                            type.contains("villa") || code.startsWith("np") || code.startsWith("bt") ||
+                            apt["floorAreas"].array.isNotEmpty() || !apt["townhouseSpecs"].isNull
+                }
+                if (isTownhouse) {
+                    item {
+                        TownhouseFloorsCard(apt = apt)
+                    }
+                }
+
 
                 // 5. Commission Panel (Sale & Admin View Only - Matching iOS)
                 val isSaleView = AppSession.shared.isAuthenticated && listOf("admin", "sale", "advisor", "agent", "telesale").contains(AppSession.shared.role)
@@ -786,7 +802,8 @@ fun PropertyDetailScreen(
                             )
                             Spacer(Modifier.height(12.dp))
 
-                            val amenities = listOf("Hồ bơi tràn bờ", "Công viên cây xanh", "Phòng Gym & Yoga", "Bảo vệ 24/7", "Chỗ đỗ xe ô tô", "Khu BBQ ngoài trời")
+                            val serverAmenities = apt["amenities"].array.map { it.string }.filter { it.isNotEmpty() }
+                            val amenities = if (serverAmenities.isNotEmpty()) serverAmenities else listOf("Hồ bơi tràn bờ", "Công viên cây xanh", "Phòng Gym & Yoga", "Bảo vệ 24/7", "Chỗ đỗ xe ô tô", "Khu BBQ ngoài trời")
                             for (i in amenities.indices step 2) {
                                 Row(
                                     modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
@@ -828,13 +845,26 @@ fun PropertyDetailScreen(
                                 )
                                 if (desc.length > 150) {
                                     Spacer(Modifier.height(6.dp))
-                                    Text(
-                                        text = if (isDescriptionExpanded) "Thu gọn ▲" else "Xem thêm ▼",
-                                        fontSize = 12.5.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = Color(0xFF0E7643),
-                                        modifier = Modifier.clickable { isDescriptionExpanded = !isDescriptionExpanded }
-                                    )
+                                    Row(
+                                        modifier = Modifier.clickable { isDescriptionExpanded = !isDescriptionExpanded },
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                    ) {
+                                        Text(
+                                            text = if (isDescriptionExpanded) "Thu gọn" else "Xem thêm",
+                                            fontSize = 12.5.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = FutaColors.BrandGreen
+                                        )
+                                        Icon(
+                                            painter = painterResource(R.drawable.sf_chevron_down),
+                                            contentDescription = null,
+                                            tint = FutaColors.BrandGreen,
+                                            modifier = Modifier.size(12.dp).graphicsLayer {
+                                                rotationZ = if (isDescriptionExpanded) 180f else 0f
+                                            }
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -862,11 +892,22 @@ fun PropertyDetailScreen(
                                 )
                                 val addr = apt["address"].string
                                 if (addr.isNotEmpty()) {
-                                    Text(
-                                        text = "📍 $addr",
-                                        fontSize = 13.sp,
-                                        color = FutaColors.Slate
-                                    )
+                                    Row(
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                        verticalAlignment = Alignment.Top
+                                    ) {
+                                        Icon(
+                                            painter = painterResource(R.drawable.sf_mappin_circle_green),
+                                            contentDescription = null,
+                                            tint = FutaColors.BrandGreen,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                        Text(
+                                            text = addr,
+                                            fontSize = 13.sp,
+                                            color = FutaColors.Slate
+                                        )
+                                    }
                                 }
                                 Surface(
                                     shape = RoundedCornerShape(10.dp),
@@ -929,9 +970,20 @@ fun PropertyDetailScreen(
                                 color = Color.White,
                                 border = BorderStroke(1.dp, Color(0xFFD7DCE2)),
                                 modifier = Modifier
-                                    .fillMaxWidth()
                                     .clickable {
-                                        ToastCenter.show("Đang mở tài liệu: Sổ hồng sở hữu lâu dài.pdf")
+                                        val legalDocs = apt["legalDocuments"].array
+                                        val docUrl = legalDocs.firstOrNull()?.get("url")?.string.orEmpty()
+                                            .ifEmpty { apt["documentUrl"].string }
+                                        if (docUrl.isNotEmpty()) {
+                                            try {
+                                                val browserIntent = Intent(Intent.ACTION_VIEW, Uri.parse(docUrl))
+                                                context.startActivity(browserIntent)
+                                            } catch (_: Exception) {
+                                                ToastCenter.show("Không thể mở tài liệu: $docUrl", isError = true)
+                                            }
+                                        } else {
+                                            ToastCenter.show("Tài liệu pháp lý đang được cập nhật bản scan số.")
+                                        }
                                     }
                             ) {
                                 Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -1004,16 +1056,31 @@ fun PropertyDetailScreen(
                                 modifier = Modifier.fillMaxWidth(),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
+                                val advAvatar = apt["advisor"]["avatar"].string.ifEmpty { apt["createdBy"]["avatar"].string }
+                                val advName = apt["advisor"]["name"].string.ifEmpty { apt["createdBy"]["name"].string }.ifEmpty { "Chuyên viên tư vấn FUTA" }
                                 Surface(
                                     shape = CircleShape,
                                     color = Color(0xFFE8F5E9),
                                     modifier = Modifier.size(48.dp)
                                 ) {
-                                    Box(contentAlignment = Alignment.Center) {
-                                        Text("FA", color = Color(0xFF0E7643), fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                                    if (advAvatar.isNotEmpty()) {
+                                        coil3.compose.AsyncImage(
+                                            model = advAvatar,
+                                            contentDescription = advName,
+                                            contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                                            modifier = Modifier.fillMaxSize().clip(CircleShape)
+                                        )
+                                    } else {
+                                        Box(contentAlignment = Alignment.Center) {
+                                            Text(
+                                                text = advName.take(2).uppercase(),
+                                                color = Color(0xFF0E7643),
+                                                fontWeight = FontWeight.Bold,
+                                                fontSize = 16.sp
+                                            )
+                                        }
                                     }
                                 }
-                                Spacer(Modifier.width(12.dp))
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text(
                                         text = apt["ownerName"].string.ifEmpty { "Chuyên viên tư vấn FUTA Land" },
@@ -1540,7 +1607,96 @@ private fun StickyContactBottomBar(
                         )
                     }
                 }
+
+                // Quick chat icon
+                Surface(
+                    shape = CircleShape,
+                    color = Color(0xFF123355),
+                    modifier = Modifier.size(36.dp).clickable(onClick = onChatClick)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            painter = painterResource(id = R.drawable.sf_tab_chat_active),
+                            contentDescription = "Chat tư vấn",
+                            tint = Color.White,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                }
             }
         }
+    }
+}
+
+@Composable
+private fun TownhouseFloorsCard(apt: JSONValue) {
+    val landArea = apt["landArea"].string.ifEmpty { apt["townhouseSpecs"]["landArea"].string }
+    val totalFloor = apt["totalFloorArea"].string.ifEmpty { apt["townhouseSpecs"]["totalFloorArea"].string }
+    val block = apt["building"].string.ifEmpty { apt["townhouseSpecs"]["block"].string }.ifEmpty { "Chưa cập nhật" }
+    val totalFloorsVal = when {
+        apt["totalFloors"].int > 0 -> "${apt["totalFloors"].int}"
+        apt["totalFloors"].string.isNotEmpty() -> apt["totalFloors"].string
+        apt["townhouseSpecs"]["totalFloors"].int > 0 -> "${apt["townhouseSpecs"]["totalFloors"].int}"
+        apt["townhouseSpecs"]["totalFloors"].string.isNotEmpty() -> apt["townhouseSpecs"]["totalFloors"].string
+        else -> ""
+    }
+    val rawFloors = if (apt["floorAreas"].array.isNotEmpty()) apt["floorAreas"].array else apt["townhouseSpecs"]["floorAreas"].array
+
+    FutaCard(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text(
+                text = "DIỆN TÍCH SÀN THEO TẦNG",
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFFF97316),
+                letterSpacing = 0.6.sp
+            )
+            if (landArea.isNotEmpty()) {
+                TownhouseInfoRow("Diện tích đất", if (landArea.contains("m")) landArea else "$landArea m²")
+            }
+            if (totalFloor.isNotEmpty()) {
+                TownhouseInfoRow("Tổng diện tích sàn", if (totalFloor.contains("m")) totalFloor else "$totalFloor m²")
+            }
+            TownhouseInfoRow("Block", block)
+            if (totalFloorsVal.isNotEmpty()) {
+                TownhouseInfoRow("Tổng số tầng", totalFloorsVal)
+            } else if (rawFloors.isNotEmpty()) {
+                TownhouseInfoRow("Tổng số tầng", "${rawFloors.size}")
+            }
+
+            if (rawFloors.isNotEmpty()) {
+                HorizontalDivider(color = Color(0xFFE2E8F0), modifier = Modifier.padding(vertical = 4.dp))
+                rawFloors.forEachIndexed { idx, item ->
+                    val floorNum = when {
+                        item["floor"].int > 0 -> "Tầng ${item["floor"].int}"
+                        item["floor"].string.isNotEmpty() -> {
+                            val f = item["floor"].string
+                            if (f.lowercase().contains("tầng")) f else "Tầng $f"
+                        }
+                        else -> "Tầng ${idx + 1}"
+                    }
+                    val areaVal = when {
+                        item["area_m2"].string.isNotEmpty() -> item["area_m2"].string
+                        item["area_m2"].double > 0 -> String.format(java.util.Locale.US, "%.2f", item["area_m2"].double)
+                        else -> ""
+                    }
+                    if (areaVal.isNotEmpty()) {
+                        TownhouseInfoRow(floorNum, if (areaVal.contains("m")) areaVal else "$areaVal m²")
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun TownhouseInfoRow(label: String, value: String) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(text = label, fontSize = 13.sp, color = FutaColors.Slate)
+        Text(text = value, fontSize = 13.5.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
     }
 }

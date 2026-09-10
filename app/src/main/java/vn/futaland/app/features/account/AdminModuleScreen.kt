@@ -10,6 +10,7 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -27,12 +28,16 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
+import coil3.request.ImageRequest
+import coil3.compose.LocalPlatformContext
 import kotlinx.coroutines.launch
 import vn.futaland.app.R
 import vn.futaland.app.core.network.APIClient
 import vn.futaland.app.core.network.JSONValue
 import vn.futaland.app.designsystem.*
 import vn.futaland.app.features.properties.PropertyFormatters
+import coil3.request.transformations
+import vn.futaland.app.features.discovery.ProjectBannerTransformation
 
 data class ModuleMetric(
     val key: String,
@@ -53,6 +58,8 @@ fun AdminModuleScreen(
     val scope = rememberCoroutineScope()
     var search by remember { mutableStateOf("") }
     var selectedStatus by remember { mutableStateOf("all") }
+    var sortOption by remember { mutableStateOf("newest") }
+    var showSortDialog by remember { mutableStateOf(false) }
     var records by remember { mutableStateOf<List<JSONValue>>(emptyList()) }
     var loading by remember { mutableStateOf(true) }
 
@@ -61,7 +68,6 @@ fun AdminModuleScreen(
     var showCreateSheet by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
     var actionBusy by remember { mutableStateOf(false) }
-
     fun loadData() {
         scope.launch {
             loading = true
@@ -120,10 +126,10 @@ fun AdminModuleScreen(
         val countSold = records.count { it["status"].string.lowercase() in listOf("sold", "closed", "completed") }
 
         listOf(
-            "all" to "⌂ Tất cả ($total)",
-            "selling" to "🔥 Đang mở bán ($countSelling)",
-            "pending" to "🛡 Đang giữ chỗ / Cọc ($countPending)",
-            "sold" to "✓ Đã bán ($countSold)"
+            "all" to "Tất cả ($total)",
+            "selling" to "Đang mở bán ($countSelling)",
+            "pending" to "Đang giữ chỗ / Cọc ($countPending)",
+            "sold" to "Đã bán ($countSold)"
         )
     }
 
@@ -197,7 +203,7 @@ fun AdminModuleScreen(
                                 imageVector = Icons.Default.SwapVert,
                                 contentDescription = "Sắp xếp",
                                 tint = FutaColors.BrandGreen,
-                                modifier = Modifier.size(18.dp).clickable { ToastCenter.show("Sắp xếp danh sách") }
+                                modifier = Modifier.size(18.dp).clickable { showSortDialog = true }
                             )
                             Icon(
                                 imageVector = Icons.Default.Tune,
@@ -300,13 +306,31 @@ fun AdminModuleScreen(
                             shadowElevation = if (isSelected) 2.dp else 0.5.dp,
                             modifier = Modifier.clickable { selectedStatus = stKey }
                         ) {
-                            Text(
-                                text = stLabel,
-                                fontSize = 12.sp,
-                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                color = if (isSelected) Color.White else FutaColors.Navy,
-                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 7.dp)
-                            )
+                            Row(
+                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 7.dp),
+                                horizontalArrangement = Arrangement.spacedBy(5.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    painter = painterResource(
+                                        id = when (stKey) {
+                                            "all" -> R.drawable.sf_chip_all_inactive
+                                            "selling" -> R.drawable.sf_chip_tag_inactive
+                                            "pending" -> R.drawable.sf_acc_history
+                                            else -> R.drawable.sf_adm_transactions
+                                        }
+                                    ),
+                                    contentDescription = null,
+                                    tint = if (isSelected) Color.White else FutaColors.Navy,
+                                    modifier = Modifier.size(12.dp)
+                                )
+                                Text(
+                                    text = stLabel,
+                                    fontSize = 12.sp,
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                    color = if (isSelected) Color.White else FutaColors.Navy
+                                )
+                            }
                         }
                     }
                 }
@@ -483,8 +507,9 @@ fun AdminModuleScreen(
         }
     }
 
-    // Delete Confirmation Dialog
+    // Delete Confirmation Dialog with real API DELETE
     if (showDeleteDialog) {
+        val idToDelete = selectedRecord?.id.orEmpty()
         FutaDialog(
             visible = true,
             onDismiss = { showDeleteDialog = false },
@@ -494,12 +519,182 @@ fun AdminModuleScreen(
             onConfirm = {
                 showDeleteDialog = false
                 selectedRecord = null
-                ToastCenter.show("Đã xóa bản ghi thành công")
+                if (idToDelete.isNotEmpty()) {
+                    scope.launch {
+                        try {
+                            APIClient.get().request("$endpoint/$idToDelete", method = "DELETE")
+                            ToastCenter.show("Đã xóa bản ghi thành công")
+                            loadData()
+                        } catch (e: Exception) {
+                            ToastCenter.show("Lỗi xóa: ${e.message}", isError = true)
+                        }
+                    }
+                }
             },
             cancelText = "Hủy",
             onCancel = { showDeleteDialog = false }
         ) {
             Text("Dữ liệu sau khi xóa sẽ không thể phục hồi. Bạn có chắc chắn muốn xóa không?", fontSize = 13.5.sp, color = FutaColors.Slate)
+        }
+    }
+
+    // Sort Selection Dialog
+    if (showSortDialog) {
+        FutaDialog(
+            visible = true,
+            onDismiss = { showSortDialog = false },
+            title = "Sắp xếp danh sách",
+            confirmText = "Đóng",
+            cancelText = null,
+            onConfirm = { showSortDialog = false }
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                listOf(
+                    "newest" to "Mới nhất trước",
+                    "oldest" to "Cũ nhất trước",
+                    "name_asc" to "Tên / Tiêu đề (A - Z)",
+                    "name_desc" to "Tên / Tiêu đề (Z - A)"
+                ).forEach { (optKey, optLabel) ->
+                    val isSelected = sortOption == optKey
+                    Surface(
+                        shape = RoundedCornerShape(10.dp),
+                        color = if (isSelected) FutaColors.MintBg else Color(0xFFF8FAFC),
+                        border = BorderStroke(1.dp, if (isSelected) FutaColors.BrandGreen else Color(0xFFE2E8F0)),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                sortOption = optKey
+                                showSortDialog = false
+                            }
+                    ) {
+                        Text(
+                            text = optLabel,
+                            fontSize = 13.sp,
+                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                            color = if (isSelected) FutaColors.BrandGreen else FutaColors.Navy,
+                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    // Create Record BottomSheet
+    if (showCreateSheet) {
+        AdminRecordCreateSheet(
+            moduleTitle = title,
+            endpoint = endpoint,
+            onDismiss = { showCreateSheet = false },
+            onSuccess = {
+                showCreateSheet = false
+                loadData()
+            }
+        )
+    }
+}
+
+@Composable
+private fun AdminRecordCreateSheet(
+    moduleTitle: String,
+    endpoint: String,
+    onDismiss: () -> Unit,
+    onSuccess: () -> Unit
+) {
+    val scope = rememberCoroutineScope()
+    var name by remember { mutableStateOf("") }
+    var code by remember { mutableStateOf("") }
+    var status by remember { mutableStateOf("selling") }
+    var category by remember { mutableStateOf("") }
+    var valueStr by remember { mutableStateOf("") }
+    var description by remember { mutableStateOf("") }
+    var isSubmitting by remember { mutableStateOf(false) }
+
+    FutaBottomSheet(
+        visible = true,
+        onDismiss = onDismiss,
+        title = "Thêm mới $moduleTitle"
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+                .padding(bottom = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text("Tên / Tiêu đề *", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
+                FutaInput(value = name, onValueChange = { name = it }, placeholder = "Nhập tên hoặc tiêu đề...")
+            }
+
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text("Mã quản lý *", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
+                    FutaInput(value = code, onValueChange = { code = it.uppercase() }, placeholder = "Ví dụ: TS-01, PRJ...")
+                }
+                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text("Phân khu / Danh mục", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
+                    FutaInput(value = category, onValueChange = { category = it }, placeholder = "Khu A, Block 1...")
+                }
+            }
+
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text("Trạng thái", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf("selling" to "Mở bán", "pending" to "Chờ duyệt", "sold" to "Đã bán").forEach { (sKey, sLabel) ->
+                        val isSelected = status == sKey
+                        Surface(
+                            shape = RoundedCornerShape(10.dp),
+                            color = if (isSelected) FutaColors.MintBg else Color(0xFFF8FAFC),
+                            border = BorderStroke(1.dp, if (isSelected) FutaColors.BrandGreen else Color(0xFFE2E8F0)),
+                            modifier = Modifier.clickable { status = sKey }
+                        ) {
+                            Text(
+                                text = sLabel,
+                                fontSize = 12.sp,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                color = if (isSelected) FutaColors.BrandGreen else FutaColors.Navy,
+                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 7.dp)
+                            )
+                        }
+                    }
+                }
+            }
+
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text("Giá trị / Mức giá (VNĐ)", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
+                FutaInput(value = valueStr, onValueChange = { valueStr = it.filter { c -> c.isDigit() } }, placeholder = "Nhập giá tiền nếu có...")
+            }
+
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text("Ghi chú / Mô tả", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
+                FutaInput(value = description, onValueChange = { description = it }, placeholder = "Mô tả chi tiết bản ghi...", singleLine = false)
+            }
+
+            Spacer(Modifier.height(8.dp))
+
+            FutaButton(
+                text = if (isSubmitting) "Đang lưu..." else "Tạo bản ghi mới",
+                variant = FutaButtonVariant.PRIMARY,
+                enabled = !isSubmitting && name.isNotEmpty(),
+                onClick = {
+                    scope.launch {
+                        isSubmitting = true
+                        try {
+                            val numVal = valueStr.toDoubleOrNull() ?: 0.0
+                            val body = "{\"title\":\"$name\",\"name\":\"$name\",\"code\":\"$code\",\"propertyCode\":\"$code\",\"status\":\"$status\",\"zone\":\"$category\",\"category\":\"$category\",\"price\":$numVal,\"description\":\"$description\"}"
+                            APIClient.get().request(endpoint, method = "POST", bodyJson = body)
+                            ToastCenter.show("Tạo mới thành công!")
+                            onSuccess()
+                        } catch (e: Exception) {
+                            ToastCenter.show("Lỗi tạo mới: ${e.message}", isError = true)
+                        } finally {
+                            isSubmitting = false
+                        }
+                    }
+                },
+                modifier = Modifier.fillMaxWidth()
+            )
         }
     }
 }
@@ -610,7 +805,9 @@ private fun InventoryCardRow(
                             modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text("🔒 ERP", fontSize = 9.sp, fontWeight = FontWeight.Black, color = Color.White)
+                            Icon(painterResource(R.drawable.sf_adm_lock), null, tint = Color.White, modifier = Modifier.size(9.dp))
+                            Spacer(Modifier.width(2.dp))
+                            Text("ERP", fontSize = 9.sp, fontWeight = FontWeight.Black, color = Color.White)
                         }
                     }
                 }
@@ -627,13 +824,19 @@ private fun InventoryCardRow(
                 ) {
                     Text(code, fontSize = 15.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
                     Surface(shape = CircleShape, color = Color(0xFFE8F5E9)) {
-                        Text(
-                            text = "• $status",
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFF0E7643),
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
-                        )
+                        Row(
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(painterResource(R.drawable.sf_chip_tag_inactive), null, tint = FutaColors.BrandGreen, modifier = Modifier.size(10.dp))
+                            Text(
+                                text = status,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = FutaColors.BrandGreen
+                            )
+                        }
                     }
                 }
 
@@ -688,88 +891,178 @@ private fun InventoryCardRow(
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun ProjectCardRow(
     item: JSONValue,
     onClick: () -> Unit
 ) {
-    val title = item["displayName"].string.ifEmpty { item["name"].string.ifEmpty { "Dự án FUTA" } }
-    val banner = item["bannerImage"].string.ifEmpty { item["image"].string }
-    val code = item["code"].string.ifEmpty { "FUTA" }
-    val developer = item["developer"].string.ifEmpty { "Tập đoàn FUTA (Phương Trang)" }
-    val location = item["location"].string.ifEmpty { item["address"].string.ifEmpty { "Đà Nẵng" } }
+    val title = item["displayName"].string.trim().ifEmpty { item["name"].string.trim().ifEmpty { "Dự án" } }
+    val banner = PropertyFormatters.resolveProjectBanner(item)
+    val code = item["code"].string.trim()
+    val zoneName = item["zone"].string.trim()
+    val developer = item["developer"].string.trim()
+    val landArea = item["landArea"].string.trim()
+    val projectType = item["projectType"].string.trim()
+    val imageContext = LocalPlatformContext.current
+    val address = item["address"].string.trim()
+        .ifEmpty { item["location"].string.trim() }
+        .ifEmpty { item["province"].string.trim() }
+        .ifEmpty { "Chưa cập nhật địa chỉ" }
+    val rawStatus = item["status"].string.trim()
+    val (statusText, statusColor) = when (rawStatus.lowercase()) {
+        "selling" -> "Đang mở bán" to FutaColors.BrandGreen
+        "upcoming" -> "Sắp mở bán" to Color(0xFFF97316)
+        "sold_out" -> "Đã bàn giao" to FutaColors.Slate
+        else -> rawStatus to FutaColors.Slate
+    }
+    val showOnHome = item["showOnHome"].bool
+    val homeOrder = item["homeOrder"].int
+    val hidden = item["hidden"].bool
 
     FutaCard(
         modifier = Modifier.fillMaxWidth(),
+        borderColor = Color(0xFFE2E8F0),
         shape = RoundedCornerShape(16.dp),
         onClick = onClick
     ) {
-        Column {
-            // 16:9 Banner Image with Frosted Badges matching iOS
+        Column(verticalArrangement = Arrangement.spacedBy(0.dp)) {
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(130.dp)
+                    .height(160.dp)
+                    .clip(androidx.compose.ui.graphics.RectangleShape)
                     .background(Color(0xFFE2E8F0))
             ) {
                 if (banner.isNotEmpty()) {
                     AsyncImage(
-                        model = banner,
+                        model = ImageRequest.Builder(imageContext)
+                            .data(banner)
+                            .transformations(ProjectBannerTransformation())
+                            .build(),
                         contentDescription = title,
                         contentScale = ContentScale.Crop,
                         modifier = Modifier.fillMaxSize()
                     )
-                }
-                Surface(
-                    shape = CircleShape,
-                    color = Color.White.copy(alpha = 0.88f),
-                    modifier = Modifier.align(Alignment.TopStart).padding(10.dp)
-                ) {
-                    Text(
-                        text = "⌂ Trang chủ #1",
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.Black,
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                } else {
+                    Icon(
+                        painter = painterResource(R.drawable.sf_quick_projects),
+                        contentDescription = null,
+                        tint = FutaColors.Slate,
+                        modifier = Modifier.size(40.dp).align(Alignment.Center)
                     )
                 }
-                Surface(
-                    shape = CircleShape,
-                    color = Color(0xFF0E7643),
-                    modifier = Modifier.align(Alignment.TopEnd).padding(10.dp)
+
+                FlowRow(
+                    modifier = Modifier.align(Alignment.TopEnd).padding(10.dp),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.End),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    Text(
-                        text = "Đang mở bán",
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White,
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
-                    )
+                    if (showOnHome) {
+                        Surface(
+                            shape = CircleShape,
+                            color = Color.White.copy(alpha = 0.94f),
+                            border = BorderStroke(0.5.dp, Color.Black.copy(alpha = 0.08f))
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Icon(painterResource(R.drawable.sf_tab_home_inactive), null, tint = FutaColors.Navy, modifier = Modifier.size(11.dp))
+                                Text(if (homeOrder > 0) "Trang chủ #$homeOrder" else "Trang chủ", fontSize = 10.5.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
+                            }
+                        }
+                    }
+                    if (hidden) {
+                        Surface(
+                            shape = CircleShape,
+                            color = Color(0xFFFFF7ED),
+                            border = BorderStroke(0.5.dp, Color(0xFFFDBA74))
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Box(modifier = Modifier.size(5.dp).background(Color(0xFFF97316), CircleShape))
+                                Text("Đã ẩn", fontSize = 10.5.sp, fontWeight = FontWeight.Bold, color = Color(0xFFF97316))
+                            }
+                        }
+                    }
+                    if (statusText.isNotEmpty()) {
+                        Surface(shape = CircleShape, color = statusColor) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(painterResource(R.drawable.sf_chip_tag_inactive), null, tint = Color.White, modifier = Modifier.size(10.dp))
+                                Text(statusText, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                            }
+                        }
+                    }
                 }
             }
 
-            // Info Body
-            Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(title, fontSize = 16.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
-                Text("Mã: $code · Phân khu: $title", fontSize = 11.5.sp, color = FutaColors.Slate)
-
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text("13.213 m²", fontSize = 11.5.sp, color = FutaColors.Navy)
-                    Text("•", fontSize = 10.sp, color = Color(0xFFCBD5E1))
-                    Text("Căn hộ", fontSize = 11.5.sp, color = FutaColors.Navy)
-                    Text("•", fontSize = 10.sp, color = Color(0xFFCBD5E1))
-                    Text(location, fontSize = 11.5.sp, color = FutaColors.BrandGreen)
-                }
-
-                HorizontalDivider(color = Color(0xFFF1F5F9))
-
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalAlignment = Alignment.Top
+                ) {
+                    Icon(
+                        painter = painterResource(R.drawable.sf_mappin_circle_green),
+                        contentDescription = null,
+                        tint = Color.Unspecified,
+                        modifier = Modifier.padding(top = 2.dp).size(15.dp)
+                    )
+                    Text(address, fontSize = 13.sp, lineHeight = 19.sp, color = FutaColors.Slate, modifier = Modifier.weight(1f))
+                }
+                if (code.isNotEmpty() || zoneName.isNotEmpty()) {
+                    val identifier = when {
+                        code.isEmpty() -> "Phân khu: $zoneName"
+                        zoneName.isEmpty() -> "Mã: $code"
+                        else -> "Mã: $code · Phân khu: $zoneName"
+                    }
+                    Text(identifier, fontSize = 12.sp, color = FutaColors.Slate)
+                }
+                if (landArea.isNotEmpty() || projectType.isNotEmpty()) {
+                    FlowRow(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(14.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        if (landArea.isNotEmpty()) {
+                            Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Icon(painterResource(R.drawable.sf_spec_area), null, tint = FutaColors.BrandGreen, modifier = Modifier.size(14.dp))
+                                Text("$landArea m²", fontSize = 11.5.sp, fontWeight = FontWeight.Bold, color = FutaColors.BrandGreen)
+                            }
+                        }
+                        if (projectType.isNotEmpty()) {
+                            Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Icon(painterResource(R.drawable.sf_quick_house), null, tint = FutaColors.Slate, modifier = Modifier.size(13.dp))
+                                Text(projectType, fontSize = 11.5.sp, color = FutaColors.Slate)
+                            }
+                        }
+                    }
+                }
+                HorizontalDivider(color = Color(0xFFF1F5F9))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(developer, fontSize = 11.sp, color = FutaColors.Slate, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Text("Chi tiết >", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = FutaColors.BrandGreen)
+                    if (developer.isNotEmpty()) {
+                        Text(developer, fontSize = 11.sp, color = FutaColors.Slate, modifier = Modifier.weight(1f))
+                    } else {
+                        Spacer(Modifier.weight(1f))
+                    }
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text("Chi tiết", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = FutaColors.BrandGreen)
+                        Icon(painterResource(R.drawable.sf_chevron_right_green), null, tint = Color.Unspecified, modifier = Modifier.size(9.dp))
+                    }
                 }
             }
         }

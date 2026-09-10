@@ -34,12 +34,14 @@ data class NotificationModel(
     val isRead: Boolean,
     val category: String,
     val icon: ImageVector,
-    val iconColor: Color
+    val iconColor: Color,
+    val route: String? = null
 )
 
 @Composable
 fun NotificationsScreen(
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    onNavigate: (String) -> Unit = {}
 ) {
     val scope = rememberCoroutineScope()
     var selectedCategory by remember { mutableStateOf("all") }
@@ -60,6 +62,7 @@ fun NotificationsScreen(
                             "promotion", "voucher", "marketing" -> Icons.Default.Star to FutaColors.BrandOrange
                             else -> Icons.Default.Notifications to FutaColors.BrandGreen
                         }
+                        val targetRoute = item["route"].string.ifEmpty { item["link"].string.ifEmpty { item["data"]["route"].string } }.takeIf { it.isNotEmpty() }
                         NotificationModel(
                             id = item["id"].string.ifEmpty { item["_id"].string },
                             title = item["title"].string.ifEmpty { "Thông báo hệ thống" },
@@ -68,7 +71,8 @@ fun NotificationsScreen(
                             isRead = item["isRead"].bool || item["read"].bool,
                             category = cat,
                             icon = icon,
-                            iconColor = color
+                            iconColor = color,
+                            route = targetRoute
                         )
                     }
                 } else {
@@ -213,7 +217,18 @@ fun NotificationsScreen(
                 itemsIndexed(filteredNotifications, key = { idx, item -> "$idx-${item.id}" }) { _, item ->
                     FutaCard(
                         modifier = Modifier.fillMaxWidth(),
-                        borderColor = if (item.isRead) FutaColors.LightBlueBorder else FutaColors.BrandGreen.copy(alpha = 0.5f)
+                        borderColor = if (item.isRead) FutaColors.LightBlueBorder else FutaColors.BrandGreen.copy(alpha = 0.5f),
+                        onClick = {
+                            if (!item.isRead) {
+                                scope.launch {
+                                    try {
+                                        APIClient.get().request("/notifications/${item.id}/read", method = "PATCH")
+                                    } catch (_: Exception) {}
+                                }
+                                notifications = notifications.map { if (it.id == item.id) it.copy(isRead = true) else it }
+                            }
+                            item.route?.let { r -> onNavigate(r) }
+                        }
                     ) {
                         Row(
                             modifier = Modifier.padding(14.dp),

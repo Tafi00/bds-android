@@ -1,7 +1,11 @@
 package vn.futaland.app.features.properties
 
+import android.app.Activity
 import android.content.Intent
 import android.net.Uri
+import android.speech.RecognizerIntent
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -34,14 +38,18 @@ import vn.futaland.app.navigation.FutaDestinations
 
 @Composable
 fun PropertySearchScreen(
+    initialPropertyType: String? = null,
+    initialKeyword: String? = null,
     onNavigate: (String) -> Unit
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
-    var keyword by remember { mutableStateOf("") }
+    var keyword by remember { mutableStateOf(initialKeyword.orEmpty()) }
     var listingType by remember { mutableStateOf("") } // "", "sell", "rent"
-    var propertyType by remember { mutableStateOf("") }
+    var propertyType by remember { mutableStateOf(initialPropertyType.orEmpty()) }
+    var zone by remember { mutableStateOf("") }
+    var furniture by remember { mutableStateOf("") }
     var sort by remember { mutableStateOf("newest") } // "newest", "price_asc", "price_desc", "area_desc"
     var minPrice by remember { mutableStateOf("") }
     var maxPrice by remember { mutableStateOf("") }
@@ -50,6 +58,16 @@ fun PropertySearchScreen(
     var minArea by remember { mutableStateOf("") }
     var maxArea by remember { mutableStateOf("") }
 
+    val speechLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            val spoken = result.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)?.firstOrNull()
+            if (!spoken.isNullOrBlank()) {
+                keyword = spoken
+            }
+        }
+    }
     var showFilterSheet by remember { mutableStateOf(false) }
     var showSortPopover by remember { mutableStateOf(false) }
 
@@ -61,7 +79,8 @@ fun PropertySearchScreen(
 
     val hasActiveFilters = listingType.isNotEmpty() || propertyType.isNotEmpty() ||
             minPrice.isNotEmpty() || maxPrice.isNotEmpty() || bedrooms.isNotEmpty() ||
-            direction.isNotEmpty() || minArea.isNotEmpty() || maxArea.isNotEmpty() || sort != "newest"
+            direction.isNotEmpty() || minArea.isNotEmpty() || maxArea.isNotEmpty() ||
+            zone.isNotEmpty() || furniture.isNotEmpty() || sort != "newest"
 
     fun search(targetPage: Int = 1) {
         scope.launch {
@@ -69,18 +88,37 @@ fun PropertySearchScreen(
             page = targetPage
             try {
                 val query = mutableMapOf<String, String>()
-                if (keyword.isNotEmpty()) query["search"] = keyword
+                if (keyword.isNotEmpty()) {
+                    query["q"] = keyword
+                    query["search"] = keyword
+                }
                 if (listingType.isNotEmpty()) query["listingType"] = listingType
                 if (propertyType.isNotEmpty()) query["propertyType"] = propertyType
-                if (minPrice.isNotEmpty()) query["minPrice"] = minPrice.filter { it.isDigit() }
-                if (maxPrice.isNotEmpty()) query["maxPrice"] = maxPrice.filter { it.isDigit() }
+                if (minPrice.isNotEmpty()) {
+                    val p = minPrice.filter { it.isDigit() }
+                    query["priceMin"] = p
+                    query["minPrice"] = p
+                }
+                if (maxPrice.isNotEmpty()) {
+                    val p = maxPrice.filter { it.isDigit() }
+                    query["priceMax"] = p
+                    query["maxPrice"] = p
+                }
                 if (bedrooms.isNotEmpty()) query["bedrooms"] = bedrooms
                 if (direction.isNotEmpty()) query["direction"] = direction
-                if (minArea.isNotEmpty()) query["minArea"] = minArea
-                if (maxArea.isNotEmpty()) query["maxArea"] = maxArea
+                if (minArea.isNotEmpty()) {
+                    query["areaMin"] = minArea
+                    query["minArea"] = minArea
+                }
+                if (maxArea.isNotEmpty()) {
+                    query["areaMax"] = maxArea
+                    query["maxArea"] = maxArea
+                }
+                if (zone.isNotEmpty()) query["zone"] = zone
+                if (furniture.isNotEmpty()) query["furniture"] = furniture
                 query["sort"] = sort
                 query["page"] = page.toString()
-                query["limit"] = "12"
+                query["limit"] = "20"
 
                 val res = APIClient.get().request("/apartments", query = query)
                 results = res["data"].array
@@ -124,18 +162,40 @@ fun PropertySearchScreen(
                             },
                             placeholder = "Tìm theo tên dự án, địa chỉ, mã căn...",
                             leadingIcon = Icons.Default.Search,
-                            trailingIcon = if (keyword.isNotEmpty()) {
-                                {
+                            trailingIcon = {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    if (keyword.isNotEmpty()) {
+                                        Icon(
+                                            imageVector = Icons.Default.Close,
+                                            contentDescription = "Xóa từ khóa",
+                                            tint = FutaColors.Slate,
+                                            modifier = Modifier
+                                                .size(18.dp)
+                                                .clickable { keyword = ""; search(1) }
+                                        )
+                                        Spacer(Modifier.width(6.dp))
+                                    }
                                     Icon(
-                                        imageVector = Icons.Default.Close,
-                                        contentDescription = null,
-                                        tint = FutaColors.Slate,
+                                        imageVector = Icons.Default.Mic,
+                                        contentDescription = "Tìm kiếm giọng nói",
+                                        tint = FutaColors.BrandGreen,
                                         modifier = Modifier
-                                            .size(18.dp)
-                                            .clickable { keyword = ""; search(1) }
+                                            .size(20.dp)
+                                            .clickable {
+                                                val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+                                                    putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+                                                    putExtra(RecognizerIntent.EXTRA_LANGUAGE, "vi-VN")
+                                                    putExtra(RecognizerIntent.EXTRA_PROMPT, "Tìm kiếm bất động sản FUTA Land...")
+                                                }
+                                                try {
+                                                    speechLauncher.launch(intent)
+                                                } catch (_: Exception) {
+                                                    ToastCenter.show("Thiết bị không hỗ trợ nhận diện giọng nói", isError = true)
+                                                }
+                                            }
                                     )
                                 }
-                            } else null,
+                            },
                             modifier = Modifier.weight(1f)
                         )
 
@@ -516,6 +576,37 @@ fun PropertySearchScreen(
                     }
                 }
             }
+            // Zone / Project Filter (Matching iOS availableZones)
+            Text("DỰ ÁN / PHÂN KHU", fontSize = 11.5.sp, fontWeight = FontWeight.Bold, color = FutaColors.Slate)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                listOf("", "Times Square", "Khu Đô Thị C5B", "Hilton Phan Thiết", "Thuận Phước", "FUTA Kim Long", "Bến Tre Riverside").forEach { z ->
+                    val isSelected = zone == z
+                    QuickChip(title = z.ifEmpty { "Tất cả" }, isSelected = isSelected) {
+                        zone = z
+                    }
+                }
+            }
+
+            // Furniture Filter (Matching iOS)
+            Text("TÌNH TRẠNG NỘI THẤT", fontSize = 11.5.sp, fontWeight = FontWeight.Bold, color = FutaColors.Slate)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                listOf("" to "Tất cả", "Nhà trống" to "Nhà trống", "Bếp rèm" to "Bếp rèm", "Cơ bản" to "Cơ bản cao cấp", "Đầy đủ" to "Đầy đủ nội thất").forEach { (fVal, fLabel) ->
+                    val isSelected = furniture == fVal
+                    QuickChip(title = fLabel, isSelected = isSelected) {
+                        furniture = fVal
+                    }
+                }
+            }
 
             Spacer(Modifier.height(10.dp))
 
@@ -530,6 +621,8 @@ fun PropertySearchScreen(
                     onClick = {
                         listingType = ""
                         propertyType = ""
+                        zone = ""
+                        furniture = ""
                         minPrice = ""
                         maxPrice = ""
                         bedrooms = ""

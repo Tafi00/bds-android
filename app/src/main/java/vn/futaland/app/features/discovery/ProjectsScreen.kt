@@ -31,6 +31,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
+import coil3.request.ImageRequest
+import coil3.request.transformations
+import coil3.compose.LocalPlatformContext
 import kotlinx.coroutines.launch
 import vn.futaland.app.R
 import vn.futaland.app.core.network.APIClient
@@ -247,7 +250,10 @@ private fun PublicProjectCard(
                     .background(Color(0xFFE2E8F0))
             ) {
                 AsyncImage(
-                    model = banner,
+                    model = ImageRequest.Builder(LocalPlatformContext.current)
+                        .data(banner)
+                        .transformations(ProjectBannerTransformation())
+                        .build(),
                     contentDescription = title,
                     contentScale = ContentScale.Crop,
                     modifier = Modifier.fillMaxSize()

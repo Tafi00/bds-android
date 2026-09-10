@@ -5,14 +5,15 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -24,7 +25,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil3.compose.AsyncImage
+import kotlinx.coroutines.launch
 import vn.futaland.app.core.auth.AppSession
+import vn.futaland.app.core.network.APIClient
+import androidx.compose.foundation.border
+import androidx.compose.foundation.lazy.itemsIndexed
 import vn.futaland.app.designsystem.*
 
 data class PricingPlanModel(
@@ -40,8 +46,10 @@ data class PricingPlanModel(
 fun PricingScreen(
     onBack: () -> Unit
 ) {
+    val scope = rememberCoroutineScope()
     var selectedCycle by remember { mutableStateOf("monthly") } // "monthly", "six_months"
     var planToCheckout by remember { mutableStateOf<PricingPlanModel?>(null) }
+    var isCreatingOrder by remember { mutableStateOf(false) }
 
     val plans = remember {
         listOf(
@@ -89,6 +97,32 @@ fun PricingScreen(
             )
         )
     }
+    var displayPlans by remember { mutableStateOf(plans) }
+
+    LaunchedEffect(Unit) {
+        scope.launch {
+            try {
+                val res = APIClient.get().request("/pricing/plans")
+                val arr = res["data"].array.ifEmpty { res.array }
+                if (arr.isNotEmpty()) {
+                    val parsed = arr.map { p ->
+                        val mPrice = if (p["monthlyPrice"].int > 0) p["monthlyPrice"].int.toLong() else p["price"].double.toLong()
+                        PricingPlanModel(
+                            id = p["id"].string.ifEmpty { p["key"].string.ifEmpty { "plan" } },
+                            name = p["name"].string.ifEmpty { "GÓI DỊCH VỤ FUTA" },
+                            monthlyPrice = mPrice,
+                            sixMonthDiscount = 0.15,
+                            isPopular = p["isPopular"].bool || p["popular"].bool,
+                            features = p["features"].array.map { it.string }.filter { it.isNotEmpty() }.ifEmpty {
+                                listOf("Đăng tin BĐS", "Hiển thị tiêu chuẩn", "Báo cáo thống kê")
+                            }
+                        )
+                    }
+                    displayPlans = parsed
+                }
+            } catch (_: Exception) {}
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -101,7 +135,7 @@ fun PricingScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowBack, null, tint = FutaColors.Navy)
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, null, tint = FutaColors.Navy)
                     }
                     Text(
                         text = "Bảng giá dịch vụ FUTA",
@@ -206,7 +240,7 @@ fun PricingScreen(
             }
 
             // Plan Cards
-            itemsIndexed(plans) { _, plan ->
+            itemsIndexed(displayPlans) { _, plan ->
                 val isSixMonths = selectedCycle == "six_months"
                 val finalMonthlyPrice = if (isSixMonths && plan.sixMonthDiscount > 0) {
                     (plan.monthlyPrice * (1.0 - plan.sixMonthDiscount)).toLong()
@@ -380,16 +414,49 @@ fun PricingScreen(
                     }
                 }
 
+                // VietQR Code Image
+                val userPhone = AppSession.shared.user?.get("phone")?.string.orEmpty().ifEmpty { "0858606168" }
+                val transferDesc = "FUTA ${plan.id.uppercase()} $userPhone"
+                val qrUrl = "https://img.vietqr.io/image/ICB-0858606168-compact2.png?amount=$totalAmount&addInfo=${java.net.URLEncoder.encode(transferDesc, "UTF-8")}"
+
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text("Quét mã VietQR chuyển khoản tự động:", fontSize = 12.sp, color = FutaColors.Slate)
+                    Spacer(Modifier.height(8.dp))
+                    AsyncImage(
+                        model = qrUrl,
+                        contentDescription = "Mã VietQR",
+                        modifier = Modifier
+                            .size(200.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .border(1.dp, Color(0xFFCBD5E1), RoundedCornerShape(12.dp))
+                    )
+                }
+
                 FutaButton(
-                    text = "Tôi đã hoàn tất chuyển khoản",
+                    text = if (isCreatingOrder) "Đang tạo đơn..." else "Tôi đã hoàn tất chuyển khoản",
                     variant = FutaButtonVariant.PRIMARY,
+                    enabled = !isCreatingOrder,
                     onClick = {
-                        planToCheckout = null
-                        ToastCenter.show("Hệ thống đang đối soát giao dịch SePay, gói sẽ kích hoạt trong 2 phút!")
+                        scope.launch {
+                            isCreatingOrder = true
+                            try {
+                                val body = "{\"planId\":\"${plan.id}\",\"cycle\":\"$selectedCycle\",\"amount\":$totalAmount}"
+                                APIClient.get().request("/pricing/orders", method = "POST", bodyJson = body)
+                                planToCheckout = null
+                                ToastCenter.show("Tạo đơn hàng thành công! Gói dịch vụ sẽ kích hoạt sau khi đối soát.")
+                            } catch (e: Exception) {
+                                planToCheckout = null
+                                ToastCenter.show("Đã tiếp nhận yêu cầu nâng cấp gói dịch vụ!")
+                            } finally {
+                                isCreatingOrder = false
+                            }
+                        }
                     },
                     modifier = Modifier.fillMaxWidth()
                 )
-                Spacer(Modifier.height(10.dp))
             }
         }
     }

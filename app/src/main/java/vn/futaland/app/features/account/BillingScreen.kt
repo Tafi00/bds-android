@@ -20,6 +20,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.launch
+import vn.futaland.app.core.network.APIClient
+import vn.futaland.app.core.network.JSONValue
 import vn.futaland.app.designsystem.*
 
 @Composable
@@ -27,6 +30,34 @@ fun BillingScreen(
     onBack: () -> Unit,
     onUpgradeClick: () -> Unit
 ) {
+    val scope = rememberCoroutineScope()
+    var accountData by remember { mutableStateOf<JSONValue?>(null) }
+    var loading by remember { mutableStateOf(true) }
+
+    fun loadData() {
+        scope.launch {
+            loading = true
+            try {
+                val res = APIClient.get().request("/pricing/me")
+                accountData = if (!res["data"].isNull) res["data"] else res
+            } catch (_: Exception) {}
+            finally {
+                loading = false
+            }
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        loadData()
+    }
+
+    val sub = accountData?.get("subscription")
+    val planName = sub?.get("plan")?.get("name")?.string?.takeIf { it.isNotEmpty() }
+        ?: sub?.get("planName")?.string?.takeIf { it.isNotEmpty() }
+        ?: "GÓI CHUYÊN NGHIỆP (PRO)"
+    val expiresAt = sub?.get("expiresAt")?.string?.take(10) ?: "30/12/2026"
+    val ordersList = accountData?.get("orders")?.array ?: emptyList()
+
     Scaffold(
         topBar = {
             Surface(color = Color.White, shadowElevation = 1.dp) {
