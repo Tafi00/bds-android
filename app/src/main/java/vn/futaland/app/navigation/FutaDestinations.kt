@@ -15,6 +15,7 @@ object FutaDestinations {
     const val PROPERTY_DETAIL = "property_detail/{id}"
     const val PROJECT_DETAIL = "project_detail/{id}"
     const val PROJECTS_LIST = "projects_list"
+    const val PROJECTS_MAP = "projects_map"
     const val NEWS_DETAIL = "news_detail/{slug}"
     const val LUCKY_WHEEL = "lucky_wheel"
     const val WORKSPACE = "workspace"

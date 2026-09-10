@@ -29,6 +29,10 @@ import vn.futaland.app.features.account.AdminCustomersScreen
 import vn.futaland.app.features.account.AdminExamsScreen
 import vn.futaland.app.features.account.AdminContractsScreen
 import vn.futaland.app.features.account.AdminReportsScreen
+import vn.futaland.app.features.discovery.DiscoveryScreen
+import vn.futaland.app.features.discovery.ProjectsScreen
+import vn.futaland.app.features.discovery.ProjectDetailScreen
+import vn.futaland.app.features.discovery.ProjectMapScreen
 import vn.futaland.app.core.auth.AppSession
 import vn.futaland.app.core.network.APIClient
 import vn.futaland.app.designsystem.FutaLandTheme
@@ -123,6 +127,8 @@ class MainActivity : ComponentActivity() {
                             navController.navigate(FutaDestinations.ACCOUNT)
                         } else if (path == "/saved") {
                             navController.navigate(FutaDestinations.SAVED)
+                        } else if (path == "/projects/map" || path == "/map") {
+                            safeNavigate(FutaDestinations.PROJECTS_MAP)
                         } else if (path == "/projects") {
                             safeNavigate(FutaDestinations.PROJECTS_LIST)
                         } else if (path.startsWith("/project/")) {
@@ -162,6 +168,8 @@ class MainActivity : ComponentActivity() {
                             safeNavigate(FutaDestinations.ADMIN_REPORTS)
                         } else if (path == "/advisor") {
                             safeNavigate(FutaDestinations.ADVISOR)
+                        } else if (path == "/advisor/registrations" || path == "/registrations" || path == "/advisor_registrations") {
+                            safeNavigate(FutaDestinations.ADMIN_REGISTRATIONS)
                         } else if (path == "/my-listings") {
                             safeNavigate(FutaDestinations.MY_LISTINGS)
                         } else if (path == "/history") {
@@ -177,9 +185,7 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                 }
-                val isImeVisible = WindowInsets.isImeVisible
-                val isRootTab = (currentRoute in BottomNavRoutes) && (currentRoute != FutaDestinations.INBOX) && !isImeVisible
-
+                val isRootTab = (currentRoute in BottomNavRoutes || currentRoute?.startsWith("tab_search") == true) && (currentRoute != FutaDestinations.INBOX)
                 Box(modifier = Modifier.fillMaxSize().clearFocusOnTap()) {
                     Scaffold(
                         containerColor = Color.White,
@@ -321,6 +327,13 @@ class MainActivity : ComponentActivity() {
                                 WorkspaceScreen(
                                     onBack = { navController.popBackStack() },
                                     onNavigate = { route -> safeNavigate(route) }
+                                )
+                            }
+                            // Secondary: Project Map
+                            composable(FutaDestinations.PROJECTS_MAP) {
+                                ProjectMapScreen(
+                                    onBack = { navController.popBackStack() },
+                                    onProjectClick = { id -> safeNavigate(FutaDestinations.projectDetail(id)) }
                                 )
                             }
 
@@ -475,6 +488,10 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun handleIncomingIntent(intent: Intent?) {
+        val authToken = intent?.getStringExtra("auth_token")
+        if (!authToken.isNullOrEmpty()) {
+            APIClient.get().tokenStorage.accessToken = authToken
+        }
         val uri = intent?.data ?: return
         RouteCoordinator.enqueue(uri.toString())
     }

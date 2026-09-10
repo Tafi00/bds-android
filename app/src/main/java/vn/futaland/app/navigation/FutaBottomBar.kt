@@ -22,6 +22,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import vn.futaland.app.R
+import vn.futaland.app.core.auth.AppSession
 import vn.futaland.app.designsystem.FutaColors
 import vn.futaland.app.designsystem.futaDropShadow
 
@@ -36,11 +37,11 @@ data class BottomNavItemSpec(
 val MainFourNavSpecs = listOf(
     BottomNavItemSpec(FutaDestinations.DISCOVER, "Trang chủ", R.drawable.sf_tab_home_active, R.drawable.sf_tab_home_inactive),
     BottomNavItemSpec(FutaDestinations.SAVED, "Yêu thích", R.drawable.sf_tab_heart_active, R.drawable.sf_tab_heart_inactive),
-    BottomNavItemSpec(FutaDestinations.INBOX, "Tin nhắn", R.drawable.sf_tab_chat_active, R.drawable.sf_tab_chat_inactive),
+    BottomNavItemSpec(FutaDestinations.SEARCH, "Tìm kiếm", R.drawable.sf_nav_search, R.drawable.sf_nav_search),
     BottomNavItemSpec(FutaDestinations.ACCOUNT, "Tài khoản", R.drawable.sf_tab_account_active, R.drawable.sf_tab_account_inactive)
 )
 
-val BottomNavRoutes = MainFourNavSpecs.map { it.route } + listOf(FutaDestinations.SEARCH)
+val BottomNavRoutes = MainFourNavSpecs.map { it.route } + listOf(FutaDestinations.INBOX)
 
 /**
  * Dual-Island Floating Capsule Navigation Dock matching iOS layout and Apple SF Symbols 100%.
@@ -90,7 +91,8 @@ fun FutaBottomBar(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     MainFourNavSpecs.forEach { spec ->
-                        val selected = currentRoute == spec.route
+                        val selected = currentRoute == spec.route ||
+                            (spec.route == FutaDestinations.SEARCH && currentRoute?.startsWith("tab_search") == true)
 
                         Box(
                             modifier = Modifier
@@ -120,18 +122,11 @@ fun FutaBottomBar(
                                     Icon(
                                         painter = painterResource(id = if (selected) spec.activeIcon else spec.inactiveIcon),
                                         contentDescription = spec.title,
-                                        tint = Color.Unspecified,
-                                        modifier = Modifier.size(22.dp)
+                                        tint = if (spec.route == FutaDestinations.SEARCH) {
+                                            if (selected) brandGreen else inactiveDark
+                                        } else Color.Unspecified,
+                                        modifier = Modifier.size(if (spec.route == FutaDestinations.SEARCH) 20.dp else 22.dp)
                                     )
-                                    // Green unread badge dot on "Tin nhắn" matching iOS
-                                    if (spec.route == FutaDestinations.INBOX && !selected) {
-                                        Box(
-                                            modifier = Modifier
-                                                .size(6.dp)
-                                                .align(Alignment.TopEnd)
-                                                .background(brandGreen, CircleShape)
-                                        )
-                                    }
                                 }
                                 Spacer(Modifier.height(2.5.dp))
                                 Text(
@@ -150,35 +145,59 @@ fun FutaBottomBar(
             Spacer(Modifier.width(10.dp))
 
             // ====================================================================
-            // ISLAND 2: Detached Floating Circular Search Button (64dp Diameter)
+            // ISLAND 2: Detached Floating Circular Chat / AI Button (64dp Diameter)
             // ====================================================================
-            val searchSelected = currentRoute == FutaDestinations.SEARCH
+            val chatSelected = currentRoute == FutaDestinations.INBOX
+            val isGuest = !AppSession.shared.isAuthenticated || AppSession.shared.role in listOf("guest", "khach", "customer")
+            val chatActionTitle = if (isGuest) "Trợ lý AI" else "Tin nhắn"
+
             Surface(
                 shape = CircleShape,
-                color = if (searchSelected) brandGreen else Color.White,
+                color = if (chatSelected) brandGreen else Color.White,
                 shadowElevation = 0.dp,
-                border = BorderStroke(1.dp, if (searchSelected) brandGreen else Color(0xFFF1F5F9)),
+                border = BorderStroke(1.dp, if (chatSelected) brandGreen else Color(0xFFF1F5F9)),
                 modifier = Modifier
                     .size(64.dp)
                     .futaDropShadow(
                         shape = CircleShape,
-                        color = if (searchSelected) brandGreen.copy(alpha = 0.32f) else Color(0x14061D3D),
+                        color = if (chatSelected) brandGreen.copy(alpha = 0.32f) else Color(0x14061D3D),
                         blur = 14.dp,
                         offsetY = 5.dp
                     )
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null,
-                        onClick = { onNavigate(FutaDestinations.SEARCH) }
+                        onClick = { onNavigate(FutaDestinations.INBOX) }
                     )
             ) {
                 Box(contentAlignment = Alignment.Center) {
-                    Icon(
-                        painter = painterResource(id = R.drawable.sf_nav_search),
-                        contentDescription = "Tìm kiếm",
-                        tint = if (searchSelected) Color.White else inactiveDark,
-                        modifier = Modifier.size(24.dp)
-                    )
+                    if (isGuest) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center
+                        ) {
+                            Icon(
+                                painter = painterResource(id = R.drawable.ic_futa_ai_robot),
+                                contentDescription = chatActionTitle,
+                                tint = if (chatSelected) Color.White else brandGreen,
+                                modifier = Modifier.size(26.dp)
+                            )
+                            Spacer(Modifier.height(2.dp))
+                            Text(
+                                text = "Chat AI",
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = if (chatSelected) Color.White else brandGreen
+                            )
+                        }
+                    } else {
+                        Icon(
+                            painter = painterResource(id = if (chatSelected) R.drawable.sf_tab_chat_active else R.drawable.sf_tab_chat_inactive),
+                            contentDescription = chatActionTitle,
+                            tint = Color.Unspecified,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
                 }
             }
         }

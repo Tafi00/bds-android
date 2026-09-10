@@ -14,6 +14,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
@@ -67,38 +68,43 @@ fun DiscoveryScreen(
         }
     }
 
-    LazyColumn(
+    val lazyListState = rememberLazyListState()
+    val isScrolled by remember {
+        derivedStateOf {
+            lazyListState.firstVisibleItemIndex > 0 || lazyListState.firstVisibleItemScrollOffset > 10
+        }
+    }
+
+    Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.White),
-        contentPadding = PaddingValues(top = 8.dp, bottom = 96.dp)
+            .background(Color.White)
     ) {
-        // 1. Top Branded Header
-        item {
+        Surface(
+            color = Color.White,
+            shadowElevation = 2.dp,
+            border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+            modifier = Modifier.fillMaxWidth()
+        ) {
             TopBrandedHeader(
-                selectedCity = selectedCity,
-                availableCities = viewModel.availableCities,
-                onSelectCity = { viewModel.selectCity(it) },
+                onSearchClick = { onNavigate(FutaDestinations.SEARCH) },
                 onNotificationClick = { onNavigate(FutaDestinations.NOTIFICATIONS) }
             )
-            Spacer(Modifier.height(20.dp))
         }
 
-        // 2. Floating Search Bar
-        item {
-            FloatingSearchBar(
-                selectedCity = selectedCity,
-                onClick = { onNavigate(FutaDestinations.SEARCH) }
-            )
-            Spacer(Modifier.height(20.dp))
-        }
-
+        LazyColumn(
+            state = lazyListState,
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f),
+            contentPadding = PaddingValues(top = 10.dp, bottom = 96.dp)
+        ) {
         // 3. Quick Real Estate Actions (4 items)
         item {
             QuickActionsGrid(
                 onNavigate = onNavigate
             )
-            Spacer(Modifier.height(20.dp))
+            Spacer(Modifier.height(24.dp))
         }
 
         // 4. Hero Carousel
@@ -110,33 +116,39 @@ fun DiscoveryScreen(
                     onProjectClick = { onNavigate(FutaDestinations.projectDetail(it)) },
                     onViewAllProjects = { onNavigate(FutaDestinations.PROJECTS_LIST) }
                 )
-                Spacer(Modifier.height(20.dp))
+                Spacer(Modifier.height(24.dp))
             }
         }
 
-        // 4B. Featured Secondary Projects Section (Matching iOS DiscoveryView)
+        // 4B. Featured Products (Horizontal Scroll - Thay thế "Dự án nổi bật khác")
         item {
-            val secProjects = viewModel.secondaryProjects
-            if (secProjects.isNotEmpty()) {
-                FeaturedSecondaryProjectsSection(
-                    projects = secProjects,
-                    onProjectClick = { onNavigate(FutaDestinations.projectDetail(it)) },
-                    onViewAll = { onNavigate(FutaDestinations.PROJECTS_LIST) }
+            val featuredApartments = viewModel.filteredApartments.take(8)
+            if (featuredApartments.isNotEmpty()) {
+                FeaturedProductsHorizontalSection(
+                    apartments = featuredApartments,
+                    onApartmentClick = { onNavigate(FutaDestinations.propertyDetail(it)) },
+                    onViewAllClick = { onNavigate(FutaDestinations.SEARCH) },
+                    onFavoriteToggle = { aptId ->
+                        if (AppSession.shared.isAuthenticated) {
+                            viewModel.toggleFavorite(aptId)
+                        } else {
+                            onNavigate(FutaDestinations.AUTH)
+                        }
+                    }
                 )
-                Spacer(Modifier.height(20.dp))
+                Spacer(Modifier.height(24.dp))
             }
         }
 
-        // 5. Featured Cities Cards
+        // 5. Featured Cities Cards (Khám phá khu vực)
         item {
             FeaturedCitiesSection(
                 cities = viewModel.featuredCityItems,
                 onSelectCity = { viewModel.selectCity(it) },
-                onViewMap = { onNavigate(FutaDestinations.PROJECTS_LIST) }
+                onViewMap = { onNavigate(FutaDestinations.PROJECTS_MAP) }
             )
-            Spacer(Modifier.height(20.dp))
+            Spacer(Modifier.height(24.dp))
         }
-
 
         // 7. Segment Pills for Apartments
         item {
@@ -208,159 +220,95 @@ fun DiscoveryScreen(
             Spacer(Modifier.height(80.dp))
         }
     }
+    }
 }
-
 @Composable
 private fun TopBrandedHeader(
-    selectedCity: String,
-    availableCities: List<String>,
-    onSelectCity: (String) -> Unit,
+    onSearchClick: () -> Unit,
     onNotificationClick: () -> Unit
 ) {
-    var showCitySheet by remember { mutableStateOf(false) }
-    var citySearch by remember { mutableStateOf("") }
-
-    Row(
+    Column(
         modifier = Modifier
             .fillMaxWidth()
             .statusBarsPadding()
-            .padding(horizontal = 16.dp),
-        verticalAlignment = Alignment.CenterVertically
+            .padding(horizontal = 16.dp, vertical = 10.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        Image(
-            painter = painterResource(id = R.drawable.futaland_logo),
-            contentDescription = "FUTA Land",
-            modifier = Modifier.height(34.dp),
-            contentScale = ContentScale.Fit
-        )
-        Spacer(Modifier.weight(1f))
-
-        // Market Switcher Pill
-        Surface(
-            shape = CircleShape,
-            color = Color.White,
-            border = BorderStroke(1.dp, FutaColors.LightBlueBorder),
-            modifier = Modifier.clickable { showCitySheet = true }
+        // Row 1: Official Logo & Notification Bell
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Row(
-                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = if (selectedCity == "Tất cả") "Toàn quốc" else selectedCity,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = FutaColors.Navy
-                )
-                Spacer(Modifier.width(4.dp))
-                Icon(
-                    painter = painterResource(id = R.drawable.sf_chevron_down),
-                    contentDescription = null,
-                    modifier = Modifier.size(8.dp),
-                    tint = Color.Unspecified
-                )
-            }
-        }
+            Image(
+                painter = painterResource(id = R.drawable.futaland_logo),
+                contentDescription = "FUTA Land",
+                modifier = Modifier.height(30.dp),
+                contentScale = ContentScale.Fit
+            )
 
-        if (showCitySheet) {
-            FutaBottomSheet(
-                visible = true,
-                onDismiss = { showCitySheet = false },
-                title = "Chọn khu vực thị trường"
+            // Notification Bell Button
+            Surface(
+                shape = CircleShape,
+                color = Color(0xFFF8FAFC),
+                border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                modifier = Modifier
+                    .size(38.dp)
+                    .clickable(onClick = onNotificationClick)
             ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 4.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    FutaInput(
-                        value = citySearch,
-                        onValueChange = { citySearch = it },
-                        placeholder = "Tìm tỉnh, thành phố...",
-                        modifier = Modifier.fillMaxWidth()
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        painter = painterResource(id = R.drawable.sf_header_bell),
+                        contentDescription = "Thông báo",
+                        tint = Color(0xFF0F172A),
+                        modifier = Modifier.size(17.dp)
                     )
-                    Spacer(Modifier.height(4.dp))
-                    val filtered = availableCities.filter {
-                        citySearch.isEmpty() || it.contains(citySearch, ignoreCase = true)
-                    }
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .verticalScroll(rememberScrollState())
-                    ) {
-                        filtered.forEach { city ->
-                            val isSelected = (city == "Tất cả" && (selectedCity == "Tất cả" || selectedCity.isEmpty())) || city == selectedCity
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .clickable {
-                                        onSelectCity(city)
-                                        showCitySheet = false
-                                    }
-                                    .padding(horizontal = 12.dp, vertical = 13.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(
-                                        Icons.Default.LocationOn,
-                                        null,
-                                        tint = if (isSelected) FutaColors.BrandGreen else Color(0xFF94A3B8),
-                                        modifier = Modifier.size(18.dp)
-                                    )
-                                    Spacer(Modifier.width(10.dp))
-                                    Text(
-                                        text = if (city == "Tất cả") "Toàn quốc (Tất cả khu vực)" else city,
-                                        fontSize = 14.sp,
-                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                        color = if (isSelected) FutaColors.BrandGreen else FutaColors.Navy
-                                    )
-                                }
-                                if (isSelected) {
-                                    Icon(
-                                        Icons.Default.Check,
-                                        null,
-                                        tint = FutaColors.BrandGreen,
-                                        modifier = Modifier.size(18.dp)
-                                    )
-                                }
-                            }
-                            HorizontalDivider(color = Color(0xFFF1F5F9))
-                        }
-                    }
-                    Spacer(Modifier.height(16.dp))
                 }
             }
         }
-        Spacer(Modifier.width(10.dp))
 
-        // Notification Bell
+        // Row 2: Integrated Sleek Native Search Bar
         Surface(
-            shape = CircleShape,
-            color = Color.White,
-            border = BorderStroke(1.dp, FutaColors.LightBlueBorder),
+            shape = RoundedCornerShape(12.dp),
+            color = Color(0xFFF1F5F9),
+            border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
             modifier = Modifier
-                .size(38.dp)
-                .clickable(onClick = onNotificationClick)
+                .fillMaxWidth()
+                .height(44.dp)
+                .clickable(onClick = onSearchClick)
         ) {
-            Box(contentAlignment = Alignment.Center) {
+            Row(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 Icon(
-                    painter = painterResource(id = R.drawable.sf_header_bell),
-                    contentDescription = "Thông báo",
-                    modifier = Modifier.size(16.dp),
-                    tint = Color.Unspecified
+                    imageVector = Icons.Default.Search,
+                    contentDescription = null,
+                    tint = Color(0xFF64748B),
+                    modifier = Modifier.size(18.dp)
                 )
-                // Red unread badge only when user is authenticated
-                if (AppSession.shared.isAuthenticated) {
-                    Box(
-                        modifier = Modifier
-                            .size(8.dp)
-                            .align(Alignment.TopEnd)
-                            .background(Color(0xFFEF4444), CircleShape)
-                            .border(1.5.dp, Color.White, CircleShape)
-                    )
+                Spacer(Modifier.width(10.dp))
+                Text(
+                    text = "Tìm dự án, căn hộ, khu vực…",
+                    fontSize = 13.5.sp,
+                    color = Color(0xFF64748B),
+                    modifier = Modifier.weight(1f)
+                )
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = FutaColors.BrandGreen.copy(alpha = 0.12f),
+                    modifier = Modifier.size(30.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            painter = painterResource(id = R.drawable.sf_search_filter),
+                            contentDescription = "Bộ lọc",
+                            tint = FutaColors.BrandGreen,
+                            modifier = Modifier.size(14.dp)
+                        )
+                    }
                 }
             }
         }
@@ -443,7 +391,7 @@ private fun QuickActionsGrid(
             Triple("Dự án FUTA", R.drawable.sf_quick_projects, FutaDestinations.PROJECTS_LIST),
             Triple("Căn hộ", R.drawable.sf_quick_apartment, FutaDestinations.search("can-ho-chung-cu")),
             Triple("Nhà phố", R.drawable.sf_quick_house, FutaDestinations.search("biet-thu-lien-ke")),
-            Triple("Vòng quay", R.drawable.sf_quick_wheel, FutaDestinations.LUCKY_WHEEL)
+            Triple("Tin tức", R.drawable.ic_quick_news, FutaDestinations.NEWS)
         ).forEach { (title, iconRes, dest) ->
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -502,9 +450,9 @@ private fun HeroCarouselSection(
         ) {
             Text(
                 text = "DỰ ÁN TÂM ĐIỂM FUTA",
-                fontSize = 11.5.sp,
+                fontSize = 16.sp,
                 fontWeight = FontWeight.Bold,
-                color = FutaColors.Slate
+                color = Color(0xFF0F172A)
             )
             Row(
                 modifier = Modifier.clickable(onClick = onViewAllProjects),
@@ -512,7 +460,7 @@ private fun HeroCarouselSection(
             ) {
                 Text(
                     text = "Xem tất cả",
-                    fontSize = 12.sp,
+                    fontSize = 13.sp,
                     fontWeight = FontWeight.Bold,
                     color = FutaColors.BrandGreen
                 )
@@ -637,12 +585,14 @@ private fun HeroCarouselSection(
                                 modifier = Modifier.weight(1f, fill = false)
                             )
                             Spacer(Modifier.width(6.dp))
+                            val totalUnits = proj["totalUnits"].int
+                            val productCountText = if (totalUnits > 0) "$totalUnits sản phẩm" else "Đang mở bán"
                             Surface(
                                 shape = CircleShape,
                                 color = Color(0xFFF97316).copy(alpha = 0.95f)
                             ) {
                                 Row(
-                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.5.dp),
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.5.dp),
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     Icon(
@@ -653,10 +603,10 @@ private fun HeroCarouselSection(
                                     )
                                     Spacer(Modifier.width(3.5.dp))
                                     Text(
-                                        text = "CK 12%",
+                                        text = productCountText,
                                         color = Color.White,
-                                        fontSize = 9.5.sp,
-                                        fontWeight = FontWeight.Black
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold
                                     )
                                 }
                             }
@@ -724,12 +674,16 @@ private fun HeroCarouselSection(
 }
 
 @Composable
-private fun FeaturedSecondaryProjectsSection(
-    projects: List<JSONValue>,
-    onProjectClick: (String) -> Unit,
-    onViewAll: () -> Unit
+private fun FeaturedProductsHorizontalSection(
+    apartments: List<JSONValue>,
+    onApartmentClick: (String) -> Unit,
+    onViewAllClick: () -> Unit,
+    onFavoriteToggle: (String) -> Unit
 ) {
-    Column {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
+    ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -738,18 +692,18 @@ private fun FeaturedSecondaryProjectsSection(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "DỰ ÁN NỔI BẬT KHÁC",
-                fontSize = 11.5.sp,
+                text = "SẢN PHẨM NỔI BẬT",
+                fontSize = 16.sp,
                 fontWeight = FontWeight.Bold,
-                color = FutaColors.Slate
+                color = Color(0xFF0F172A)
             )
             Row(
-                modifier = Modifier.clickable(onClick = onViewAll),
+                modifier = Modifier.clickable(onClick = onViewAllClick),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
                     text = "Xem tất cả",
-                    fontSize = 12.sp,
+                    fontSize = 13.sp,
                     fontWeight = FontWeight.Bold,
                     color = FutaColors.BrandGreen
                 )
@@ -762,109 +716,22 @@ private fun FeaturedSecondaryProjectsSection(
                 )
             }
         }
-        Spacer(Modifier.height(10.dp))
         LazyRow(
             contentPadding = PaddingValues(horizontal = 16.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
+            horizontalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            itemsIndexed(projects, key = { idx, proj -> (proj.id.ifEmpty { "sec" }) + "-$idx" }) { _, proj ->
-                val title = proj["displayName"].string.ifEmpty { proj["name"].string }
-                val banner = PropertyFormatters.resolveProjectBanner(proj)
-                val location = proj["location"].string.ifEmpty { proj["address"].string }
-                val totalUnits = proj["totalUnits"].int
-                FutaCard(
-                    modifier = Modifier
-                        .width(220.dp)
-                        .height(232.dp)
-                        .clickable { onProjectClick(proj.id) }
-                ) {
-                    Column {
-                        Box(modifier = Modifier.fillMaxWidth().height(125.dp).background(Color(0xFFE2E8F0))) {
-                            AsyncImage(
-                                model = ImageRequest.Builder(LocalPlatformContext.current)
-                                    .data(banner)
-                                    .transformations(ProjectBannerTransformation())
-                                    .build(),
-                                contentDescription = title,
-                                contentScale = ContentScale.Crop,
-                                modifier = Modifier.fillMaxSize()
-                            )
-                            Surface(
-                                shape = CircleShape,
-                                color = Color.Black.copy(alpha = 0.65f),
-                                modifier = Modifier
-                                    .align(Alignment.BottomStart)
-                                    .padding(8.dp)
-                            ) {
-                                Text(
-                                    text = "Đang mở bán",
-                                    color = Color.White,
-                                    fontSize = 9.5.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
-                                )
-                            }
-                        }
-
-                        Column(modifier = Modifier.fillMaxSize().padding(12.dp)) {
-                            Text(
-                                text = title,
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = FutaColors.Navy,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                            Spacer(Modifier.height(4.dp))
-                            Row(
-                                modifier = Modifier.height(34.dp),
-                                verticalAlignment = Alignment.Top
-                            ) {
-                                Icon(painter = painterResource(id = R.drawable.sf_mappin_circle_green), null, tint = Color.Unspecified, modifier = Modifier.padding(top = 2.dp).size(12.dp))
-                                Spacer(Modifier.width(3.dp))
-                                Text(
-                                    text = location,
-                                    fontSize = 11.5.sp,
-                                    lineHeight = 16.sp,
-                                    color = FutaColors.Slate,
-                                    maxLines = 2,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                            }
-                            Spacer(Modifier.weight(1f))
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                if (totalUnits > 0) {
-                                    Text(
-                                        text = "$totalUnits sản phẩm",
-                                        fontSize = 12.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = FutaColors.BrandGreen
-                                    )
-                                } else {
-                                    Text(
-                                        text = "Quy mô lớn",
-                                        fontSize = 12.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = FutaColors.Slate
-                                    )
-                                }
-                                Icon(
-                                    painter = painterResource(id = R.drawable.sf_arrow_right_circle_green),
-                                    contentDescription = null,
-                                    tint = Color.Unspecified,
-                                    modifier = Modifier.size(16.dp)
-                                )
-                            }
+            itemsIndexed(apartments, key = { idx, apt -> "feat-apt-${apt.id}-$idx" }) { _, apt ->
+                Box(modifier = Modifier.width(280.dp)) {
+                    FutaPropertyCard(
+                        apartment = apt,
+                        isFavorited = false,
+                        onFavoriteClick = { onFavoriteToggle(apt.id) },
+                        onClick = { onApartmentClick(apt.id) }
+                    )
                 }
             }
         }
     }
-}
-}
 }
 
 @Composable
@@ -882,18 +749,30 @@ private fun FeaturedCitiesSection(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "KHU VỰC TRỌNG ĐIỂM",
-                fontSize = 11.5.sp,
+                text = "Khám phá khu vực",
+                fontSize = 16.sp,
                 fontWeight = FontWeight.Bold,
-                color = FutaColors.Slate
+                color = Color(0xFF0F172A)
             )
-            Text(
-                text = "Xem bản đồ",
-                fontSize = 12.sp,
-                fontWeight = FontWeight.Bold,
-                color = FutaColors.BrandGreen,
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
                 modifier = Modifier.clickable(onClick = onViewMap)
-            )
+            ) {
+                Text(
+                    text = "Bản đồ",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = FutaColors.BrandGreen
+                )
+                Spacer(Modifier.width(4.dp))
+                Icon(
+                    painter = painterResource(id = R.drawable.sf_chevron_right_green),
+                    contentDescription = null,
+                    tint = Color.Unspecified,
+                    modifier = Modifier.size(9.dp)
+                )
+            }
         }
         Spacer(Modifier.height(10.dp))
         LazyRow(
@@ -1013,9 +892,9 @@ private fun ApartmentSegmentFilter(
         ) {
             Text(
                 text = "BẤT ĐỘNG SẢN ĐỀ XUẤT",
-                fontSize = 11.5.sp,
+                fontSize = 16.sp,
                 fontWeight = FontWeight.Bold,
-                color = FutaColors.Slate
+                color = Color(0xFF0F172A)
             )
             Row(
                 modifier = Modifier.clickable(onClick = onViewAll),
@@ -1023,7 +902,7 @@ private fun ApartmentSegmentFilter(
             ) {
                 Text(
                     text = "Xem tất cả",
-                    fontSize = 12.sp,
+                    fontSize = 13.sp,
                     fontWeight = FontWeight.Bold,
                     color = FutaColors.BrandGreen
                 )

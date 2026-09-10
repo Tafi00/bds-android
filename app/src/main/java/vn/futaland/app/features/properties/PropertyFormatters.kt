@@ -72,6 +72,10 @@ object PropertyFormatters {
     }
 
     fun resolveProjectBanner(project: JSONValue): String {
+        val mobBanner = project["bannerImageMobile"].string.trim()
+        if (mobBanner.isNotEmpty() && mobBanner != "null") {
+            return if (mobBanner.startsWith("http://") || mobBanner.startsWith("https://")) mobBanner else "https://bds.futaland.vn/${mobBanner.removePrefix("/")}"
+        }
         val banner = project["bannerImage"].string.trim()
         if (banner.isNotEmpty() && banner != "null") {
             return if (banner.startsWith("http://") || banner.startsWith("https://")) banner else "https://bds.futaland.vn/${banner.removePrefix("/")}"
