@@ -230,10 +230,34 @@ class MainActivity : ComponentActivity() {
                                 }
                             }
 
-                            // 3. Inbox Tab
+                            // 3. Inbox Tab & Direct Chat
                             composable(FutaDestinations.INBOX) {
                                 ChatScreen(
                                     onBack = if (!isRootTab) ({ navController.popBackStack() }) else null
+                                )
+                            }
+                            composable(
+                                route = FutaDestinations.CHAT_ROUTE,
+                                arguments = listOf(
+                                    navArgument("conversationId") { type = NavType.StringType; nullable = true; defaultValue = null },
+                                    navArgument("advisorId") { type = NavType.StringType; nullable = true; defaultValue = null },
+                                    navArgument("advisorName") { type = NavType.StringType; nullable = true; defaultValue = null },
+                                    navArgument("apartmentId") { type = NavType.StringType; nullable = true; defaultValue = null },
+                                    navArgument("isAi") { type = NavType.StringType; nullable = true; defaultValue = null }
+                                )
+                            ) { backStack ->
+                                val convId = backStack.arguments?.getString("conversationId")
+                                val advId = backStack.arguments?.getString("advisorId")
+                                val advName = backStack.arguments?.getString("advisorName")
+                                val aptId = backStack.arguments?.getString("apartmentId")
+                                val isAi = backStack.arguments?.getString("isAi") == "true"
+                                ChatScreen(
+                                    initialConversationId = convId,
+                                    targetAdvisorId = advId,
+                                    targetAdvisorName = advName,
+                                    targetApartmentId = aptId,
+                                    isAiChat = isAi,
+                                    onBack = { navController.popBackStack() }
                                 )
                             }
 

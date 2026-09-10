@@ -90,12 +90,15 @@ fun ProjectDetailScreen(
                         modifier = Modifier.weight(1f)
                     )
                     IconButton(onClick = {
+                        val projId = project?.get("id")?.string?.ifEmpty { projectId }.orEmpty()
+                        val shareUrl = if (projId.isNotEmpty()) "https://bds.futaland.vn/projects/$projId" else "https://bds.futaland.vn/projects"
                         val sendIntent = Intent().apply {
                             action = Intent.ACTION_SEND
-                            putExtra(Intent.EXTRA_TEXT, "Xem dự án: ${project?.get("name")?.string}")
+                            putExtra(Intent.EXTRA_TEXT, shareUrl)
+                            putExtra(Intent.EXTRA_SUBJECT, project?.get("displayName")?.string?.ifEmpty { project?.get("name")?.string } ?: "Chi tiết dự án")
                             type = "text/plain"
                         }
-                        context.startActivity(Intent.createChooser(sendIntent, null))
+                        context.startActivity(Intent.createChooser(sendIntent, "Chia sẻ dự án"))
                     }) {
                         Icon(Icons.Default.Share, null, tint = FutaColors.Navy)
                     }
@@ -348,13 +351,15 @@ fun ProjectDetailScreen(
                         Column(modifier = Modifier.padding(16.dp)) {
                             Text("TIỆN ÍCH DỰ ÁN", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
                             Spacer(Modifier.height(12.dp))
-                            val amenities = listOf(
+                            val serverAmenities = p["amenities"].array.map { it.string }.filter { it.isNotEmpty() }
+                            val amenities = if (serverAmenities.isNotEmpty()) serverAmenities else listOf(
                                 "Bể bơi vô cực", "Công viên cây xanh", "Trung tâm thương mại",
                                 "Phòng Gym & Yoga", "Nhà trẻ quốc tế", "An ninh 24/7"
                             )
+                            val half = (amenities.size + 1) / 2
                             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    amenities.take(3).forEach { a ->
+                                    amenities.take(half).forEach { a ->
                                         Row(verticalAlignment = Alignment.CenterVertically) {
                                             Icon(Icons.Default.CheckCircle, null, tint = FutaColors.BrandGreen, modifier = Modifier.size(15.dp))
                                             Spacer(Modifier.width(6.dp))
@@ -363,7 +368,7 @@ fun ProjectDetailScreen(
                                     }
                                 }
                                 Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    amenities.drop(3).forEach { a ->
+                                    amenities.drop(half).forEach { a ->
                                         Row(verticalAlignment = Alignment.CenterVertically) {
                                             Icon(Icons.Default.CheckCircle, null, tint = FutaColors.BrandGreen, modifier = Modifier.size(15.dp))
                                             Spacer(Modifier.width(6.dp))

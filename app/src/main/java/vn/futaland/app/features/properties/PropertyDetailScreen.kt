@@ -75,6 +75,7 @@ fun PropertyDetailScreen(
     // Booking & Holding Sheet States
     var showBookingSheet by remember { mutableStateOf(false) }
     var showHoldingSheet by remember { mutableStateOf(false) }
+    var showAdvisorContactSheet by remember { mutableStateOf(false) }
     var bookingDate by remember { mutableStateOf("Ngày mai (09:00)") }
     var bookingSlot by remember { mutableStateOf("Sáng (09:00 - 11:30)") }
     var bookingName by remember { mutableStateOf(AppSession.shared.user?.get("name")?.string.orEmpty()) }
@@ -134,10 +135,11 @@ fun PropertyDetailScreen(
                         modifier = Modifier.weight(1f)
                     )
                     IconButton(onClick = {
-                        val title = property?.get("title")?.string.orEmpty()
+                        val shareUrl = PropertyFormatters.shareUrl(property, propertyId)
                         val sendIntent = Intent().apply {
                             action = Intent.ACTION_SEND
-                            putExtra(Intent.EXTRA_TEXT, "Bất động sản FUTA Land: $title\nhttps://bds.futaland.vn/listing/$propertyId")
+                            putExtra(Intent.EXTRA_TEXT, shareUrl)
+                            putExtra(Intent.EXTRA_SUBJECT, PropertyFormatters.propertyTitle(property))
                             type = "text/plain"
                         }
                         context.startActivity(Intent.createChooser(sendIntent, "Chia sẻ sản phẩm"))
@@ -156,18 +158,8 @@ fun PropertyDetailScreen(
             property?.let { apt ->
                 StickyContactBottomBar(
                     apt = apt,
-                    onCallClick = {
-                        val phone = apt["ownerPhone"].string.ifEmpty { "02838386852" }
-                        val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:$phone"))
-                        context.startActivity(intent)
-                    },
-                    onChatClick = {
-                        if (AppSession.shared.isAuthenticated) {
-                            onNavigate(FutaDestinations.INBOX)
-                        } else {
-                            onNavigate(FutaDestinations.AUTH)
-                        }
-                    },
+                    onCallClick = { showAdvisorContactSheet = true },
+                    onChatClick = { showAdvisorContactSheet = true },
                     onBookVisitClick = { showBookingSheet = true },
                     onHoldClick = { showHoldingSheet = true }
                 )
@@ -480,12 +472,14 @@ fun PropertyDetailScreen(
                                             .background(Color(0xFFF8FAFC))
                                             .border(1.dp, Color(0xFFE2E8F0), RoundedCornerShape(10.dp))
                                             .clickable {
+                                                val shareUrl = PropertyFormatters.shareUrl(apt, propertyId)
                                                 val sendIntent = Intent().apply {
                                                     action = Intent.ACTION_SEND
-                                                    putExtra(Intent.EXTRA_TEXT, "BĐS: ${PropertyFormatters.propertyTitle(apt)}")
+                                                    putExtra(Intent.EXTRA_TEXT, shareUrl)
+                                                    putExtra(Intent.EXTRA_SUBJECT, PropertyFormatters.propertyTitle(apt))
                                                     type = "text/plain"
                                                 }
-                                                context.startActivity(Intent.createChooser(sendIntent, "Chia sẻ"))
+                                                context.startActivity(Intent.createChooser(sendIntent, "Chia sẻ sản phẩm"))
                                             },
                                         contentAlignment = Alignment.Center
                                     ) {
@@ -805,8 +799,11 @@ fun PropertyDetailScreen(
                             )
                             Spacer(Modifier.height(12.dp))
 
-                            val serverAmenities = apt["amenities"].array.map { it.string }.filter { it.isNotEmpty() }
-                            val amenities = if (serverAmenities.isNotEmpty()) serverAmenities else listOf("Hồ bơi tràn bờ", "Công viên cây xanh", "Phòng Gym & Yoga", "Bảo vệ 24/7", "Chỗ đỗ xe ô tô", "Khu BBQ ngoài trời")
+                            val aptAmenities = apt["amenities"].array.map { it.string }.filter { it.isNotEmpty() }
+                            val projAmenities = apt["projectProfile"]["amenities"].array.map { it.string }.filter { it.isNotEmpty() }
+                                .ifEmpty { apt["project"]["amenities"].array.map { it.string }.filter { it.isNotEmpty() } }
+                                .ifEmpty { apt["projectAmenities"].array.map { it.string }.filter { it.isNotEmpty() } }
+                            val amenities = if (aptAmenities.isNotEmpty()) aptAmenities else if (projAmenities.isNotEmpty()) projAmenities else listOf("Hồ bơi tràn bờ", "Công viên cây xanh", "Phòng Gym & Yoga", "Bảo vệ 24/7", "Chỗ đỗ xe ô tô", "Khu BBQ ngoài trời")
                             for (i in amenities.indices step 2) {
                                 Row(
                                     modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
@@ -1025,8 +1022,21 @@ fun PropertyDetailScreen(
                     }
                 }
 
-                // 8. Advisor Contact Panel (Matching iOS)
+                // 8. Advisor Contact Panel (Matching iOS & Web)
                 item {
+                    val availableList = apt["availableAdvisors"].array
+                    val advisors = if (availableList.isNotEmpty()) {
+                        availableList.distinctBy { it["id"].string.ifEmpty { it["advisorId"].string } }
+                    } else {
+                        val advId = apt["advisorId"].string.ifEmpty { apt["advisor"]["id"].string.ifEmpty { apt["createdBy"]["id"].string } }
+                        val advName = apt["advisor"]["name"].string.ifEmpty { apt["createdBy"]["name"].string }.ifEmpty { apt["ownerName"].string.ifEmpty { "Chuyên viên tư vấn FUTA Land" } }
+                        val advPhone = apt["advisor"]["phone"].string.ifEmpty { apt["createdBy"]["phone"].string }.ifEmpty { apt["ownerPhone"].string.ifEmpty { "02838386852" } }
+                        val advAvatar = apt["advisor"]["avatar"].string.ifEmpty { apt["createdBy"]["avatar"].string }
+                        listOf(
+                            JSONValue.parse("""{"id":"$advId","name":"$advName","phone":"$advPhone","avatar":"$advAvatar"}""")
+                        )
+                    }
+
                     FutaCard(modifier = Modifier.fillMaxWidth()) {
                         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                             Row(
@@ -1046,7 +1056,7 @@ fun PropertyDetailScreen(
                                     color = Color(0xFFE8F5E9)
                                 ) {
                                     Text(
-                                        text = "Chuyên viên sẵn sàng",
+                                        text = if (advisors.size > 1) "${advisors.size} TVV sẵn sàng" else "Chuyên viên sẵn sàng",
                                         fontSize = 10.5.sp,
                                         fontWeight = FontWeight.SemiBold,
                                         color = Color(0xFF0E7643),
@@ -1055,105 +1065,127 @@ fun PropertyDetailScreen(
                                 }
                             }
 
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                val advAvatar = apt["advisor"]["avatar"].string.ifEmpty { apt["createdBy"]["avatar"].string }
-                                val advName = apt["advisor"]["name"].string.ifEmpty { apt["createdBy"]["name"].string }.ifEmpty { "Chuyên viên tư vấn FUTA" }
-                                Surface(
-                                    shape = CircleShape,
-                                    color = Color(0xFFE8F5E9),
-                                    modifier = Modifier.size(48.dp)
-                                ) {
-                                    if (advAvatar.isNotEmpty()) {
-                                        coil3.compose.AsyncImage(
-                                            model = advAvatar,
-                                            contentDescription = advName,
-                                            contentScale = androidx.compose.ui.layout.ContentScale.Crop,
-                                            modifier = Modifier.fillMaxSize().clip(CircleShape)
-                                        )
-                                    } else {
-                                        Box(contentAlignment = Alignment.Center) {
+                            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                                advisors.forEachIndexed { idx, adv ->
+                                    val advName = adv["name"].string.ifEmpty { "Chuyên viên tư vấn FUTA Land" }
+                                    val advPhone = adv["phone"].string.ifEmpty { "02838386852" }
+                                    val advAvatar = adv["avatar"].string
+                                    val advId = adv["id"].string.ifEmpty { adv["advisorId"].string }
+
+                                    if (idx > 0) {
+                                        HorizontalDivider(color = Color(0xFFE2E8F0))
+                                    }
+
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Surface(
+                                            shape = CircleShape,
+                                            color = Color(0xFFE8F5E9),
+                                            modifier = Modifier.size(48.dp)
+                                        ) {
+                                            if (advAvatar.isNotEmpty()) {
+                                                coil3.compose.AsyncImage(
+                                                    model = advAvatar,
+                                                    contentDescription = advName,
+                                                    contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                                                    modifier = Modifier.fillMaxSize().clip(CircleShape)
+                                                )
+                                            } else {
+                                                Box(contentAlignment = Alignment.Center) {
+                                                    Text(
+                                                        text = advName.take(2).uppercase(),
+                                                        color = Color(0xFF0E7643),
+                                                        fontWeight = FontWeight.Bold,
+                                                        fontSize = 16.sp
+                                                    )
+                                                }
+                                            }
+                                        }
+
+                                        Spacer(Modifier.width(10.dp))
+
+                                        Column(modifier = Modifier.weight(1f)) {
                                             Text(
-                                                text = advName.take(2).uppercase(),
-                                                color = Color(0xFF0E7643),
+                                                text = advName,
+                                                fontSize = 14.5.sp,
                                                 fontWeight = FontWeight.Bold,
-                                                fontSize = 16.sp
+                                                color = FutaColors.Navy
+                                            )
+                                            Text(
+                                                text = if (advisors.size > 1) "TVV phụ trách căn hộ" else "Sẵn sàng hỗ trợ 24/7",
+                                                fontSize = 11.5.sp,
+                                                color = FutaColors.Slate
                                             )
                                         }
-                                    }
-                                }
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(
-                                        text = apt["ownerName"].string.ifEmpty { "Chuyên viên tư vấn FUTA Land" },
-                                        fontSize = 14.5.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = FutaColors.Navy
-                                    )
-                                    Text("Sẵn sàng hỗ trợ 24/7", fontSize = 11.5.sp, color = FutaColors.Slate)
-                                }
-                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    val phone = apt["ownerPhone"].string.ifEmpty { "02838386852" }
-                                    // 1. Phone Call Button
-                                    Surface(
-                                        shape = CircleShape,
-                                        color = Color(0xFFFDF6EE),
-                                        modifier = Modifier
-                                            .size(40.dp)
-                                            .clickable {
-                                                context.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:$phone")))
-                                            }
-                                    ) {
-                                        Box(contentAlignment = Alignment.Center) {
-                                            Icon(
-                                                painter = painterResource(id = R.drawable.sf_btn_phone),
-                                                contentDescription = "Gọi",
-                                                tint = Color(0xFFF97316),
-                                                modifier = Modifier.size(15.dp)
-                                            )
-                                        }
-                                    }
-                                    // 2. Zalo Deep Link Button
-                                    Surface(
-                                        shape = CircleShape,
-                                        color = Color(0xFFEFF6FF),
-                                        modifier = Modifier
-                                            .size(40.dp)
-                                            .clickable {
-                                                val zaloUrl = "https://zalo.me/$phone"
-                                                try {
-                                                    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(zaloUrl)))
-                                                } catch (_: Exception) {
-                                                    ToastCenter.show("Không thể mở Zalo: $zaloUrl")
+
+                                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                            // 1. Phone Call Button
+                                            Surface(
+                                                shape = CircleShape,
+                                                color = Color(0xFFFDF6EE),
+                                                modifier = Modifier
+                                                    .size(40.dp)
+                                                    .clickable {
+                                                        context.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:$advPhone")))
+                                                    }
+                                            ) {
+                                                Box(contentAlignment = Alignment.Center) {
+                                                    Icon(
+                                                        painter = painterResource(id = R.drawable.sf_btn_phone),
+                                                        contentDescription = "Gọi",
+                                                        tint = Color(0xFFF97316),
+                                                        modifier = Modifier.size(15.dp)
+                                                    )
                                                 }
                                             }
-                                    ) {
-                                        Box(contentAlignment = Alignment.Center) {
-                                            Text("Zalo", fontSize = 11.sp, fontWeight = FontWeight.Black, color = Color(0xFF0068FF))
-                                        }
-                                    }
-                                    // 3. Native Chat Button
-                                    Surface(
-                                        shape = CircleShape,
-                                        color = Color(0xFFE8F5E9),
-                                        modifier = Modifier
-                                            .size(40.dp)
-                                            .clickable {
-                                                if (AppSession.shared.isAuthenticated) {
-                                                    onNavigate(FutaDestinations.INBOX)
-                                                } else {
-                                                    onNavigate(FutaDestinations.AUTH)
+
+                                            // 2. Zalo Deep Link Button
+                                            Surface(
+                                                shape = CircleShape,
+                                                color = Color(0xFFEFF6FF),
+                                                modifier = Modifier
+                                                    .size(40.dp)
+                                                    .clickable {
+                                                        val zaloUrl = "https://zalo.me/$advPhone"
+                                                        try {
+                                                            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(zaloUrl)))
+                                                        } catch (_: Exception) {
+                                                            ToastCenter.show("Không thể mở Zalo: $zaloUrl")
+                                                        }
+                                                    }
+                                            ) {
+                                                Box(contentAlignment = Alignment.Center) {
+                                                    Text("Zalo", fontSize = 11.sp, fontWeight = FontWeight.Black, color = Color(0xFF0068FF))
                                                 }
                                             }
-                                    ) {
-                                        Box(contentAlignment = Alignment.Center) {
-                                            Icon(
-                                                painter = painterResource(id = R.drawable.sf_btn_chat),
-                                                contentDescription = "Chat",
-                                                tint = Color(0xFF0E7643),
-                                                modifier = Modifier.size(15.dp)
-                                            )
+
+                                            // 3. Native Chat Button
+                                            Surface(
+                                                shape = CircleShape,
+                                                color = Color(0xFFE8F5E9),
+                                                modifier = Modifier
+                                                    .size(40.dp)
+                                                    .clickable {
+                                                        onNavigate(
+                                                            FutaDestinations.chat(
+                                                                advisorId = advId,
+                                                                advisorName = advName,
+                                                                apartmentId = apt.id.ifEmpty { propertyId }
+                                                            )
+                                                        )
+                                                    }
+                                            ) {
+                                                Box(contentAlignment = Alignment.Center) {
+                                                    Icon(
+                                                        painter = painterResource(id = R.drawable.sf_btn_chat),
+                                                        contentDescription = "Chat",
+                                                        tint = Color(0xFF0E7643),
+                                                        modifier = Modifier.size(15.dp)
+                                                    )
+                                                }
+                                            }
                                         }
                                     }
                                 }
@@ -1167,11 +1199,12 @@ fun PropertyDetailScreen(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .clickable {
-                                        if (AppSession.shared.isAuthenticated) {
-                                            onNavigate(FutaDestinations.INBOX)
-                                        } else {
-                                            onNavigate(FutaDestinations.AUTH)
-                                        }
+                                        onNavigate(
+                                            FutaDestinations.chat(
+                                                apartmentId = apt.id.ifEmpty { propertyId },
+                                                isAi = true
+                                            )
+                                        )
                                     }
                             ) {
                                 Row(
@@ -1232,6 +1265,29 @@ fun PropertyDetailScreen(
                 }
             }
         }
+        // =========================================================================
+        // 0. ADVISOR CONTACT BOTTOM SHEET (Matching Web & iOS)
+        // =========================================================================
+        if (showAdvisorContactSheet) {
+            property?.let { apt ->
+                AdvisorContactBottomSheet(
+                    apt = apt,
+                    onDismiss = { showAdvisorContactSheet = false },
+                    onCallAdvisor = { phone ->
+                        context.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:$phone")))
+                    },
+                    onChatAdvisor = { advId, advName ->
+                        showAdvisorContactSheet = false
+                        onNavigate(FutaDestinations.chat(advisorId = advId, advisorName = advName, apartmentId = apt.id.ifEmpty { propertyId }))
+                    },
+                    onChatAi = {
+                        showAdvisorContactSheet = false
+                        onNavigate(FutaDestinations.chat(apartmentId = apt.id.ifEmpty { propertyId }, isAi = true))
+                    }
+                )
+            }
+        }
+
         // =========================================================================
         // 1. VISIT BOOKING BOTTOM SHEET (Matching iOS)
         // =========================================================================
@@ -1728,3 +1784,332 @@ private fun TownhouseInfoRow(label: String, value: String) {
         Text(text = value, fontSize = 13.5.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
     }
 }
+
+// =========================================================================
+// ADVISOR CONTACT BOTTOM SHEET (Matching iOS AdvisorContactSheetView)
+// =========================================================================
+@Composable
+private fun AdvisorContactBottomSheet(
+    apt: JSONValue,
+    onDismiss: () -> Unit,
+    onCallAdvisor: (String) -> Unit,
+    onChatAdvisor: (String, String) -> Unit,
+    onChatAi: () -> Unit
+) {
+    val availableList = apt["availableAdvisors"].array
+    val advisors = if (availableList.isNotEmpty()) {
+        availableList.distinctBy { it["id"].string.ifEmpty { it["advisorId"].string } }
+    } else {
+        val advId = apt["advisorId"].string.ifEmpty { apt["advisor"]["id"].string.ifEmpty { apt["createdBy"]["id"].string } }
+        val advName = apt["advisor"]["name"].string.ifEmpty { apt["createdBy"]["name"].string }.ifEmpty { apt["ownerName"].string.ifEmpty { "Chuyên viên tư vấn FUTA Land" } }
+        val advPhone = apt["advisor"]["phone"].string.ifEmpty { apt["createdBy"]["phone"].string }.ifEmpty { apt["ownerPhone"].string.ifEmpty { "02838386852" } }
+        val advAvatar = apt["advisor"]["avatar"].string.ifEmpty { apt["createdBy"]["avatar"].string }
+        listOf(
+            JSONValue.parse("""{"id":"$advId","name":"$advName","phone":"$advPhone","avatar":"$advAvatar"}""")
+        )
+    }
+
+    FutaBottomSheet(
+        visible = true,
+        onDismiss = onDismiss,
+        title = "Tư vấn sản phẩm"
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            // Apartment Summary Card
+            val code = apt["propertyCode"].string.ifEmpty { apt["code"].string.ifEmpty { "Căn hộ" } }
+            Surface(
+                shape = RoundedCornerShape(14.dp),
+                color = Color(0xFFF8FAFC),
+                border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Mã: $code",
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = FutaColors.Navy
+                        )
+                        if (apt["zone"].string.isNotEmpty()) {
+                            Text(
+                                text = apt["zone"].string,
+                                fontSize = 12.sp,
+                                color = FutaColors.BrandGreen,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+                    }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = PropertyFormatters.listingPrice(apt),
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = FutaColors.BrandOrange
+                        )
+                        val size = apt["size_m2"].string.toDoubleOrNull() ?: 0.0
+                        if (size > 0) {
+                            Text(
+                                text = "${String.format(java.util.Locale.US, "%.1f", size)} m²",
+                                fontSize = 13.sp,
+                                color = FutaColors.Slate
+                            )
+                        }
+                    }
+                }
+            }
+
+            // 1. AI Consultation Card
+            Surface(
+                shape = RoundedCornerShape(16.dp),
+                color = Color(0xFFF0FDF4),
+                border = BorderStroke(1.5.dp, Color(0xFF86EFAC)),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Surface(
+                            shape = CircleShape,
+                            color = Color(0xFFDCFCE7),
+                            modifier = Modifier.size(42.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    painter = painterResource(id = R.drawable.ic_lucide_bot),
+                                    contentDescription = "AI",
+                                    tint = FutaColors.BrandGreen,
+                                    modifier = Modifier.size(24.dp)
+                                )
+                            }
+                        }
+                        Column(modifier = Modifier.weight(1f)) {
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Text(
+                                    text = "Trợ lý AI FUTA Land",
+                                    fontSize = 15.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = FutaColors.Navy
+                                )
+                                Surface(
+                                    shape = CircleShape,
+                                    color = Color(0xFFDCFCE7)
+                                ) {
+                                    Text(
+                                        text = "24/7",
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = FutaColors.BrandGreen,
+                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                    )
+                                }
+                            }
+                            Text(
+                                text = "Hỏi đáp nhanh về pháp lý, giá, chính sách & ưu đãi căn hộ.",
+                                fontSize = 12.sp,
+                                color = FutaColors.Slate
+                            )
+                        }
+                    }
+
+                    Button(
+                        onClick = onChatAi,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(10.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = FutaColors.BrandGreen)
+                    ) {
+                        Row(
+                            horizontalArrangement = Arrangement.Center,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                painter = painterResource(id = R.drawable.sf_tab_chat_active),
+                                contentDescription = null,
+                                tint = Color.White,
+                                modifier = Modifier.size(15.dp)
+                            )
+                            Spacer(Modifier.width(6.dp))
+                            Text(
+                                text = "Tư vấn với AI ngay",
+                                fontSize = 13.5.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White
+                            )
+                        }
+                    }
+                }
+            }
+
+            // 2. Advisor List
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    text = "ĐỘI NGŨ CHUYÊN VIÊN PHỤ TRÁCH (${advisors.size})",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFFF97316),
+                    letterSpacing = 0.5.sp
+                )
+
+                advisors.forEach { adv ->
+                    val name = adv["name"].string.ifEmpty { "Chuyên viên FUTA Land" }
+                    val phone = adv["phone"].string.ifEmpty { "02838386852" }
+                    val avatar = adv["avatar"].string
+                    val advId = adv["id"].string.ifEmpty { adv["advisorId"].string }
+
+                    Surface(
+                        shape = RoundedCornerShape(14.dp),
+                        color = Color.White,
+                        border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Surface(
+                                shape = CircleShape,
+                                color = Color(0xFFE8F5E9),
+                                modifier = Modifier.size(46.dp)
+                            ) {
+                                if (avatar.isNotEmpty()) {
+                                    coil3.compose.AsyncImage(
+                                        model = avatar,
+                                        contentDescription = name,
+                                        contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                                        modifier = Modifier.fillMaxSize().clip(CircleShape)
+                                    )
+                                } else {
+                                    Box(contentAlignment = Alignment.Center) {
+                                        Text(
+                                            text = name.take(2).uppercase(),
+                                            color = Color(0xFF0E7643),
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 15.sp
+                                        )
+                                    }
+                                }
+                            }
+
+                            Spacer(Modifier.width(12.dp))
+
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = name,
+                                    fontSize = 14.5.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = FutaColors.Navy
+                                )
+                                Text(
+                                    text = phone,
+                                    fontSize = 12.sp,
+                                    color = FutaColors.Slate
+                                )
+                            }
+
+                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                // Call
+                                Surface(
+                                    shape = CircleShape,
+                                    color = Color(0xFFFDF6EE),
+                                    modifier = Modifier
+                                        .size(38.dp)
+                                        .clickable { onCallAdvisor(phone) }
+                                ) {
+                                    Box(contentAlignment = Alignment.Center) {
+                                        Icon(
+                                            painter = painterResource(id = R.drawable.sf_btn_phone),
+                                            contentDescription = "Gọi",
+                                            tint = Color(0xFFF97316),
+                                            modifier = Modifier.size(15.dp)
+                                        )
+                                    }
+                                }
+
+                                // Chat
+                                Surface(
+                                    shape = CircleShape,
+                                    color = Color(0xFFE8F5E9),
+                                    modifier = Modifier
+                                        .size(38.dp)
+                                        .clickable { onChatAdvisor(advId, name) }
+                                ) {
+                                    Box(contentAlignment = Alignment.Center) {
+                                        Icon(
+                                            painter = painterResource(id = R.drawable.sf_btn_chat),
+                                            contentDescription = "Chat",
+                                            tint = Color(0xFF0E7643),
+                                            modifier = Modifier.size(15.dp)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // 3. FutaLand Hotline Card
+            Surface(
+                shape = RoundedCornerShape(12.dp),
+                color = Color(0xFFF8FAFC),
+                border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    modifier = Modifier.padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        painter = painterResource(id = R.drawable.sf_btn_phone),
+                        contentDescription = null,
+                        tint = Color(0xFFF97316),
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(Modifier.width(10.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Tổng đài FUTA Land",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = FutaColors.Navy
+                        )
+                        Text(
+                            text = "028 3838 6852 · Hỗ trợ toàn diện",
+                            fontSize = 11.5.sp,
+                            color = FutaColors.Slate
+                        )
+                    }
+                    Surface(
+                        shape = CircleShape,
+                        color = Color(0xFFFDF6EE),
+                        modifier = Modifier.clickable { onCallAdvisor("02838386852") }
+                    ) {
+                        Text(
+                            text = "Gọi tổng đài",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFFF97316),
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+

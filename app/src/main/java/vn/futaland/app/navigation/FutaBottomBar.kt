@@ -177,9 +177,11 @@ fun FutaBottomBar(
                             verticalArrangement = Arrangement.Center
                         ) {
                             Icon(
-                                painter = painterResource(id = R.drawable.ic_futa_ai_robot),
+                                painter = painterResource(
+                                    id = if (chatSelected) R.drawable.sf_tab_chat_active else R.drawable.sf_tab_chat_inactive
+                                ),
                                 contentDescription = chatActionTitle,
-                                tint = if (chatSelected) Color.White else brandGreen,
+                                tint = Color.Unspecified,
                                 modifier = Modifier.size(26.dp)
                             )
                             Spacer(Modifier.height(2.dp))

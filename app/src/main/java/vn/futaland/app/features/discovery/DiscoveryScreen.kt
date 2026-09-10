@@ -82,12 +82,9 @@ fun DiscoveryScreen(
     ) {
         Surface(
             color = Color.White,
-            shadowElevation = 2.dp,
-            border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
             modifier = Modifier.fillMaxWidth()
         ) {
             TopBrandedHeader(
-                onSearchClick = { onNavigate(FutaDestinations.SEARCH) },
                 onNotificationClick = { onNavigate(FutaDestinations.NOTIFICATIONS) }
             )
         }
@@ -99,7 +96,13 @@ fun DiscoveryScreen(
                 .weight(1f),
             contentPadding = PaddingValues(top = 10.dp, bottom = 96.dp)
         ) {
-        // 3. Quick Real Estate Actions (4 items)
+        item {
+            FloatingSearchBar(
+                selectedCity = selectedCity,
+                onClick = { onNavigate(FutaDestinations.SEARCH) }
+            )
+            Spacer(Modifier.height(16.dp))
+        }
         item {
             QuickActionsGrid(
                 onNavigate = onNavigate
@@ -189,12 +192,14 @@ fun DiscoveryScreen(
                             }
                         },
                         onShareClick = {
+                            val shareUrl = PropertyFormatters.shareUrl(apt)
                             val sendIntent = Intent().apply {
                                 action = Intent.ACTION_SEND
-                                putExtra(Intent.EXTRA_TEXT, "Xem bất động sản: ${PropertyFormatters.propertyTitle(apt)}")
+                                putExtra(Intent.EXTRA_TEXT, shareUrl)
+                                putExtra(Intent.EXTRA_SUBJECT, PropertyFormatters.propertyTitle(apt))
                                 type = "text/plain"
                             }
-                            context.startActivity(Intent.createChooser(sendIntent, null))
+                            context.startActivity(Intent.createChooser(sendIntent, "Chia sẻ sản phẩm"))
                         },
                         onCallClick = {
                             val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:02838386852"))
@@ -224,15 +229,13 @@ fun DiscoveryScreen(
 }
 @Composable
 private fun TopBrandedHeader(
-    onSearchClick: () -> Unit,
     onNotificationClick: () -> Unit
 ) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .statusBarsPadding()
-            .padding(horizontal = 16.dp, vertical = 10.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp)
+            .padding(horizontal = 16.dp, vertical = 10.dp)
     ) {
         // Row 1: Official Logo & Notification Bell
         Row(
@@ -267,51 +270,7 @@ private fun TopBrandedHeader(
             }
         }
 
-        // Row 2: Integrated Sleek Native Search Bar
-        Surface(
-            shape = RoundedCornerShape(12.dp),
-            color = Color(0xFFF1F5F9),
-            border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(44.dp)
-                .clickable(onClick = onSearchClick)
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(horizontal = 12.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Search,
-                    contentDescription = null,
-                    tint = Color(0xFF64748B),
-                    modifier = Modifier.size(18.dp)
-                )
-                Spacer(Modifier.width(10.dp))
-                Text(
-                    text = "Tìm dự án, căn hộ, khu vực…",
-                    fontSize = 13.5.sp,
-                    color = Color(0xFF64748B),
-                    modifier = Modifier.weight(1f)
-                )
-                Surface(
-                    shape = RoundedCornerShape(8.dp),
-                    color = FutaColors.BrandGreen.copy(alpha = 0.12f),
-                    modifier = Modifier.size(30.dp)
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(
-                            painter = painterResource(id = R.drawable.sf_search_filter),
-                            contentDescription = "Bộ lọc",
-                            tint = FutaColors.BrandGreen,
-                            modifier = Modifier.size(14.dp)
-                        )
-                    }
-                }
-            }
-        }
+
     }
 }
 

@@ -37,7 +37,8 @@ object PropertyFormatters {
         return "$formatted/tháng"
     }
 
-    fun propertyTitle(value: JSONValue): String {
+    fun propertyTitle(value: JSONValue?): String {
+        if (value == null) return "Bất động sản FUTA Land"
         val code = value["propertyCode"].string.trim()
         val t = value["title"].string.trim()
 
@@ -103,5 +104,15 @@ object PropertyFormatters {
             if (str.isNotEmpty() && str != "null") return str
         }
         return ""
+    }
+
+    fun shareUrl(value: JSONValue?, fallbackId: String = ""): String {
+        val rawId = value?.get("recordId")?.string?.trim()
+            ?.ifEmpty { value.id.trim() }
+            ?.ifEmpty { fallbackId.trim() }
+            ?: fallbackId.trim()
+        if (rawId.isEmpty()) return "https://bds.futaland.vn"
+        val encodedId = java.net.URLEncoder.encode(rawId, "UTF-8").replace("+", "%20")
+        return "https://bds.futaland.vn/listing/$encodedId"
     }
 }

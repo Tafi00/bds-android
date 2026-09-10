@@ -356,12 +356,14 @@ fun PropertySearchScreen(
                                 }
                             },
                             onShareClick = {
+                                val shareUrl = PropertyFormatters.shareUrl(apt)
                                 val sendIntent = Intent().apply {
                                     action = Intent.ACTION_SEND
-                                    putExtra(Intent.EXTRA_TEXT, "Bất động sản FUTA: ${PropertyFormatters.propertyTitle(apt)}")
+                                    putExtra(Intent.EXTRA_TEXT, shareUrl)
+                                    putExtra(Intent.EXTRA_SUBJECT, PropertyFormatters.propertyTitle(apt))
                                     type = "text/plain"
                                 }
-                                context.startActivity(Intent.createChooser(sendIntent, null))
+                                context.startActivity(Intent.createChooser(sendIntent, "Chia sẻ sản phẩm"))
                             },
                             onCallClick = {
                                 val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:02838386852"))

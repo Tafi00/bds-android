@@ -58,13 +58,17 @@ data class ChatMessage(
 @Composable
 fun ChatScreen(
     initialConversationId: String? = null,
+    targetAdvisorId: String? = null,
+    targetAdvisorName: String? = null,
+    targetApartmentId: String? = null,
+    isAiChat: Boolean = false,
     onBack: (() -> Unit)? = null
 ) {
     val scope = rememberCoroutineScope()
     val isStaff = AppSession.shared.role != "customer" && AppSession.shared.role != "guest"
 
     var activeConversationId by remember { mutableStateOf(if (!isStaff) (initialConversationId ?: "ai_agent") else initialConversationId) }
-    var activeConversationName by remember { mutableStateOf("Trợ lý AI FUTA Land") }
+    var activeConversationName by remember { mutableStateOf(targetAdvisorName ?: (if (isAiChat) "Trợ lý AI FUTA Land" else "Trợ lý AI FUTA Land")) }
 
     var search by remember { mutableStateOf("") }
     var filterTab by remember { mutableStateOf("all") }
@@ -83,37 +87,66 @@ fun ChatScreen(
             val res = APIClient.get().request("/chat/conversations", query = mapOf("limit" to "50"))
             val list = res["data"].array
             val isStaff = AppSession.shared.role != "customer" && AppSession.shared.role != "guest"
-            if (!isStaff && list.isEmpty()) {
+
+            conversations.clear()
+            for (c in list) {
+                val advId = c["advisorId"].string
+                val isAi = !isStaff && advId.isEmpty()
+                val name = if (isStaff) {
+                    val cName = c["customer"]["customerName"].string
+                    cName.ifEmpty { c["customerPhone"].string.ifEmpty { "Khách hàng" } }
+                } else {
+                    if (isAi) "Trợ lý AI FUTA Land" else c["advisor"]["name"].string.ifEmpty { "Sale phụ trách điều phối" }
+                }
+                val badge = if (isStaff) "" else (if (isAi) "Trợ lý AI" else "Sale phụ trách")
+                val lastMsg = c["lastMessageContent"].string.ifEmpty { "Bắt đầu cuộc trò chuyện..." }
+                val time = c["lastMessageAt"].string.take(16).replace("T", " ")
+                conversations.add(ConversationItem(c.id, name, lastMsg, time, 0, true, isAi, badge))
+            }
+
+            if (!targetAdvisorId.isNullOrEmpty()) {
+                val existing = list.find { it["advisorId"].string == targetAdvisorId }
+                if (existing != null) {
+                    activeConversationId = existing.id
+                    activeConversationName = targetAdvisorName ?: existing["advisor"]["name"].string.ifEmpty { "Tư vấn viên" }
+                } else {
+                    val body = """{"advisorId":"$targetAdvisorId"${if (!targetApartmentId.isNullOrEmpty()) ""","apartmentId":"$targetApartmentId"""" else ""}}"""
+                    val createRes = APIClient.get().request("/chat/conversations", method = "POST", bodyJson = body)
+                    val newConv = createRes["data"]
+                    if (!newConv.id.isEmpty()) {
+                        val advName = targetAdvisorName ?: newConv["advisor"]["name"].string.ifEmpty { "Tư vấn viên" }
+                        conversations.add(0, ConversationItem(newConv.id, advName, "Bắt đầu cuộc trò chuyện...", "Bây giờ", 0, true, false, "Sale phụ trách"))
+                        activeConversationId = newConv.id
+                        activeConversationName = advName
+                    }
+                }
+            } else if (isAiChat) {
+                val aiConv = conversations.find { it.isAi }
+                if (aiConv != null) {
+                    activeConversationId = aiConv.id
+                    activeConversationName = aiConv.name
+                } else {
+                    val createRes = APIClient.get().request("/chat/conversations", method = "POST", bodyJson = "{}")
+                    val newConv = createRes["data"]
+                    if (!newConv.id.isEmpty()) {
+                        conversations.add(0, ConversationItem(newConv.id, "Trợ lý AI FUTA Land", "Bắt đầu cuộc trò chuyện...", "Bây giờ", 0, true, true, "Trợ lý AI"))
+                        activeConversationId = newConv.id
+                        activeConversationName = "Trợ lý AI FUTA Land"
+                    }
+                }
+            } else if (!isStaff && conversations.isEmpty()) {
                 val createRes = APIClient.get().request("/chat/conversations", method = "POST", bodyJson = "{}")
                 val newConv = createRes["data"]
                 if (!newConv.id.isEmpty()) {
-                    conversations.clear()
                     conversations.add(ConversationItem(newConv.id, "Trợ lý AI FUTA Land", "Bắt đầu cuộc trò chuyện...", "Bây giờ", 0, true, true, "Trợ lý AI"))
                     activeConversationId = newConv.id
                     activeConversationName = "Trợ lý AI FUTA Land"
                 }
-            } else if (list.isNotEmpty()) {
-                conversations.clear()
-                for (c in list) {
-                    val advId = c["advisorId"].string
-                    val isAi = !isStaff && advId.isEmpty()
-                    val name = if (isStaff) {
-                        val cName = c["customer"]["customerName"].string
-                        cName.ifEmpty { c["customerPhone"].string.ifEmpty { "Khách hàng" } }
-                    } else {
-                        if (isAi) "Trợ lý AI FUTA Land" else c["advisor"]["name"].string.ifEmpty { "Sale phụ trách điều phối" }
-                    }
-                    val badge = if (isStaff) "" else (if (isAi) "Trợ lý AI" else "Sale phụ trách")
-                    val lastMsg = c["lastMessageContent"].string.ifEmpty { "Bắt đầu cuộc trò chuyện..." }
-                    val time = c["lastMessageAt"].string.take(16).replace("T", " ")
-                    conversations.add(ConversationItem(c.id, name, lastMsg, time, 0, true, isAi, badge))
-                }
-                if (!isStaff) {
-                    val aiConv = conversations.find { it.isAi } ?: conversations.firstOrNull()
-                    if (aiConv != null) {
-                        activeConversationId = aiConv.id
-                        activeConversationName = aiConv.name
-                    }
+            } else if (!isStaff && (activeConversationId.isNullOrEmpty() || activeConversationId == "ai_agent")) {
+                val aiConv = conversations.find { it.isAi } ?: conversations.firstOrNull()
+                if (aiConv != null) {
+                    activeConversationId = aiConv.id
+                    activeConversationName = aiConv.name
                 }
             }
         } catch (_: Exception) {}
@@ -467,13 +500,14 @@ fun ChatScreen(
                             }
                         }
 
-                        // Switcher pill if customer has an assigned advisor
-                        val assignedAdvisor = conversations.firstOrNull { !it.isAi }
+                        // Switcher pills for customer to toggle between AI and all assigned advisors
+                        val advisorConvs = conversations.filter { !it.isAi }
                         val aiConv = conversations.firstOrNull { it.isAi }
-                        if (!isStaff && assignedAdvisor != null) {
+                        if (!isStaff && advisorConvs.isNotEmpty()) {
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
+                                    .horizontalScroll(rememberScrollState())
                                     .padding(horizontal = 12.dp, vertical = 4.dp),
                                 horizontalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
@@ -492,18 +526,20 @@ fun ChatScreen(
                                     }
                                 }
 
-                                val isAdvisorSelected = activeConversationId == assignedAdvisor.id
-                                Surface(
-                                    shape = CircleShape,
-                                    color = if (isAdvisorSelected) FutaColors.BrandGreen else Color(0xFFF1F5F9),
-                                    modifier = Modifier.clickable {
-                                        activeConversationId = assignedAdvisor.id
-                                        activeConversationName = assignedAdvisor.name
-                                    }
-                                ) {
-                                    Row(modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                                        Icon(Icons.Default.Person, null, tint = if (isAdvisorSelected) Color.White else FutaColors.Navy, modifier = Modifier.size(13.dp))
-                                        Text("Sale: ${assignedAdvisor.name}", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = if (isAdvisorSelected) Color.White else FutaColors.Navy)
+                                advisorConvs.forEach { advConv ->
+                                    val isAdvisorSelected = activeConversationId == advConv.id
+                                    Surface(
+                                        shape = CircleShape,
+                                        color = if (isAdvisorSelected) FutaColors.BrandGreen else Color(0xFFF1F5F9),
+                                        modifier = Modifier.clickable {
+                                            activeConversationId = advConv.id
+                                            activeConversationName = advConv.name
+                                        }
+                                    ) {
+                                        Row(modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                            Icon(Icons.Default.Person, null, tint = if (isAdvisorSelected) Color.White else FutaColors.Navy, modifier = Modifier.size(13.dp))
+                                            Text("Sale: ${advConv.name}", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = if (isAdvisorSelected) Color.White else FutaColors.Navy)
+                                        }
                                     }
                                 }
                             }

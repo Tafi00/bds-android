@@ -20,6 +20,23 @@ object FutaDestinations {
     const val LUCKY_WHEEL = "lucky_wheel"
     const val WORKSPACE = "workspace"
     const val CHAT_CONVERSATION = "chat_conversation/{conversationId}"
+    const val CHAT_ROUTE = "chat?conversationId={conversationId}&advisorId={advisorId}&advisorName={advisorName}&apartmentId={apartmentId}&isAi={isAi}"
+
+    fun chat(
+        conversationId: String? = null,
+        advisorId: String? = null,
+        advisorName: String? = null,
+        apartmentId: String? = null,
+        isAi: Boolean = false
+    ): String {
+        val params = mutableListOf<String>()
+        if (!conversationId.isNullOrEmpty()) params.add("conversationId=$conversationId")
+        if (!advisorId.isNullOrEmpty()) params.add("advisorId=$advisorId")
+        if (!advisorName.isNullOrEmpty()) params.add("advisorName=${android.net.Uri.encode(advisorName)}")
+        if (!apartmentId.isNullOrEmpty()) params.add("apartmentId=$apartmentId")
+        if (isAi) params.add("isAi=true")
+        return if (params.isEmpty()) INBOX else "chat?${params.joinToString("&")}"
+    }
     const val NOTIFICATIONS = "notifications"
     const val PRICING = "pricing"
     const val PROFILE = "profile"

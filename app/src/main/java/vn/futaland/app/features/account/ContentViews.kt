@@ -387,12 +387,15 @@ fun NewsDetailScreen(
                     )
                     article?.let { a ->
                         IconButton(onClick = {
+                            val slug = a["slug"].string.ifEmpty { a.id }
+                            val shareUrl = if (slug.isNotEmpty()) "https://bds.futaland.vn/news/$slug" else "https://bds.futaland.vn/news"
                             val intent = Intent().apply {
                                 action = Intent.ACTION_SEND
-                                putExtra(Intent.EXTRA_TEXT, "${a["title"].string} - FUTA Land")
+                                putExtra(Intent.EXTRA_TEXT, shareUrl)
+                                putExtra(Intent.EXTRA_SUBJECT, a["title"].string)
                                 type = "text/plain"
                             }
-                            context.startActivity(Intent.createChooser(intent, null))
+                            context.startActivity(Intent.createChooser(intent, "Chia sẻ bài viết"))
                         }) {
                             Icon(Icons.Default.Share, "Chia sẻ", tint = FutaColors.Navy)
                         }
