@@ -61,7 +61,25 @@ fun WorkspaceScreen(
                 route = FutaDestinations.ADMIN_DASHBOARD
             ),
 
-            // QUẢN TRỊ VIÊN (Chỉ dành cho Admin - Chuẩn Web)
+            // QUẢN TRỊ VIÊN (Chỉ dành cho Admin - Thứ tự chuẩn Web 100%)
+            WorkspaceModuleItem(
+                id = "users",
+                title = "Quản lý người dùng",
+                subtitle = "Danh sách tài khoản & phân quyền người dùng",
+                iconRes = R.drawable.sf_adm_users,
+                badgeColor = Color(0xFF8B5CF6),
+                group = "Quản trị viên",
+                route = FutaDestinations.ADMIN_USERS
+            ),
+            WorkspaceModuleItem(
+                id = "roles",
+                title = "Vai trò & Phân quyền",
+                subtitle = "Ma trận phân quyền & chức năng hệ thống",
+                iconRes = R.drawable.sf_adm_roles,
+                badgeColor = Color(0xFF0D9488),
+                group = "Quản trị viên",
+                route = FutaDestinations.ADMIN_ROLES
+            ),
             WorkspaceModuleItem(
                 id = "projects",
                 title = "Quản lý dự án",
@@ -79,6 +97,15 @@ fun WorkspaceScreen(
                 badgeColor = Color(0xFFF97316),
                 group = "Quản trị viên",
                 route = FutaDestinations.ADMIN_CAMPAIGNS
+            ),
+            WorkspaceModuleItem(
+                id = "game_admin",
+                title = "Quản trị vòng quay",
+                subtitle = "Cấu hình giải thưởng & tỷ lệ vòng quay",
+                iconRes = R.drawable.sf_quick_wheel,
+                badgeColor = Color(0xFFD97706),
+                group = "Quản trị viên",
+                route = FutaDestinations.ADMIN_LUCKY_WHEEL
             ),
             WorkspaceModuleItem(
                 id = "inventory",
@@ -108,42 +135,6 @@ fun WorkspaceScreen(
                 route = FutaDestinations.ADMIN_TRANSACTIONS
             ),
             WorkspaceModuleItem(
-                id = "cms",
-                title = "CMS Quản trị nội dung",
-                subtitle = "Tin tức thị trường, tài liệu & trang chủ",
-                iconRes = R.drawable.sf_adm_cms,
-                badgeColor = Color(0xFF6366F1),
-                group = "Quản trị viên",
-                route = FutaDestinations.ADMIN_CMS
-            ),
-            WorkspaceModuleItem(
-                id = "settings",
-                title = "Thiết lập hệ thống",
-                subtitle = "Cấu hình ngân hàng & quy chế giao dịch",
-                iconRes = R.drawable.sf_adm_settings,
-                badgeColor = Color(0xFF64748B),
-                group = "Quản trị viên",
-                route = FutaDestinations.ADMIN_SETTINGS
-            ),
-            WorkspaceModuleItem(
-                id = "users",
-                title = "Quản lý người dùng",
-                subtitle = "Danh sách tài khoản & phân quyền người dùng",
-                iconRes = R.drawable.sf_adm_users,
-                badgeColor = Color(0xFF8B5CF6),
-                group = "Quản trị viên",
-                route = FutaDestinations.ADMIN_USERS
-            ),
-            WorkspaceModuleItem(
-                id = "roles",
-                title = "Vai trò & Phân quyền",
-                subtitle = "Ma trận phân quyền & chức năng hệ thống",
-                iconRes = R.drawable.sf_adm_roles,
-                badgeColor = Color(0xFF0D9488),
-                group = "Quản trị viên",
-                route = FutaDestinations.ADMIN_ROLES
-            ),
-            WorkspaceModuleItem(
                 id = "advisors",
                 title = "Duyệt hồ sơ TVV",
                 subtitle = "Duyệt hồ sơ & thông tin chuyên viên",
@@ -171,13 +162,22 @@ fun WorkspaceScreen(
                 route = FutaDestinations.ADMIN_AI
             ),
             WorkspaceModuleItem(
-                id = "game_admin",
-                title = "Quản trị vòng quay",
-                subtitle = "Cấu hình giải thưởng & tỷ lệ vòng quay",
-                iconRes = R.drawable.sf_quick_wheel,
-                badgeColor = Color(0xFFD97706),
+                id = "settings",
+                title = "Thiết lập hệ thống",
+                subtitle = "Cấu hình ngân hàng & quy chế giao dịch",
+                iconRes = R.drawable.sf_adm_settings,
+                badgeColor = Color(0xFF64748B),
                 group = "Quản trị viên",
-                route = FutaDestinations.ADMIN_LUCKY_WHEEL
+                route = FutaDestinations.ADMIN_SETTINGS
+            ),
+            WorkspaceModuleItem(
+                id = "cms",
+                title = "CMS Quản trị nội dung",
+                subtitle = "Tin tức thị trường, tài liệu & trang chủ",
+                iconRes = R.drawable.sf_adm_cms,
+                badgeColor = Color(0xFF6366F1),
+                group = "Quản trị viên",
+                route = FutaDestinations.ADMIN_CMS
             ),
             // QUẢN LÝ BÁN HÀNG (TVV & Admin - Chuẩn Web)
             WorkspaceModuleItem(
@@ -255,6 +255,42 @@ fun WorkspaceScreen(
 
             // TÀI KHOẢN & TIỆN ÍCH (Tất cả người dùng)
             WorkspaceModuleItem(
+                id = "lucky_wheel",
+                title = "Vòng quay may mắn",
+                subtitle = "Tham gia vòng quay may mắn nhận quà",
+                vectorIcon = Icons.Default.CardGiftcard,
+                badgeColor = Color(0xFFD97706),
+                group = "Tài khoản & Tiện ích",
+                route = FutaDestinations.LUCKY_WHEEL
+            ),
+            WorkspaceModuleItem(
+                id = "pricing",
+                title = "Gói dịch vụ & Hạn mức",
+                subtitle = "Bảng giá gói tin & quyền lợi tài khoản",
+                vectorIcon = Icons.Default.Stars,
+                badgeColor = Color(0xFFD97706),
+                group = "Tài khoản & Tiện ích",
+                route = FutaDestinations.PRICING
+            ),
+            WorkspaceModuleItem(
+                id = "profile",
+                title = "Hồ sơ cá nhân",
+                subtitle = "Cập nhật thông tin cá nhân & mật khẩu",
+                vectorIcon = Icons.Default.AccountCircle,
+                badgeColor = Color(0xFF2563EB),
+                group = "Tài khoản & Tiện ích",
+                route = FutaDestinations.PROFILE
+            ),
+            WorkspaceModuleItem(
+                id = "billing",
+                title = "Thanh toán & Đơn hàng",
+                subtitle = "Lịch sử thanh toán & đơn hàng dịch vụ",
+                vectorIcon = Icons.Default.CreditCard,
+                badgeColor = Color(0xFF10B981),
+                group = "Tài khoản & Tiện ích",
+                route = FutaDestinations.BILLING
+            ),
+            WorkspaceModuleItem(
                 id = "saved",
                 title = "Tin đã lưu & Thư mục",
                 subtitle = "Bất động sản và thư mục đã lưu",
@@ -273,33 +309,6 @@ fun WorkspaceScreen(
                 route = FutaDestinations.VIEW_HISTORY
             ),
             WorkspaceModuleItem(
-                id = "advisor",
-                title = "Trở thành tư vấn viên",
-                subtitle = "Đăng ký trở thành chuyên viên FUTA",
-                vectorIcon = Icons.Default.VerifiedUser,
-                badgeColor = FutaColors.BrandGreen,
-                group = "Tài khoản & Tiện ích",
-                route = FutaDestinations.ADVISOR
-            ),
-            WorkspaceModuleItem(
-                id = "lucky_wheel",
-                title = "Vòng quay may mắn",
-                subtitle = "Tham gia vòng quay may mắn nhận quà",
-                vectorIcon = Icons.Default.CardGiftcard,
-                badgeColor = Color(0xFFD97706),
-                group = "Tài khoản & Tiện ích",
-                route = FutaDestinations.LUCKY_WHEEL
-            ),
-            WorkspaceModuleItem(
-                id = "profile",
-                title = "Hồ sơ cá nhân",
-                subtitle = "Cập nhật thông tin cá nhân & mật khẩu",
-                vectorIcon = Icons.Default.AccountCircle,
-                badgeColor = Color(0xFF2563EB),
-                group = "Tài khoản & Tiện ích",
-                route = FutaDestinations.PROFILE
-            ),
-            WorkspaceModuleItem(
                 id = "notifications",
                 title = "Thông báo hệ thống",
                 subtitle = "Cập nhật giao dịch & tin nhắn hệ thống",
@@ -309,22 +318,13 @@ fun WorkspaceScreen(
                 route = FutaDestinations.NOTIFICATIONS
             ),
             WorkspaceModuleItem(
-                id = "pricing",
-                title = "Gói dịch vụ & Hạn mức",
-                subtitle = "Bảng giá gói tin & quyền lợi tài khoản",
-                vectorIcon = Icons.Default.Stars,
-                badgeColor = Color(0xFFD97706),
+                id = "advisor",
+                title = "Trở thành tư vấn viên",
+                subtitle = "Đăng ký trở thành chuyên viên FUTA",
+                vectorIcon = Icons.Default.VerifiedUser,
+                badgeColor = FutaColors.BrandGreen,
                 group = "Tài khoản & Tiện ích",
-                route = FutaDestinations.PRICING
-            ),
-            WorkspaceModuleItem(
-                id = "billing",
-                title = "Thanh toán & Đơn hàng",
-                subtitle = "Lịch sử thanh toán & đơn hàng dịch vụ",
-                vectorIcon = Icons.Default.CreditCard,
-                badgeColor = Color(0xFF10B981),
-                group = "Tài khoản & Tiện ích",
-                route = FutaDestinations.BILLING
+                route = FutaDestinations.ADVISOR
             )
         )
     }
@@ -395,7 +395,7 @@ fun WorkspaceScreen(
                 FutaInput(
                     value = search,
                     onValueChange = { search = it },
-                    placeholder = if (session.role == "admin") "Tìm kiếm chức năng quản trị…" else "Tìm kiếm chức năng TVV…",
+                    placeholder = "Tìm kiếm chức năng, phân hệ…",
                     leadingIcon = Icons.Default.Search,
                     trailingIcon = if (search.isNotEmpty()) {
                         {
