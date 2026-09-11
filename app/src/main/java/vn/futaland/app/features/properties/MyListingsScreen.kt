@@ -55,6 +55,10 @@ fun MyListingsScreen(
     val scope = rememberCoroutineScope()
     var selectedTab by remember { mutableStateOf("all") }
     var search by remember { mutableStateOf("") }
+    var projectFilter by remember { mutableStateOf("") }
+    var blockFilter by remember { mutableStateOf("") }
+    var projectMenuOpen by remember { mutableStateOf(false) }
+    var blockMenuOpen by remember { mutableStateOf(false) }
     var items by remember { mutableStateOf<List<SellingItem>>(emptyList()) }
     var loading by remember { mutableStateOf(true) }
     var registeringApartment by remember { mutableStateOf<SellingItem?>(null) }
@@ -94,8 +98,14 @@ fun MyListingsScreen(
                 val registeredIds = mutableSetOf<String>()
 
                 for (reg in regList) {
-                    val aptId = reg["apartmentId"].string.ifEmpty {
-                        reg["apartment"]["id"].string.ifEmpty { reg["apartment"]["recordId"].string }
+                    // Use the canonical apartment record id when it is
+                    // present. Older registration payloads may contain a
+                    // legacy/internal id that the detail endpoint cannot
+                    // resolve; propertyCode is handled as a safe fallback.
+                    val aptId = reg["apartment"]["recordId"].string.ifEmpty {
+                        reg["apartmentId"].string.ifEmpty {
+                            reg["apartment"]["id"].string.ifEmpty { reg["apartment"]["propertyCode"].string }
+                        }
                     }
                     if (aptId.isNotEmpty()) registeredIds.add(aptId)
                     val unitCode = reg["unitCode"].string.ifEmpty { reg["apartment"]["propertyCode"].string }
@@ -163,7 +173,9 @@ fun MyListingsScreen(
         loadData()
     }
 
-    val filteredItems = remember(items, selectedTab, search) {
+    val projectOptions = remember(items) { items.map { it.projectName }.filter { it.isNotBlank() }.distinct().sorted() }
+    val blockOptions = remember(items) { items.map { it.block }.filter { it.isNotBlank() }.distinct().sorted() }
+    val filteredItems = remember(items, selectedTab, search, projectFilter, blockFilter) {
         items.filter { item ->
             val q = search.trim().lowercase()
             val matchSearch = q.isEmpty() || item.unitCode.lowercase().contains(q) || item.projectName.lowercase().contains(q)
@@ -177,6 +189,8 @@ fun MyListingsScreen(
             }
 
             matchSearch && matchTab
+                && (projectFilter.isEmpty() || item.projectName == projectFilter)
+                && (blockFilter.isEmpty() || item.block == blockFilter)
         }
     }
 
@@ -245,6 +259,29 @@ fun MyListingsScreen(
                     } else null,
                     modifier = Modifier.fillMaxWidth()
                 )
+            }
+
+            item {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Box {
+                        OutlinedButton(onClick = { projectMenuOpen = true }, shape = RoundedCornerShape(10.dp)) {
+                            Text(if (projectFilter.isEmpty()) "Tất cả dự án" else projectFilter, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        }
+                        DropdownMenu(expanded = projectMenuOpen, onDismissRequest = { projectMenuOpen = false }) {
+                            DropdownMenuItem(text = { Text("Tất cả dự án") }, onClick = { projectFilter = ""; projectMenuOpen = false })
+                            projectOptions.forEach { option -> DropdownMenuItem(text = { Text(option) }, onClick = { projectFilter = option; projectMenuOpen = false }) }
+                        }
+                    }
+                    Box {
+                        OutlinedButton(onClick = { blockMenuOpen = true }, shape = RoundedCornerShape(10.dp)) {
+                            Text(if (blockFilter.isEmpty()) "Tất cả block" else blockFilter)
+                        }
+                        DropdownMenu(expanded = blockMenuOpen, onDismissRequest = { blockMenuOpen = false }) {
+                            DropdownMenuItem(text = { Text("Tất cả block") }, onClick = { blockFilter = ""; blockMenuOpen = false })
+                            blockOptions.forEach { option -> DropdownMenuItem(text = { Text(option) }, onClick = { blockFilter = option; blockMenuOpen = false }) }
+                        }
+                    }
+                }
             }
 
             // Status Filter Tabs
