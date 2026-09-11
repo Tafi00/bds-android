@@ -1,6 +1,5 @@
 package vn.futaland.app.features.properties
 
-import androidx.compose.animation.*
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -26,12 +25,28 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
+import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
 import vn.futaland.app.core.network.APIClient
-import vn.futaland.app.core.network.JSONValue
 import vn.futaland.app.designsystem.*
 import vn.futaland.app.navigation.FutaDestinations
 
+data class SellingItem(
+    val id: String,
+    val aptId: String,
+    val unitCode: String,
+    val projectName: String,
+    val block: String,
+    val price: Double,
+    val area: Double,
+    val imgUrl: String,
+    val status: String, // available, pending, active, expired, rejected
+    val expiresAt: String
+)
+
+/**
+ * Đăng ký bán sản phẩm (Matching Web advisor-registrations.tsx).
+ */
 @Composable
 fun MyListingsScreen(
     onBack: () -> Unit,
@@ -40,31 +55,104 @@ fun MyListingsScreen(
     val scope = rememberCoroutineScope()
     var selectedTab by remember { mutableStateOf("all") }
     var search by remember { mutableStateOf("") }
-    var items by remember { mutableStateOf<List<JSONValue>>(emptyList()) }
+    var items by remember { mutableStateOf<List<SellingItem>>(emptyList()) }
     var loading by remember { mutableStateOf(true) }
-    var showCreateSheet by remember { mutableStateOf(false) }
-    var editingApartment by remember { mutableStateOf<JSONValue?>(null) }
-    var deletingApartment by remember { mutableStateOf<JSONValue?>(null) }
-    var boostingId by remember { mutableStateOf<String?>(null) }
+    var registeringApartment by remember { mutableStateOf<SellingItem?>(null) }
 
-    fun loadData(searchQuery: String = search) {
+    val tabs = listOf(
+        "all" to "Tất cả",
+        "available" to "Chưa đăng ký",
+        "pending" to "Chờ duyệt",
+        "active" to "Đang bán",
+        "expired" to "Đã hết hạn"
+    )
+
+    fun loadData() {
         scope.launch {
             loading = true
             try {
-                val q = searchQuery.trim()
-                var url = "/apartments?mine=true&limit=100"
-                if (q.isNotEmpty()) {
-                    url += "&q=${java.net.URLEncoder.encode(q, "UTF-8")}"
+                val invList = try {
+                    val invRes = APIClient.get().request("/sales/inventory")
+                    invRes["data"].array.ifEmpty { invRes.array }
+                } catch (_: Exception) {
+                    try {
+                        val aptRes = APIClient.get().request("/apartments?limit=50")
+                        aptRes["data"].array
+                    } catch (_: Exception) {
+                        emptyList()
+                    }
                 }
-                val res = APIClient.get().request(url)
-                var list = res["data"].array
-                // Fallback to managed listings if user has zero personal listings yet
-                if (list.isEmpty()) {
-                    val fallbackUrl = if (q.isNotEmpty()) "/apartments?limit=100&q=${java.net.URLEncoder.encode(q, "UTF-8")}" else "/apartments?limit=100"
-                    val fallbackRes = APIClient.get().request(fallbackUrl)
-                    list = fallbackRes["data"].array
+
+                val regList = try {
+                    val regRes = APIClient.get().request("/sales/registrations")
+                    regRes["data"].array.ifEmpty { regRes.array }
+                } catch (_: Exception) {
+                    emptyList()
                 }
-                items = list
+
+                val merged = mutableListOf<SellingItem>()
+                val registeredIds = mutableSetOf<String>()
+
+                for (reg in regList) {
+                    val aptId = reg["apartmentId"].string.ifEmpty {
+                        reg["apartment"]["id"].string.ifEmpty { reg["apartment"]["recordId"].string }
+                    }
+                    if (aptId.isNotEmpty()) registeredIds.add(aptId)
+                    val unitCode = reg["unitCode"].string.ifEmpty { reg["apartment"]["propertyCode"].string }
+                    if (unitCode.isNotEmpty()) registeredIds.add(unitCode)
+
+                    val projectName = reg["projectName"].string.ifEmpty { reg["apartment"]["zone"].string }
+                    val block = reg["block"].string.ifEmpty { reg["apartment"]["building"].string }
+                    val rawPrice = if (reg["price"].double > 0) reg["price"].double
+                    else if (reg["apartment"]["sellPrice"].double > 0) reg["apartment"]["sellPrice"].double
+                    else reg["apartment"]["price"].double
+                    val area = if (reg["area"].double > 0) reg["area"].double else reg["apartment"]["size_m2"].double
+                    val imgUrl = reg["image"].string.ifEmpty {
+                        reg["apartment"]["images"].array.firstOrNull()?.get("original")?.string ?: ""
+                    }
+                    val status = reg["status"].string.lowercase()
+
+                    merged.add(
+                        SellingItem(
+                            id = reg.id.ifEmpty { "reg-$aptId" },
+                            aptId = aptId,
+                            unitCode = unitCode,
+                            projectName = projectName,
+                            block = block,
+                            price = rawPrice,
+                            area = area,
+                            imgUrl = imgUrl,
+                            status = status,
+                            expiresAt = reg["expiresAt"].string
+                        )
+                    )
+                }
+
+                for (apt in invList) {
+                    val recId = apt["recordId"].string.ifEmpty { apt["id"].string }
+                    val pCode = apt["propertyCode"].string
+                    if (!registeredIds.contains(recId) && !registeredIds.contains(pCode)) {
+                        val rawPrice = if (apt["sellPrice"].double > 0) apt["sellPrice"].double else apt["price"].double
+                        val area = apt["size_m2"].double
+                        val imgUrl = apt["images"].array.firstOrNull()?.get("original")?.string ?: ""
+                        merged.add(
+                            SellingItem(
+                                id = "avail-$recId",
+                                aptId = recId,
+                                unitCode = pCode,
+                                projectName = apt["zone"].string,
+                                block = apt["building"].string,
+                                price = rawPrice,
+                                area = area,
+                                imgUrl = imgUrl,
+                                status = "available",
+                                expiresAt = ""
+                            )
+                        )
+                    }
+                }
+
+                items = merged
             } catch (_: Exception) {
                 items = emptyList()
             } finally {
@@ -73,34 +161,26 @@ fun MyListingsScreen(
         }
     }
 
-    LaunchedEffect(search) {
-        kotlinx.coroutines.delay(300)
-        loadData(search)
+    LaunchedEffect(Unit) {
+        loadData()
     }
 
-    val filteredItems = remember(items, selectedTab) {
-        items.filter { apt ->
-            val statuses = if (apt["status"].array.isNotEmpty()) {
-                apt["status"].array.map { it.string.lowercase() }
-            } else {
-                listOf(apt["status"].string.lowercase())
-            }
+    val filteredItems = remember(items, selectedTab, search) {
+        items.filter { item ->
+            val q = search.trim().lowercase()
+            val matchSearch = q.isEmpty() || item.unitCode.lowercase().contains(q) || item.projectName.lowercase().contains(q)
 
-            when (selectedTab) {
-                "visible" -> statuses.any { it.contains("mở bán") || it.contains("available") || it.contains("published") || it.contains("hiển thị") }
-                "pending" -> statuses.any { it.contains("chờ duyệt") || it.contains("pending") || it.contains("review") || it.contains("draft") }
-                "expired" -> statuses.any { it.contains("hết hạn") || it.contains("expired") || it.contains("inactive") || it.contains("đã bán") || it.contains("đã cho thuê") }
+            val matchTab = when (selectedTab) {
+                "available" -> item.status == "available"
+                "pending" -> item.status == "pending"
+                "active" -> item.status == "active" || item.status == "approved"
+                "expired" -> item.status == "expired" || item.status == "rejected" || item.status == "revoked"
                 else -> true
             }
+
+            matchSearch && matchTab
         }
     }
-
-    val tabs = listOf(
-        "all" to "Tất cả (${items.size})",
-        "visible" to "Đang hiển thị",
-        "pending" to "Chờ duyệt",
-        "expired" to "Hết hạn"
-    )
 
     Scaffold(
         containerColor = Color(0xFFF8FAFC),
@@ -123,17 +203,17 @@ fun MyListingsScreen(
                     )
 
                     Text(
-                        text = "Tin đăng của tôi",
+                        text = "Đăng ký bán sản phẩm",
                         fontSize = 17.5.sp,
                         fontWeight = FontWeight.Bold,
                         color = FutaColors.Navy
                     )
 
                     FutaHeaderIconButton(
-                        icon = Icons.Default.Add,
-                        contentDescription = "Đăng tin",
+                        icon = Icons.Default.Refresh,
+                        contentDescription = "Làm mới",
                         tint = FutaColors.BrandGreen,
-                        onClick = { showCreateSheet = true }
+                        onClick = { loadData() }
                     )
                 }
             }
@@ -146,12 +226,12 @@ fun MyListingsScreen(
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            // Pinned Search Bar (API Debounced) matching Web
+            // Search Bar
             item {
                 FutaInput(
                     value = search,
                     onValueChange = { search = it },
-                    placeholder = "Tìm theo tiêu đề, mã căn, vị trí…",
+                    placeholder = "Tìm theo mã căn, toà nhà, dự án…",
                     leadingIcon = Icons.Default.Search,
                     trailingIcon = if (search.isNotEmpty()) {
                         {
@@ -197,7 +277,7 @@ fun MyListingsScreen(
                 }
             }
 
-            // Listings Cards List with Skeletons
+            // Cards List
             if (loading && items.isEmpty()) {
                 items(4) {
                     FutaSkeletonBlock(height = 140.dp, radius = 16.dp)
@@ -205,27 +285,21 @@ fun MyListingsScreen(
             } else if (filteredItems.isEmpty()) {
                 item {
                     FutaEmptyState(
-                        title = "Chưa có tin đăng",
-                        message = "Bấm nút '+' góc trên để tạo tin đăng mới."
+                        title = "Không tìm thấy sản phẩm",
+                        message = "Thử tìm kiếm với từ khoá khác hoặc chuyển bộ lọc."
                     )
                 }
             } else {
-                itemsIndexed(filteredItems, key = { idx, item -> item.id.ifEmpty { "my-apt-$idx" } }) { _, apt ->
-                    val title = PropertyFormatters.propertyTitle(apt)
-                    val imgUrl = PropertyFormatters.resolveImage(apt)
-                    val code = apt["propertyCode"].string.ifEmpty { apt["code"].string }
-                    val zone = apt["zone"].string.ifEmpty { apt["project"]["displayName"].string }
-                    val priceStr = PropertyFormatters.listingPrice(apt)
-                    val rawStatus = apt["status"].array.firstOrNull()?.string ?: apt["status"].string
-                    val status = rawStatus.ifEmpty { "Đang hiển thị" }
-
+                itemsIndexed(filteredItems, key = { _, item -> item.id }) { _, item ->
                     Surface(
                         shape = RoundedCornerShape(16.dp),
                         color = Color.White,
                         shadowElevation = 1.dp,
                         border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
                         modifier = Modifier.fillMaxWidth().clickable {
-                            onNavigate(FutaDestinations.propertyDetail(apt.id))
+                            if (item.aptId.isNotEmpty()) {
+                                onNavigate(FutaDestinations.propertyDetail(item.aptId))
+                            }
                         }
                     ) {
                         Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -240,10 +314,10 @@ fun MyListingsScreen(
                                         .clip(RoundedCornerShape(10.dp))
                                         .background(Color(0xFFE2E8F0))
                                 ) {
-                                    if (imgUrl.isNotEmpty()) {
+                                    if (item.imgUrl.isNotEmpty()) {
                                         AsyncImage(
-                                            model = imgUrl,
-                                            contentDescription = title,
+                                            model = item.imgUrl,
+                                            contentDescription = item.unitCode,
                                             contentScale = ContentScale.Crop,
                                             modifier = Modifier.fillMaxSize()
                                         )
@@ -263,90 +337,103 @@ fun MyListingsScreen(
                                     verticalArrangement = Arrangement.spacedBy(3.dp)
                                 ) {
                                     Text(
-                                        text = title,
-                                        fontSize = 14.sp,
+                                        text = item.unitCode.ifEmpty { "Căn hộ" },
+                                        fontSize = 15.sp,
                                         fontWeight = FontWeight.Bold,
                                         color = FutaColors.Navy,
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis
                                     )
                                     Text(
-                                        text = priceStr,
+                                        text = formatMoney(item.price),
                                         fontSize = 13.5.sp,
                                         fontWeight = FontWeight.Bold,
                                         color = FutaColors.BrandGreen
                                     )
                                     Text(
-                                        text = "$code · $zone",
+                                        text = item.projectName + if (item.block.isNotEmpty()) " · Toà ${item.block}" else "",
                                         fontSize = 11.5.sp,
                                         color = FutaColors.Slate,
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis
                                     )
-                                    Surface(shape = CircleShape, color = Color(0xFFEAF5EF)) {
+                                    if (item.area > 0) {
                                         Text(
-                                            text = status,
-                                            fontSize = 10.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            color = FutaColors.BrandGreen,
-                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                            text = "${item.area.toInt()} m²",
+                                            fontSize = 11.sp,
+                                            color = FutaColors.Slate
                                         )
                                     }
+                                }
+
+                                // Badge
+                                when (item.status) {
+                                    "available" -> RegistrationBadge("Chưa đăng ký", Color(0xFF2563EB), Color(0xFFEFF6FF))
+                                    "pending" -> RegistrationBadge("Chờ duyệt", Color(0xFFD97706), Color(0xFFFEF3C7))
+                                    "active", "approved" -> RegistrationBadge("Đang bán", FutaColors.BrandGreen, Color(0xFFECFDF5))
+                                    "rejected" -> RegistrationBadge("Từ chối", Color(0xFFDC2626), Color(0xFFFEE2E2))
+                                    else -> RegistrationBadge("Hết hạn", Color.Gray, Color(0xFFF1F5F9))
                                 }
                             }
 
                             HorizontalDivider(color = Color(0xFFF1F5F9))
 
-                            // Actions row
+                            // Action Row
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Row(
-                                    modifier = Modifier.clickable {
-                                        scope.launch {
-                                            boostingId = apt.id
-                                            try {
-                                                APIClient.get().request("/apartments/${apt.id}/boost", method = "POST")
-                                                ToastCenter.show("Đã đẩy tin lên đầu danh sách!")
-                                                loadData(search)
-                                            } catch (e: Exception) {
-                                                ToastCenter.show("Lỗi đẩy tin: ${e.message}", isError = true)
-                                            } finally {
-                                                boostingId = null
-                                            }
+                                when (item.status) {
+                                    "active", "approved" -> {
+                                        Text(
+                                            text = if (item.expiresAt.isNotEmpty()) "Hạn: ${item.expiresAt.take(10)}" else "Đang mở bán",
+                                            fontSize = 11.5.sp,
+                                            color = FutaColors.Slate
+                                        )
+                                        Button(
+                                            onClick = { onNavigate(FutaDestinations.ADVISOR_PRODUCTS) },
+                                            colors = ButtonDefaults.buttonColors(containerColor = FutaColors.BrandGreen),
+                                            shape = CircleShape,
+                                            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp)
+                                        ) {
+                                            Icon(Icons.Default.ShoppingCart, contentDescription = null, tint = Color.White, modifier = Modifier.size(15.dp))
+                                            Spacer(modifier = Modifier.width(4.dp))
+                                            Text("Vào rổ hàng", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.White)
                                         }
-                                    },
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                                ) {
-                                    Icon(Icons.Default.Bolt, null, tint = FutaColors.BrandOrange, modifier = Modifier.size(15.dp))
-                                    Text(
-                                        text = if (boostingId == apt.id) "Đang đẩy tin..." else "Đẩy tin Top",
-                                        fontSize = 12.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = FutaColors.BrandOrange
-                                    )
-                                }
-
-                                Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                                    Row(
-                                        modifier = Modifier.clickable { editingApartment = apt },
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(4.dp)
-                                    ) {
-                                        Icon(Icons.Default.Edit, null, tint = Color(0xFF2563EB), modifier = Modifier.size(14.dp))
-                                        Text("Sửa", fontSize = 12.sp, color = Color(0xFF2563EB), fontWeight = FontWeight.Bold)
                                     }
-
-                                    Row(
-                                        modifier = Modifier.clickable { deletingApartment = apt },
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(4.dp)
-                                    ) {
-                                        Icon(Icons.Default.Delete, null, tint = Color(0xFFDC2626), modifier = Modifier.size(14.dp))
-                                        Text("Xóa", fontSize = 12.sp, color = Color(0xFFDC2626), fontWeight = FontWeight.Bold)
+                                    "pending" -> {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                        ) {
+                                            Icon(Icons.Default.Schedule, null, tint = Color(0xFFD97706), modifier = Modifier.size(15.dp))
+                                            Text(
+                                                text = "Chờ Admin duyệt",
+                                                fontSize = 12.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = Color(0xFFD97706)
+                                            )
+                                        }
+                                        Text(
+                                            text = "Đang xét duyệt",
+                                            fontSize = 12.sp,
+                                            color = FutaColors.Slate
+                                        )
+                                    }
+                                    else -> {
+                                        // Available or Expired: allow Registering to sell!
+                                        Spacer(Modifier.weight(1f))
+                                        Button(
+                                            onClick = { registeringApartment = item },
+                                            colors = ButtonDefaults.buttonColors(containerColor = FutaColors.BrandGreen),
+                                            shape = CircleShape,
+                                            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 7.dp)
+                                        ) {
+                                            Icon(Icons.Default.Bolt, contentDescription = null, tint = Color.White, modifier = Modifier.size(15.dp))
+                                            Spacer(modifier = Modifier.width(4.dp))
+                                            Text("Đăng ký bán", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                                        }
                                     }
                                 }
                             }
@@ -361,29 +448,132 @@ fun MyListingsScreen(
         }
     }
 
-    // Dialog xác nhận xóa tin đăng
-    if (deletingApartment != null) {
-        val aptToDelete = deletingApartment!!
-        FutaDialog(
-            visible = true,
-            title = "Xóa tin đăng?",
-            confirmText = "Xóa ngay",
-            confirmVariant = FutaButtonVariant.DANGER,
-            onConfirm = {
-                scope.launch {
-                    try {
-                        APIClient.get().request("/apartments/${aptToDelete.id}", method = "DELETE")
-                        ToastCenter.show("Đã xóa tin đăng thành công")
-                        deletingApartment = null
-                        loadData(search)
-                    } catch (e: Exception) {
-                        ToastCenter.show("Lỗi xóa tin: ${e.message}", isError = true)
+    // Sales Policy Confirmation Dialog
+    registeringApartment?.let { apt ->
+        var agreed by remember { mutableStateOf(false) }
+        var isSubmitting by remember { mutableStateOf(false) }
+
+        AlertDialog(
+            onDismissRequest = {
+                if (!isSubmitting) registeringApartment = null
+            },
+            icon = {
+                Icon(
+                    Icons.Default.VerifiedUser,
+                    contentDescription = null,
+                    tint = FutaColors.BrandOrange,
+                    modifier = Modifier.size(40.dp)
+                )
+            },
+            title = {
+                Text("Xác nhận đăng ký bán", fontWeight = FontWeight.Bold, fontSize = 18.sp)
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(
+                        text = "Trước khi đăng ký bán căn ${apt.unitCode} thuộc ${apt.projectName}, bạn cần đọc và đồng ý với chính sách bán hàng và quy định của FUTA Land.",
+                        fontSize = 13.5.sp,
+                        color = FutaColors.Slate
+                    )
+
+                    Surface(
+                        color = Color(0xFFFFFBEB),
+                        shape = RoundedCornerShape(8.dp),
+                        border = BorderStroke(1.dp, Color(0xFFFDE68A)),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.padding(10.dp)) {
+                            Text(
+                                text = "Nguyên tắc ưu tiên khi có tranh chấp",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 12.sp,
+                                color = Color(0xFF92400E)
+                            )
+                            Text(
+                                text = "Trùng khách và thứ tự giữ chỗ được đối soát theo hồ sơ hợp lệ được hệ thống ghi nhận trước, không theo thỏa thuận miệng.",
+                                fontSize = 11.5.sp,
+                                color = Color(0xFFB45309)
+                            )
+                        }
+                    }
+
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.clickable { agreed = !agreed }
+                    ) {
+                        Checkbox(
+                            checked = agreed,
+                            onCheckedChange = { agreed = it },
+                            colors = CheckboxDefaults.colors(checkedColor = FutaColors.BrandGreen)
+                        )
+                        Text(
+                            text = "Tôi đồng ý với chính sách bán hàng và quy chế phân phối (Phiên bản 1.0)",
+                            fontSize = 12.sp,
+                            color = FutaColors.Navy
+                        )
                     }
                 }
             },
-            onDismiss = { deletingApartment = null }
-        ) {
-            Text("Thao tác này không thể hoàn tác. Bạn có chắc chắn muốn xóa tin '${aptToDelete["title"].string}' không?", fontSize = 13.sp, color = FutaColors.Slate)
-        }
+            confirmButton = {
+                Button(
+                    onClick = {
+                        scope.launch {
+                            isSubmitting = true
+                            try {
+                                val body = """{"apartmentId":"${apt.aptId}","customerName":"Tư vấn viên FUTA Land","notes":"Đăng ký bán từ ứng dụng Android","salesPolicyAccepted":true,"salesPolicyVersion":"1.0"}"""
+                                APIClient.get().request("/sales/registrations", method = "POST", bodyJson = body)
+                                ToastCenter.show("Đã gửi yêu cầu đăng ký bán căn ${apt.unitCode}! Đang chờ Admin duyệt.")
+                                registeringApartment = null
+                                loadData()
+                            } catch (e: Exception) {
+                                ToastCenter.show("Lỗi: ${e.message}", isError = true)
+                            } finally {
+                                isSubmitting = false
+                            }
+                        }
+                    },
+                    enabled = agreed && !isSubmitting,
+                    colors = ButtonDefaults.buttonColors(containerColor = FutaColors.BrandGreen)
+                ) {
+                    if (isSubmitting) {
+                        CircularProgressIndicator(color = Color.White, modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                    } else {
+                        Text("Xác nhận đăng ký")
+                    }
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = { registeringApartment = null },
+                    enabled = !isSubmitting
+                ) {
+                    Text("Hủy bỏ", color = FutaColors.Slate)
+                }
+            }
+        )
     }
+}
+
+@Composable
+private fun RegistrationBadge(text: String, color: Color, bg: Color) {
+    Surface(
+        color = bg,
+        shape = CircleShape
+    ) {
+        Text(
+            text = text,
+            fontSize = 10.5.sp,
+            fontWeight = FontWeight.Bold,
+            color = color,
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+        )
+    }
+}
+
+private fun formatMoney(value: Double): String {
+    if (value <= 0) return "Liên hệ"
+    if (value >= 1_000_000_000) {
+        return String.format("%.2f tỷ", value / 1_000_000_000).replace(".00", "").replace(".", ",")
+    }
+    return String.format("%,.0f đ", value)
 }

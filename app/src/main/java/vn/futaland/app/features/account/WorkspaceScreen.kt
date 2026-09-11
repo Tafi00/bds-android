@@ -239,7 +239,7 @@ fun WorkspaceScreen(
                 iconRes = R.drawable.ic_sf_building_circle_fill,
                 badgeColor = FutaColors.BrandGreen,
                 group = "Quản lý bán hàng",
-                route = FutaDestinations.ADVISOR
+                route = FutaDestinations.ADVISOR_PRODUCTS
             ),
             WorkspaceModuleItem(
                 id = "advisor_registrations",

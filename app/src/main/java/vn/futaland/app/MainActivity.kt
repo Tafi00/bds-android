@@ -21,6 +21,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import vn.futaland.app.features.account.AdminRegistrationsScreen
+import vn.futaland.app.features.account.AdvisorProductsScreen
 import vn.futaland.app.features.account.AdminTransactionsScreen
 import vn.futaland.app.features.account.AdminCMSScreen
 import vn.futaland.app.features.account.AdminUsersScreen
@@ -166,6 +167,8 @@ class MainActivity : ComponentActivity() {
                             safeNavigate(FutaDestinations.ADMIN_CONTRACTS)
                         } else if (path == "/reports") {
                             safeNavigate(FutaDestinations.ADMIN_REPORTS)
+                        } else if (path == "/advisor-products" || path == "/advisor/products") {
+                            safeNavigate(FutaDestinations.ADVISOR_PRODUCTS)
                         } else if (path == "/advisor") {
                             safeNavigate(FutaDestinations.ADVISOR)
                         } else if (path == "/advisor/registrations" || path == "/registrations" || path == "/advisor_registrations") {
@@ -424,6 +427,12 @@ class MainActivity : ComponentActivity() {
                             }
                             composable(FutaDestinations.ADVISOR) {
                                 AdvisorWorkspaceScreen(
+                                    onBack = { navController.popBackStack() },
+                                    onNavigate = { route -> safeNavigate(route) }
+                                )
+                            }
+                            composable(FutaDestinations.ADVISOR_PRODUCTS) {
+                                AdvisorProductsScreen(
                                     onBack = { navController.popBackStack() },
                                     onNavigate = { route -> safeNavigate(route) }
                                 )

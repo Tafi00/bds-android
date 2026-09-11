@@ -297,7 +297,7 @@ fun AccountScreen(
                             AccountDivider()
                             AccountMenuItem(
                                 iconRes = R.drawable.sf_acc_listings,
-                                title = "Tin đăng của tôi",
+                                title = "Đăng ký bán sản phẩm",
                                 onClick = { onNavigate(FutaDestinations.MY_LISTINGS) }
                             )
                         }
