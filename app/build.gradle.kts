@@ -7,13 +7,13 @@ plugins {
 
 android {
     namespace = "vn.futaland.app"
-    compileSdk = 34
+    compileSdk = 36
 
     defaultConfig {
-        applicationId = "vn.futaland.app"
+        applicationId = "com.futaland.realestate"
         minSdk = 26
-        targetSdk = 34
-        versionCode = 9
+        targetSdk = 36
+        versionCode = 10
         versionName = "1.0.8"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
