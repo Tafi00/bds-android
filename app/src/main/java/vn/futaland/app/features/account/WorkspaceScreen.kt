@@ -339,8 +339,10 @@ fun WorkspaceScreen(
     val groups = remember(session.role) {
         if (session.role == "admin") {
             listOf("Quản trị hệ thống", "Quản lý bán hàng", "Quản lý của tôi")
+        } else if (session.isInternalStaff) {
+            listOf("Quản lý bán hàng", "Quản lý của tôi")
         } else {
-            listOf("Quản lý bán hàng", "Quản lý của tôi", "Quản trị hệ thống")
+            listOf("Quản lý của tôi")
         }
     }
 

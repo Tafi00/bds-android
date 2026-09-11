@@ -26,6 +26,11 @@ class AppSession private constructor() {
     val role: String
         get() = _currentUser.value?.get("role")?.string ?: "guest"
 
+    val isInternalStaff: Boolean
+        get() = isAuthenticated && role != "customer" && role != "guest" && role.isNotEmpty()
+
+    val canManageListings: Boolean
+        get() = hasPermission("apartments:create") || hasPermission("apartments:edit") || (isInternalStaff && role != "telesale")
     fun hasPermission(permission: String): Boolean {
         if (role == "admin") return true
         return _permissions.value.contains(permission)
