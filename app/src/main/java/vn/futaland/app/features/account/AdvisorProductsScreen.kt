@@ -17,13 +17,16 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil3.compose.AsyncImage
 import kotlinx.coroutines.launch
 import vn.futaland.app.core.network.APIClient
 import vn.futaland.app.core.network.JSONValue
 import vn.futaland.app.designsystem.*
+import vn.futaland.app.features.properties.PropertyFormatters
 import vn.futaland.app.navigation.FutaDestinations
 
 @Composable
@@ -288,55 +291,72 @@ private fun AdvisorCartItemCard(
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalAlignment = Alignment.Top
             ) {
-                Column(horizontalAlignment = Alignment.Start) {
-                    Text(
-                        text = unitCode,
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = FutaColors.Navy
-                    )
+                val thumbUrl = PropertyFormatters.resolveImage(reg)
+                AsyncImage(
+                    model = thumbUrl,
+                    contentDescription = unitCode,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier
+                        .size(80.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(Color(0xFFE2E8F0))
+                )
+
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.Top
+                    ) {
+                        Text(
+                            text = unitCode,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = FutaColors.Navy
+                        )
+                        // Status badge
+                        when {
+                            bStatus == "online_holding" -> StatusBadge("Đang giữ chỗ (15p)", Color(0xFFF97316), Color(0xFFFFF7ED))
+                            bStatus == "pending_booking" || bStatus == "cancel_requested" -> StatusBadge("Chờ xác nhận cọc", Color(0xFFD97706), Color(0xFFFEF3C7))
+                            bStatus == "holding_success" -> StatusBadge("ERP đã khóa căn", FutaColors.BrandGreen, Color(0xFFECFDF5))
+                            listOf("deposited", "commission_pending", "commission_paid", "purchased").contains(bStatus) -> StatusBadge("GD thành công", Color(0xFF2563EB), Color(0xFFEFF6FF))
+                            status == "active" || status == "approved" -> StatusBadge("Đang mở quyền bán", FutaColors.BrandGreen, Color(0xFFECFDF5))
+                            status == "pending" -> StatusBadge("Chờ duyệt quyền bán", Color(0xFFD97706), Color(0xFFFEF3C7))
+                            else -> StatusBadge("Đã hết hạn", Color.Gray, Color(0xFFF1F5F9))
+                        }
+                    }
                     Text(
                         text = projectName + (if (block.isNotEmpty()) " · Toà $block" else "") + (if (floor.isNotEmpty()) " · Tầng $floor" else ""),
-                        fontSize = 13.sp,
+                        fontSize = 12.5.sp,
                         color = FutaColors.Slate
                     )
-                }
-
-                // Status badge
-                when {
-                    bStatus == "online_holding" -> StatusBadge("Đang giữ chỗ (15p)", Color(0xFFF97316), Color(0xFFFFF7ED))
-                    bStatus == "pending_booking" || bStatus == "cancel_requested" -> StatusBadge("Chờ xác nhận cọc", Color(0xFFD97706), Color(0xFFFEF3C7))
-                    bStatus == "holding_success" -> StatusBadge("ERP đã khóa căn", FutaColors.BrandGreen, Color(0xFFECFDF5))
-                    listOf("deposited", "commission_pending", "commission_paid", "purchased").contains(bStatus) -> StatusBadge("GD thành công", Color(0xFF2563EB), Color(0xFFEFF6FF))
-                    status == "active" || status == "approved" -> StatusBadge("Đang mở quyền bán", FutaColors.BrandGreen, Color(0xFFECFDF5))
-                    status == "pending" -> StatusBadge("Chờ duyệt quyền bán", Color(0xFFD97706), Color(0xFFFEF3C7))
-                    else -> StatusBadge("Đã hết hạn", Color.Gray, Color(0xFFF1F5F9))
-                }
-            }
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = formatMoney(rawPrice),
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = FutaColors.BrandGreen
-                )
-                if (area > 0) {
-                    Text(
-                        text = "${area.toInt()} m²",
-                        fontSize = 13.sp,
-                        color = FutaColors.Slate
-                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = formatMoney(rawPrice),
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = FutaColors.BrandGreen
+                        )
+                        if (area > 0) {
+                            Text(
+                                text = "${area.toInt()} m²",
+                                fontSize = 12.sp,
+                                color = FutaColors.Slate
+                            )
+                        }
+                    }
                 }
             }
-
             HorizontalDivider(color = Color(0xFFF1F5F9))
 
             Row(

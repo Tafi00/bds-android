@@ -664,37 +664,18 @@ private fun RegistrationCardRow(
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalAlignment = Alignment.Top
             ) {
-                val thumbUrl = apt["images"].array.firstOrNull()?.get("original")?.string.takeIf { !it.isNullOrEmpty() }
-                    ?: apt["image"].string.takeIf { it.isNotEmpty() }
-                    ?: ""
+                val thumbUrl = PropertyFormatters.resolveImage(if (!apt.isNull && apt["propertyCode"].string.isNotEmpty()) apt else registration)
 
-                if (thumbUrl.isNotEmpty()) {
-                    AsyncImage(
-                        model = thumbUrl,
-                        contentDescription = propertyCode,
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier
-                            .size(76.dp)
-                            .clip(RoundedCornerShape(10.dp))
-                            .border(1.dp, Color(0xFFE2E8F0), RoundedCornerShape(10.dp))
-                    )
-                } else {
-                    Box(
-                        modifier = Modifier
-                            .size(76.dp)
-                            .clip(RoundedCornerShape(10.dp))
-                            .background(Color(0xFFF1F5F9))
-                            .border(1.dp, Color(0xFFE2E8F0), RoundedCornerShape(10.dp)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            Icons.Default.Business,
-                            contentDescription = null,
-                            tint = Color(0xFF94A3B8),
-                            modifier = Modifier.size(28.dp)
-                        )
-                    }
-                }
+                AsyncImage(
+                    model = thumbUrl,
+                    contentDescription = propertyCode,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier
+                        .size(76.dp)
+                        .clip(RoundedCornerShape(10.dp))
+                        .border(1.dp, Color(0xFFE2E8F0), RoundedCornerShape(10.dp))
+                        .background(Color(0xFFF1F5F9))
+                )
 
                 Column(
                     modifier = Modifier.weight(1f),

@@ -107,9 +107,7 @@ fun MyListingsScreen(
                     else if (reg["apartment"]["sellPrice"].double > 0) reg["apartment"]["sellPrice"].double
                     else reg["apartment"]["price"].double
                     val area = if (reg["area"].double > 0) reg["area"].double else reg["apartment"]["size_m2"].double
-                    val imgUrl = reg["image"].string.ifEmpty {
-                        reg["apartment"]["images"].array.firstOrNull()?.get("original")?.string ?: ""
-                    }
+                    val imgUrl = PropertyFormatters.resolveImage(reg)
                     val status = reg["status"].string.lowercase()
 
                     merged.add(
@@ -134,7 +132,7 @@ fun MyListingsScreen(
                     if (!registeredIds.contains(recId) && !registeredIds.contains(pCode)) {
                         val rawPrice = if (apt["sellPrice"].double > 0) apt["sellPrice"].double else apt["price"].double
                         val area = apt["size_m2"].double
-                        val imgUrl = apt["images"].array.firstOrNull()?.get("original")?.string ?: ""
+                        val imgUrl = PropertyFormatters.resolveImage(apt)
                         merged.add(
                             SellingItem(
                                 id = "avail-$recId",

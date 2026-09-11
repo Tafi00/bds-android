@@ -66,10 +66,28 @@ object PropertyFormatters {
 
     fun resolveImage(value: JSONValue): String {
         val raw = extractRawImage(value)
-        if (raw.isEmpty()) return "https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=800&q=80"
-        if (raw.startsWith("http://") || raw.startsWith("https://")) return raw
-        val clean = if (raw.startsWith("/")) raw else "/$raw"
-        return "https://bds.futaland.vn$clean"
+        if (raw.isNotEmpty()) {
+            if (raw.startsWith("http://") || raw.startsWith("https://")) return raw
+            val clean = raw.removePrefix("/")
+            return "https://bds.futaland.vn/$clean"
+        }
+        val zoneText = (value["zone"].string.ifEmpty {
+            value["projectName"].string.ifEmpty {
+                value["apartment"]["zone"].string.ifEmpty {
+                    value["project"]["displayName"].string
+                }
+            }
+        }).lowercase()
+        return when {
+            zoneText.contains("kim an") || zoneText.contains("c5b") ->
+                "https://bds.futaland.vn/images/figma-data/projects/exact/futa-kim-an.png"
+            zoneText.contains("kim phát") || zoneText.contains("kim-phat") ->
+                "https://bds.futaland.vn/images/figma-data/projects/exact/futa-kim-phat.png"
+            zoneText.contains("hampton") || zoneText.contains("võ nguyên giáp") || zoneText.contains("vo-nguyen-giap") ->
+                "https://bds.futaland.vn/images/figma-data/projects/exact/hampton-vo-nguyen-giap.png"
+            else ->
+                "https://bds.futaland.vn/images/figma-data/projects/exact/times-square.png"
+        }
     }
 
     fun resolveProjectBanner(project: JSONValue): String {
@@ -89,20 +107,56 @@ object PropertyFormatters {
     }
 
     private fun extractRawImage(value: JSONValue): String {
+        // 1. Direct fields
         val direct = value["image"].string.trim()
         if (direct.isNotEmpty() && direct != "null") return direct
         val banner = value["bannerImage"].string.trim()
         if (banner.isNotEmpty() && banner != "null") return banner
+        val bannerMob = value["bannerImageMobile"].string.trim()
+        if (bannerMob.isNotEmpty() && bannerMob != "null") return bannerMob
+
+        // 2. Direct images array
         val images = value["images"].array
         if (images.isNotEmpty()) {
-            val first = images[0]
-            val orig = first["original"].string.trim()
-            if (orig.isNotEmpty() && orig != "null") return orig
-            val url = first["url"].string.trim()
-            if (url.isNotEmpty() && url != "null") return url
-            val str = first.string.trim()
-            if (str.isNotEmpty() && str != "null") return str
+            for (img in images) {
+                val orig = img["original"].string.trim()
+                if (orig.isNotEmpty() && orig != "null") return orig
+                val url = img["url"].string.trim()
+                if (url.isNotEmpty() && url != "null") return url
+                val str = img.string.trim()
+                if (str.isNotEmpty() && str != "null") return str
+            }
         }
+
+        // 3. Nested apartment object
+        val apt = value["apartment"]
+        if (!apt.isNull) {
+            val aptImg = apt["image"].string.trim()
+            if (aptImg.isNotEmpty() && aptImg != "null") return aptImg
+            val aptBanner = apt["bannerImage"].string.trim()
+            if (aptBanner.isNotEmpty() && aptBanner != "null") return aptBanner
+            val aptImages = apt["images"].array
+            if (aptImages.isNotEmpty()) {
+                for (img in aptImages) {
+                    val orig = img["original"].string.trim()
+                    if (orig.isNotEmpty() && orig != "null") return orig
+                    val url = img["url"].string.trim()
+                    if (url.isNotEmpty() && url != "null") return url
+                    val str = img.string.trim()
+                    if (str.isNotEmpty() && str != "null") return str
+                }
+            }
+        }
+
+        // 4. Nested project object
+        val proj = value["project"]
+        if (!proj.isNull) {
+            val projBanner = proj["bannerImage"].string.trim()
+            if (projBanner.isNotEmpty() && projBanner != "null") return projBanner
+            val projImg = proj["image"].string.trim()
+            if (projImg.isNotEmpty() && projImg != "null") return projImg
+        }
+
         return ""
     }
 
