@@ -327,7 +327,7 @@ fun AdminAIScreen(
                     }
 
                     if (loading && documents.isEmpty()) {
-                        items(4) { FutaSkeletonBlock(height = 76.dp, radius = 14.dp) }
+                        items(4) { FutaAdminRowSkeleton() }
                     } else if (filtered.isEmpty()) {
                         item {
                             FutaEmptyState(title = "Chưa có tài liệu", message = "Nạp tài liệu mới để xây dựng kho RAG.")

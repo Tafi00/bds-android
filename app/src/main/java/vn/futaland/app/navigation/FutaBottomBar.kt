@@ -171,35 +171,12 @@ fun FutaBottomBar(
                     )
             ) {
                 Box(contentAlignment = Alignment.Center) {
-                    if (isGuest) {
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.Center
-                        ) {
-                            Icon(
-                                painter = painterResource(
-                                    id = if (chatSelected) R.drawable.sf_tab_chat_active else R.drawable.sf_tab_chat_inactive
-                                ),
-                                contentDescription = chatActionTitle,
-                                tint = Color.Unspecified,
-                                modifier = Modifier.size(26.dp)
-                            )
-                            Spacer(Modifier.height(2.dp))
-                            Text(
-                                text = "Chat AI",
-                                fontSize = 9.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = if (chatSelected) Color.White else brandGreen
-                            )
-                        }
-                    } else {
-                        Icon(
-                            painter = painterResource(id = if (chatSelected) R.drawable.sf_tab_chat_active else R.drawable.sf_tab_chat_inactive),
-                            contentDescription = chatActionTitle,
-                            tint = Color.Unspecified,
-                            modifier = Modifier.size(24.dp)
-                        )
-                    }
+                    Icon(
+                        painter = painterResource(id = if (chatSelected) R.drawable.sf_tab_chat_active else R.drawable.sf_tab_chat_inactive),
+                        contentDescription = chatActionTitle,
+                        tint = Color.Unspecified,
+                        modifier = Modifier.size(28.dp)
+                    )
                 }
             }
         }

@@ -29,6 +29,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import vn.futaland.app.R
 import vn.futaland.app.core.auth.AppSession
@@ -70,13 +73,22 @@ fun ChatScreen(
     var activeConversationId by remember { mutableStateOf(if (!isStaff) (initialConversationId ?: "ai_agent") else initialConversationId) }
     var activeConversationName by remember { mutableStateOf(targetAdvisorName ?: (if (isAiChat) "Trợ lý AI FUTA Land" else "Trợ lý AI FUTA Land")) }
 
+    val focusRequester = remember { FocusRequester() }
+    LaunchedEffect(activeConversationId) {
+        delay(350)
+        try {
+            focusRequester.requestFocus()
+        } catch (_: Exception) {}
+    }
+
     var search by remember { mutableStateOf("") }
     var filterTab by remember { mutableStateOf("all") }
-
+    var showingNewChatDialog by remember { mutableStateOf(false) }
+    var newCustomerPhone by remember { mutableStateOf("") }
+    var isCreatingConv by remember { mutableStateOf(false) }
     val conversations = remember {
         mutableStateListOf<ConversationItem>()
     }
-
     // Ensure guest session & connect WebSocket on launch
     LaunchedEffect(Unit) {
         if (!AppSession.shared.isAuthenticated) {
@@ -84,6 +96,16 @@ fun ChatScreen(
         }
         ChatWebSocketManager.shared.connect()
         try {
+            val unreadMap = mutableMapOf<String, Int>()
+            try {
+                val unreadRes = APIClient.get().request("/chat/unread-counts")
+                val perConv = unreadRes["data"]["perConversation"].element as? kotlinx.serialization.json.JsonObject
+                perConv?.forEach { (k, v) ->
+                    val count = (v as? kotlinx.serialization.json.JsonPrimitive)?.content?.toIntOrNull() ?: 0
+                    unreadMap[k] = count
+                }
+            } catch (_: Exception) {}
+
             val res = APIClient.get().request("/chat/conversations", query = mapOf("limit" to "50"))
             val list = res["data"].array
             val isStaff = AppSession.shared.role != "customer" && AppSession.shared.role != "guest"
@@ -101,7 +123,8 @@ fun ChatScreen(
                 val badge = if (isStaff) "" else (if (isAi) "Trợ lý AI" else "Sale phụ trách")
                 val lastMsg = c["lastMessageContent"].string.ifEmpty { "Bắt đầu cuộc trò chuyện..." }
                 val time = c["lastMessageAt"].string.take(16).replace("T", " ")
-                conversations.add(ConversationItem(c.id, name, lastMsg, time, 0, true, isAi, badge))
+                val unread = unreadMap[c.id] ?: c["unreadCount"].int
+                conversations.add(ConversationItem(c.id, name, lastMsg, time, unread, true, isAi, badge))
             }
 
             if (!targetAdvisorId.isNullOrEmpty()) {
@@ -172,15 +195,43 @@ fun ChatScreen(
                 ) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
+                        if (onBack != null) {
+                            Surface(
+                                shape = CircleShape,
+                                color = Color.White,
+                                border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .clickable { onBack.invoke() }
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Icon(Icons.AutoMirrored.Filled.ArrowBack, "Quay lại", tint = FutaColors.Navy, modifier = Modifier.size(16.dp))
+                                }
+                            }
+                            Spacer(Modifier.width(12.dp))
+                        }
+
                         Text(
                             text = "Hộp thư & Trò chuyện",
                             fontSize = 18.sp,
                             fontWeight = FontWeight.Bold,
-                            color = FutaColors.Navy
+                            color = FutaColors.Navy,
+                            modifier = Modifier.weight(1f)
                         )
+
+                        Surface(
+                            shape = CircleShape,
+                            color = FutaColors.BrandGreen,
+                            modifier = Modifier
+                                .size(36.dp)
+                                .clickable { showingNewChatDialog = true }
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(Icons.Default.Add, "Tạo hội thoại mới", tint = Color.White, modifier = Modifier.size(20.dp))
+                            }
+                        }
                     }
 
                     Spacer(Modifier.height(10.dp))
@@ -195,7 +246,11 @@ fun ChatScreen(
                     Spacer(Modifier.height(10.dp))
 
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        listOf("all" to "Tất cả", "unread" to "Chưa đọc").forEach { (tab, label) ->
+                        val unreadTotal = conversations.sumOf { it.unreadCount }
+                        listOf(
+                            "all" to "Tất cả (${conversations.size})",
+                            "unread" to (if (unreadTotal > 0) "Chưa đọc ($unreadTotal)" else "Chưa đọc")
+                        ).forEach { (tab, label) ->
                             val isSelected = filterTab == tab
                             Surface(
                                 onClick = { filterTab = tab },
@@ -324,7 +379,7 @@ fun ChatScreen(
                                     if (conv.unreadCount > 0) {
                                         Surface(
                                             shape = CircleShape,
-                                            color = FutaColors.BrandGreen,
+                                            color = Color(0xFFFF8D28),
                                             modifier = Modifier.padding(start = 6.dp)
                                         ) {
                                             Text(
@@ -332,7 +387,7 @@ fun ChatScreen(
                                                 color = Color.White,
                                                 fontSize = 10.sp,
                                                 fontWeight = FontWeight.Bold,
-                                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                                modifier = Modifier.padding(horizontal = 6.5.dp, vertical = 2.dp)
                                             )
                                         }
                                     }
@@ -442,13 +497,16 @@ fun ChatScreen(
                             ChatWebSocketManager.shared.join(newConv.id)
                         }
                     }
-                    ChatWebSocketManager.shared.sendMessage(targetConvId, textToSend)
-                    val escaped = textToSend.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n")
-                    APIClient.get().request(
-                        "/chat/conversations/$targetConvId/messages",
-                        method = "POST",
-                        bodyJson = "{\"content\":\"$escaped\"}"
-                    )
+                    if (ChatWebSocketManager.shared.isConnected.value) {
+                        ChatWebSocketManager.shared.sendMessage(targetConvId, textToSend)
+                    } else {
+                        val escaped = textToSend.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n")
+                        APIClient.get().request(
+                            "/chat/conversations/$targetConvId/messages",
+                            method = "POST",
+                            bodyJson = "{\"content\":\"$escaped\"}"
+                        )
+                    }
                 } catch (_: Exception) {}
             }
         }
@@ -464,23 +522,33 @@ fun ChatScreen(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             if (isStaff || onBack != null) {
-                                IconButton(onClick = {
-                                    activeConversationId = null
-                                    onBack?.invoke()
-                                }) {
-                                    Icon(Icons.AutoMirrored.Filled.ArrowBack, null, tint = FutaColors.Navy)
+                                Surface(
+                                    shape = CircleShape,
+                                    color = Color.White,
+                                    border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                                    modifier = Modifier
+                                        .size(36.dp)
+                                        .clickable {
+                                            activeConversationId = null
+                                            onBack?.invoke()
+                                        }
+                                ) {
+                                    Box(contentAlignment = Alignment.Center) {
+                                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Quay lại", tint = FutaColors.Navy, modifier = Modifier.size(16.dp))
+                                    }
                                 }
+                                Spacer(Modifier.width(10.dp))
                             }
                             Surface(
                                 shape = CircleShape,
-                                color = FutaColors.MintBg,
-                                modifier = Modifier.size(40.dp)
+                                color = if (!isStaff && activeConversationName.contains("AI")) FutaColors.BrandGreen else FutaColors.MintBg,
+                                modifier = Modifier.size(36.dp)
                             ) {
                                 Box(contentAlignment = Alignment.Center) {
                                     if (!isStaff && activeConversationName.contains("AI")) {
-                                        Icon(painterResource(R.drawable.ic_lucide_bot), null, tint = FutaColors.BrandGreen, modifier = Modifier.size(24.dp))
+                                        Icon(painterResource(R.drawable.ic_lucide_bot), null, tint = Color.White, modifier = Modifier.size(20.dp))
                                     } else {
-                                        Text(activeConversationName.take(1).uppercase(), color = FutaColors.BrandGreen, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                                        Text(activeConversationName.take(1).uppercase(), color = FutaColors.BrandGreen, fontWeight = FontWeight.Bold, fontSize = 14.sp)
                                     }
                                 }
                             }
@@ -490,13 +558,20 @@ fun ChatScreen(
                                     text = activeConversationName,
                                     fontSize = 15.sp,
                                     fontWeight = FontWeight.Bold,
-                                    color = FutaColors.Navy
+                                    color = FutaColors.Navy,
+                                    maxLines = 1
                                 )
-                                Text(
-                                    text = if (isConnected) (if (!isStaff && activeConversationName.contains("AI")) "Trực tuyến 24/7 · Tư vấn tự động" else "Đang trực tuyến") else "Đang kết nối lại...",
-                                    fontSize = 11.5.sp,
-                                    color = if (isConnected) FutaColors.BrandGreen else FutaColors.BrandOrange
-                                )
+                                Spacer(Modifier.height(1.dp))
+                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                    Box(modifier = Modifier.size(6.dp).background(Color(0xFF22C55E), CircleShape))
+                                    Text(
+                                        text = if (isConnected) (if (!isStaff && activeConversationName.contains("AI")) "Trợ lý AI 24/7 • Sẵn sàng hỗ trợ" else "Tư vấn viên • Sẵn sàng hỗ trợ") else "Đang kết nối lại...",
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Medium,
+                                        color = if (isConnected) Color(0xFF16A34A) else FutaColors.BrandOrange,
+                                        maxLines = 1
+                                    )
+                                }
                             }
                         }
 
@@ -615,15 +690,18 @@ fun ChatScreen(
                                 .padding(horizontal = 10.dp, vertical = 8.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            IconButton(
-                                onClick = {
-                                    ToastCenter.show("Tính năng gửi tệp/hình ảnh")
-                                },
-                                modifier = Modifier.size(36.dp)
+                            Surface(
+                                shape = RoundedCornerShape(12.dp),
+                                color = Color(0xFFF1F5F9),
+                                modifier = Modifier
+                                    .size(38.dp)
+                                    .clickable { ToastCenter.show("Tính năng gửi tệp/hình ảnh") }
                             ) {
-                                Icon(Icons.Default.Add, "Đính kèm", tint = FutaColors.Navy)
+                                Box(contentAlignment = Alignment.Center) {
+                                    Icon(Icons.Default.Add, "Đính kèm", tint = FutaColors.BrandGreen, modifier = Modifier.size(20.dp))
+                                }
                             }
-                            Spacer(Modifier.width(4.dp))
+                            Spacer(Modifier.width(8.dp))
                             FutaInput(
                                 value = messageText,
                                 onValueChange = {
@@ -632,19 +710,25 @@ fun ChatScreen(
                                         ChatWebSocketManager.shared.sendTyping(convId)
                                     }
                                 },
-                                placeholder = "Nhập tin nhắn tư vấn...",
-                                modifier = Modifier.weight(1f),
+                                placeholder = if (isStaff) "Nhập tin nhắn tư vấn…" else "Nhập câu hỏi hoặc yêu cầu tư vấn căn hộ...",
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .focusRequester(focusRequester),
                                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
                                 keyboardActions = KeyboardActions(onSend = { sendMessage() })
                             )
                             Spacer(Modifier.width(8.dp))
-                            IconButton(
-                                onClick = { sendMessage() },
+                            val canSend = messageText.isNotBlank()
+                            Surface(
+                                shape = RoundedCornerShape(12.dp),
+                                color = if (canSend) FutaColors.BrandGreen else Color(0xFFE2E8F0),
                                 modifier = Modifier
-                                    .size(42.dp)
-                                    .background(FutaColors.BrandGreen, CircleShape)
+                                    .size(38.dp)
+                                    .clickable(enabled = canSend) { sendMessage() }
                             ) {
-                                Icon(Icons.Default.Send, null, tint = Color.White, modifier = Modifier.size(18.dp))
+                                Box(contentAlignment = Alignment.Center) {
+                                    Icon(Icons.AutoMirrored.Filled.Send, "Gửi", tint = Color.White, modifier = Modifier.size(17.dp))
+                                }
                             }
                         }
                     }
@@ -663,45 +747,38 @@ fun ChatScreen(
                 if (messages.isEmpty()) {
                     item {
                         Surface(
-                            shape = RoundedCornerShape(20.dp),
+                            shape = RoundedCornerShape(16.dp),
                             color = Color.White,
-                            border = BorderStroke(1.dp, FutaColors.LightBlueBorder),
+                            border = BorderStroke(1.dp, Color(0xFFCBD5E1)),
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Column(
-                                modifier = Modifier.padding(20.dp),
+                                modifier = Modifier.padding(16.dp),
                                 horizontalAlignment = Alignment.CenterHorizontally
                             ) {
-                                Surface(
-                                    shape = CircleShape,
-                                    color = FutaColors.MintBg,
-                                    modifier = Modifier.size(56.dp)
-                                ) {
-                                    Box(contentAlignment = Alignment.Center) {
-                                        Icon(
-                                            painter = painterResource(R.drawable.ic_lucide_bot),
-                                            contentDescription = null,
-                                            tint = FutaColors.BrandGreen,
-                                            modifier = Modifier.size(32.dp)
-                                        )
-                                    }
-                                }
-                                Spacer(Modifier.height(12.dp))
+                                Icon(
+                                    painter = painterResource(R.drawable.ic_lucide_bot),
+                                    contentDescription = null,
+                                    tint = FutaColors.BrandGreen,
+                                    modifier = Modifier.size(26.dp)
+                                )
+                                Spacer(Modifier.height(8.dp))
                                 Text(
-                                    text = "Xin chào quý khách!",
-                                    fontSize = 17.sp,
+                                    text = "Bạn đang trò chuyện với Trợ lý AI FUTA Land",
+                                    fontSize = 14.sp,
                                     fontWeight = FontWeight.Bold,
-                                    color = FutaColors.Navy
+                                    color = FutaColors.Navy,
+                                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
                                 )
                                 Spacer(Modifier.height(4.dp))
                                 Text(
-                                    text = "Tôi là Trợ lý AI của FUTA Land. Tôi có thể giải đáp thông tin các dự án, căn hộ đang mở bán, chính sách chiết khấu và tính lãi suất vay 24/7.",
-                                    fontSize = 13.sp,
-                                    color = FutaColors.Slate,
+                                    text = "Trợ lý AI sẵn sàng giải đáp 24/7 về thông tin dự án, tiến độ mở bán và chính sách căn hộ.",
+                                    fontSize = 12.sp,
+                                    color = Color(0xFF64748B),
                                     textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                                    lineHeight = 18.sp
+                                    lineHeight = 17.sp
                                 )
-                                Spacer(Modifier.height(16.dp))
+                                Spacer(Modifier.height(14.dp))
                                 Text(
                                     text = "CÂU HỎI GỢI Ý",
                                     fontSize = 11.sp,
@@ -717,31 +794,31 @@ fun ChatScreen(
                                 )
                                 suggestions.forEach { prompt ->
                                     Surface(
-                                        shape = RoundedCornerShape(12.dp),
-                                        color = Color(0xFFF8FAFC),
-                                        border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                                        shape = RoundedCornerShape(20.dp),
+                                        color = Color(0xFFEAF8F1),
+                                        border = BorderStroke(1.dp, Color(0xFF0E7643).copy(alpha = 0.3f)),
                                         modifier = Modifier
                                             .fillMaxWidth()
-                                            .padding(vertical = 4.dp)
+                                            .padding(vertical = 3.dp)
                                             .clickable { sendMessage(prompt) }
                                     ) {
                                         Row(
-                                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 9.dp),
                                             verticalAlignment = Alignment.CenterVertically,
                                             horizontalArrangement = Arrangement.SpaceBetween
                                         ) {
                                             Text(
                                                 text = prompt,
-                                                fontSize = 12.5.sp,
+                                                fontSize = 12.sp,
                                                 fontWeight = FontWeight.Medium,
-                                                color = FutaColors.Navy,
+                                                color = FutaColors.BrandGreen,
                                                 modifier = Modifier.weight(1f)
                                             )
                                             Icon(
                                                 Icons.AutoMirrored.Filled.ArrowForward,
                                                 contentDescription = null,
                                                 tint = FutaColors.BrandGreen,
-                                                modifier = Modifier.size(16.dp)
+                                                modifier = Modifier.size(14.dp)
                                             )
                                         }
                                     }
@@ -755,6 +832,65 @@ fun ChatScreen(
                 }
             }
         }
+    }
+
+    if (showingNewChatDialog) {
+        AlertDialog(
+            onDismissRequest = { showingNewChatDialog = false },
+            title = { Text("Tạo cuộc trò chuyện mới", fontWeight = FontWeight.Bold, color = FutaColors.Navy) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Nhập số điện thoại khách hàng để bắt đầu tư vấn:", fontSize = 13.sp, color = FutaColors.Slate)
+                    FutaInput(
+                        value = newCustomerPhone,
+                        onValueChange = { newCustomerPhone = it },
+                        placeholder = "Ví dụ: 0912345678",
+                        keyboardOptions = KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Phone)
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        val phone = newCustomerPhone.trim()
+                        if (phone.isNotEmpty()) {
+                            scope.launch {
+                                isCreatingConv = true
+                                try {
+                                    val res = APIClient.get().request(
+                                        "/chat/conversations",
+                                        method = "POST",
+                                        bodyJson = """{"customerPhone":"$phone"}"""
+                                    )
+                                    val newConv = res["data"]
+                                    if (!newConv.id.isEmpty()) {
+                                        val cName = newConv["customer"]["customerName"].string.ifEmpty { phone }
+                                        conversations.add(0, ConversationItem(newConv.id, cName, "Bắt đầu cuộc trò chuyện...", "Bây giờ", 0, true, false, ""))
+                                        activeConversationId = newConv.id
+                                        activeConversationName = cName
+                                        showingNewChatDialog = false
+                                        newCustomerPhone = ""
+                                    }
+                                } catch (e: Exception) {
+                                    ToastCenter.show("Lỗi tạo hội thoại: ${e.message}")
+                                } finally {
+                                    isCreatingConv = false
+                                }
+                            }
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = FutaColors.BrandGreen),
+                    enabled = newCustomerPhone.isNotBlank() && !isCreatingConv
+                ) {
+                    Text(if (isCreatingConv) "Đang tạo…" else "Bắt đầu chat", color = Color.White)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showingNewChatDialog = false }) {
+                    Text("Hủy", color = FutaColors.Slate)
+                }
+            }
+        )
     }
 }
 

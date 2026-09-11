@@ -267,6 +267,33 @@ fun AdminContractsScreen(
                     }
                 }
 
+                Text("CẬP NHẬT TRẠNG THÁI HỢP ĐỒNG", fontSize = 11.5.sp, fontWeight = FontWeight.Bold, color = FutaColors.Slate)
+                Row(modifier = Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf("deposited" to "Đã cọc", "signed" to "Đã ký", "active" to "Hiệu lực", "cancelled" to "Đã hủy").forEach { (sKey, sLabel) ->
+                        val isCurrent = status.lowercase() == sKey
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = if (isCurrent) FutaColors.BrandGreen else Color(0xFFF1F5F9),
+                            modifier = Modifier.clickable {
+                                scope.launch {
+                                    try {
+                                        APIClient.get().request("/contracts/${ct.id}", method = "PUT", bodyJson = "{\"status\":\"$sKey\"}")
+                                        ToastCenter.show("Đã chuyển hợp đồng sang: $sLabel")
+                                        selectedContract = null
+                                        loadContracts()
+                                    } catch (e: Exception) {
+                                        ToastCenter.show("Lỗi cập nhật: ${e.message}", isError = true)
+                                    }
+                                }
+                            }
+                        ) {
+                            Text(sLabel, fontSize = 12.sp, fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Medium, color = if (isCurrent) Color.White else FutaColors.Navy, modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp))
+                        }
+                    }
+                }
+
+                Spacer(Modifier.height(4.dp))
+
                 FutaButton(
                     text = "Đóng",
                     variant = FutaButtonVariant.OUTLINE,
@@ -277,7 +304,6 @@ fun AdminContractsScreen(
         }
     }
 }
-
 @Composable
 private fun ContractCardRowItem(
     contract: JSONValue,

@@ -88,6 +88,7 @@ fun AdminModuleScreen(
 
     val isApartmentModule = endpoint.contains("apartment")
     val isProjectModule = endpoint.contains("project")
+    val isCampaignModule = endpoint.contains("campaign")
     val isUserModule = endpoint.contains("user")
 
     // Dynamic 2x2 Metrics matching iOS Admin Summary Cards
@@ -338,8 +339,8 @@ fun AdminModuleScreen(
 
             // 4. Feed of Cards
             if (loading) {
-                items(3) {
-                    FutaSkeletonBlock(height = 110.dp, radius = 16.dp)
+                items(4) {
+                    FutaAdminRowSkeleton()
                 }
             } else if (filteredRecords.isEmpty()) {
                 item {
@@ -384,7 +385,8 @@ fun AdminModuleScreen(
         val recTitle = item["title"].string.ifEmpty { item["displayName"].string.ifEmpty { item["name"].string.ifEmpty { item["code"].string } } }
         var currentStatus by remember { mutableStateOf(item["status"].string.ifEmpty { "selling" }) }
         var isLocked by remember { mutableStateOf(item["erpLocked"].bool || item["isLocked"].bool) }
-
+        var showOnHome by remember { mutableStateOf(item["showOnHome"].bool) }
+        var isHidden by remember { mutableStateOf(item["hidden"].bool) }
         FutaBottomSheet(
             visible = true,
             onDismiss = { selectedRecord = null },
@@ -434,39 +436,138 @@ fun AdminModuleScreen(
                     }
                 }
 
-                // ERP Lock Switch
-                Surface(
-                    shape = RoundedCornerShape(12.dp),
-                    color = if (isLocked) Color(0xFFFEF3C7) else Color(0xFFF8FAFC),
-                    border = BorderStroke(1.dp, if (isLocked) Color(0xFFFDE68A) else Color(0xFFE2E8F0)),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Row(
-                        modifier = Modifier.padding(14.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
+                if (isProjectModule) {
+                    // Project Info Overview
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = Color(0xFFF8FAFC),
+                        border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                        modifier = Modifier.fillMaxWidth()
                     ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                if (isLocked) Icons.Default.Lock else Icons.Default.LockOpen,
-                                null,
-                                tint = if (isLocked) Color(0xFFD97706) else Color(0xFF0E7643),
-                                modifier = Modifier.size(20.dp)
-                            )
-                            Spacer(Modifier.width(10.dp))
-                            Column {
-                                Text(if (isLocked) "Đang khóa căn ERP" else "Mở khóa tự do", fontSize = 13.5.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
-                                Text(if (isLocked) "Chỉ TVV được chỉ định mới được bán" else "Cho phép giao dịch bình thường", fontSize = 11.sp, color = FutaColors.Slate)
+                        Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Text("THÔNG TIN DỰ ÁN", fontSize = 11.5.sp, fontWeight = FontWeight.Bold, color = FutaColors.Slate)
+                            val dev = item["developer"].string.ifEmpty { "Công ty Cổ Phần Kim Long Nam" }
+                            val pType = item["projectType"].string.ifEmpty { "Căn hộ & Shophouse" }
+                            val pArea = item["landArea"].string.ifEmpty { "2.1 ha" }
+                            val pLoc = item["province"].string.ifEmpty { item["location"].string.ifEmpty { "Đà Nẵng" } }
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text("Chủ đầu tư:", fontSize = 12.5.sp, color = FutaColors.Slate)
+                                Text(dev, fontSize = 12.5.sp, fontWeight = FontWeight.SemiBold, color = FutaColors.Navy)
+                            }
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text("Loại hình:", fontSize = 12.5.sp, color = FutaColors.Slate)
+                                Text(pType, fontSize = 12.5.sp, fontWeight = FontWeight.SemiBold, color = FutaColors.BrandGreen)
+                            }
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text("Quy mô:", fontSize = 12.5.sp, color = FutaColors.Slate)
+                                Text(pArea, fontSize = 12.5.sp, fontWeight = FontWeight.SemiBold, color = FutaColors.Navy)
+                            }
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text("Vị trí:", fontSize = 12.5.sp, color = FutaColors.Slate)
+                                Text(pLoc, fontSize = 12.5.sp, fontWeight = FontWeight.SemiBold, color = FutaColors.Navy)
                             }
                         }
-                        FutaSwitch(
-                            checked = isLocked,
-                            onCheckedChange = { isLocked = it },
-                            activeColor = Color(0xFFD97706)
-                        )
+                    }
+
+                    // Project Home & Visibility Toggles
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = Color.White,
+                        border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column {
+                                    Text("Hiển thị trang chủ", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
+                                    Text("Xuất hiện trong danh sách dự án nổi bật", fontSize = 11.sp, color = FutaColors.Slate)
+                                }
+                                FutaSwitch(checked = showOnHome, onCheckedChange = { showOnHome = it }, activeColor = FutaColors.BrandGreen)
+                            }
+                            HorizontalDivider(color = Color(0xFFF1F5F9))
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column {
+                                    Text("Ẩn dự án khỏi khách", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = if (isHidden) Color(0xFFDC2626) else FutaColors.Navy)
+                                    Text("Tạm dừng hiển thị công khai trên ứng dụng", fontSize = 11.sp, color = FutaColors.Slate)
+                                }
+                                FutaSwitch(checked = isHidden, onCheckedChange = { isHidden = it }, activeColor = Color(0xFFDC2626))
+                            }
+                        }
+                    }
+                } else if (isCampaignModule) {
+                    // Campaign Info Overview
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = Color(0xFFF8FAFC),
+                        border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Text("CHƯƠNG TRÌNH BÁN HÀNG", fontSize = 11.5.sp, fontWeight = FontWeight.Bold, color = FutaColors.Slate)
+                            val disc = item["discountPercent"].string.ifEmpty { "${item["discount"].double.toInt()}%" }.ifEmpty { "5%" }
+                            val comm = item["commissionRate"].string.ifEmpty { "${item["commission"].double}%" }.ifEmpty { "1.5%" }
+                            val proj = item["projectName"].string.ifEmpty { "Tất cả dự án" }
+                            val dates = "${item["startDate"].string.take(10).ifEmpty { "01/08/2026" }} - ${item["endDate"].string.take(10).ifEmpty { "31/12/2026" }}"
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text("Dự án áp dụng:", fontSize = 12.5.sp, color = FutaColors.Slate)
+                                Text(proj, fontSize = 12.5.sp, fontWeight = FontWeight.SemiBold, color = FutaColors.Navy)
+                            }
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text("Chiết khấu thanh toán:", fontSize = 12.5.sp, color = FutaColors.Slate)
+                                Text(disc, fontSize = 12.5.sp, fontWeight = FontWeight.Bold, color = Color(0xFFF97316))
+                            }
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text("Hoa hồng TVV:", fontSize = 12.5.sp, color = FutaColors.Slate)
+                                Text(comm, fontSize = 12.5.sp, fontWeight = FontWeight.Bold, color = FutaColors.BrandGreen)
+                            }
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text("Thời hạn áp dụng:", fontSize = 12.5.sp, color = FutaColors.Slate)
+                                Text(dates, fontSize = 12.5.sp, color = FutaColors.Navy)
+                            }
+                        }
+                    }
+                } else {
+                    // ERP Lock Switch for Apartments & Inventory
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = if (isLocked) Color(0xFFFEF3C7) else Color(0xFFF8FAFC),
+                        border = BorderStroke(1.dp, if (isLocked) Color(0xFFFDE68A) else Color(0xFFE2E8F0)),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(14.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    if (isLocked) Icons.Default.Lock else Icons.Default.LockOpen,
+                                    null,
+                                    tint = if (isLocked) Color(0xFFD97706) else Color(0xFF0E7643),
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(Modifier.width(10.dp))
+                                Column {
+                                    Text(if (isLocked) "Đang khóa căn ERP" else "Mở khóa tự do", fontSize = 13.5.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
+                                    Text(if (isLocked) "Chỉ TVV được chỉ định mới được bán" else "Cho phép giao dịch bình thường", fontSize = 11.sp, color = FutaColors.Slate)
+                                }
+                            }
+                            FutaSwitch(
+                                checked = isLocked,
+                                onCheckedChange = { isLocked = it },
+                                activeColor = Color(0xFFD97706)
+                            )
+                        }
                     }
                 }
-
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(10.dp)
@@ -485,7 +586,11 @@ fun AdminModuleScreen(
                             scope.launch {
                                 actionBusy = true
                                 try {
-                                    val updateBody = "{\"status\":\"$currentStatus\",\"erpLocked\":$isLocked}"
+                                    val updateBody = if (isProjectModule) {
+                                        "{\"status\":\"$currentStatus\",\"showOnHome\":$showOnHome,\"hidden\":$isHidden}"
+                                    } else {
+                                        "{\"status\":\"$currentStatus\",\"erpLocked\":$isLocked}"
+                                    }
                                     APIClient.get().request("$endpoint/${item.id}", method = "PUT", bodyJson = updateBody)
                                     selectedRecord = null
                                     loadData()
@@ -602,14 +707,22 @@ private fun AdminRecordCreateSheet(
     onSuccess: () -> Unit
 ) {
     val scope = rememberCoroutineScope()
+    val isProject = endpoint.contains("project")
+    val isCampaign = endpoint.contains("campaign")
     var name by remember { mutableStateOf("") }
     var code by remember { mutableStateOf("") }
     var status by remember { mutableStateOf("selling") }
     var category by remember { mutableStateOf("") }
     var valueStr by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
+    var projectType by remember { mutableStateOf("Căn hộ") }
+    var developer by remember { mutableStateOf("Công ty Cổ Phần Kim Long Nam") }
+    var province by remember { mutableStateOf("Thành Phố Đà Nẵng") }
+    var landArea by remember { mutableStateOf("2.1 ha") }
+    var discountPercent by remember { mutableStateOf("5%") }
+    var commissionRate by remember { mutableStateOf("1.5%") }
+    var projectName by remember { mutableStateOf("Đà Nẵng Times Square") }
     var isSubmitting by remember { mutableStateOf(false) }
-
     FutaBottomSheet(
         visible = true,
         onDismiss = onDismiss,
@@ -633,8 +746,55 @@ private fun AdminRecordCreateSheet(
                     FutaInput(value = code, onValueChange = { code = it.uppercase() }, placeholder = "Ví dụ: TS-01, PRJ...")
                 }
                 Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text("Phân khu / Danh mục", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
-                    FutaInput(value = category, onValueChange = { category = it }, placeholder = "Khu A, Block 1...")
+                    Text(if (isProject) "Quy mô diện tích" else "Phân khu / Danh mục", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
+                    FutaInput(
+                        value = if (isProject) landArea else category,
+                        onValueChange = { if (isProject) landArea = it else category = it },
+                        placeholder = if (isProject) "Ví dụ: 2.1 ha" else "Khu A, Block 1..."
+                    )
+                }
+            }
+
+            if (isProject) {
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text("Loại hình dự án", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
+                    Row(modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        listOf("Căn hộ", "Nhà phố", "Biệt thự", "Đất nền", "Khu đô thị").forEach { pt ->
+                            val isSel = projectType == pt
+                            Surface(
+                                shape = CircleShape,
+                                color = if (isSel) FutaColors.BrandGreen else Color(0xFFF1F5F9),
+                                modifier = Modifier.clickable { projectType = pt }
+                            ) {
+                                Text(pt, fontSize = 12.sp, fontWeight = if (isSel) FontWeight.Bold else FontWeight.Medium, color = if (isSel) Color.White else FutaColors.Navy, modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp))
+                            }
+                        }
+                    }
+                }
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text("Chủ đầu tư", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
+                    FutaInput(value = developer, onValueChange = { developer = it }, placeholder = "Tên chủ đầu tư...")
+                }
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text("Tỉnh / Thành phố", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
+                    FutaInput(value = province, onValueChange = { province = it }, placeholder = "Ví dụ: Thành Phố Đà Nẵng...")
+                }
+            }
+
+            if (isCampaign) {
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text("Chiết khấu (%) *", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
+                        FutaInput(value = discountPercent, onValueChange = { discountPercent = it }, placeholder = "Ví dụ: 5%")
+                    }
+                    Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text("Hoa hồng TVV (%)", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
+                        FutaInput(value = commissionRate, onValueChange = { commissionRate = it }, placeholder = "Ví dụ: 1.5%")
+                    }
+                }
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text("Dự án áp dụng", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
+                    FutaInput(value = projectName, onValueChange = { projectName = it }, placeholder = "Tên dự án áp dụng...")
                 }
             }
 
@@ -682,8 +842,13 @@ private fun AdminRecordCreateSheet(
                         isSubmitting = true
                         try {
                             val numVal = valueStr.toDoubleOrNull() ?: 0.0
-                            val body = "{\"title\":\"$name\",\"name\":\"$name\",\"code\":\"$code\",\"propertyCode\":\"$code\",\"status\":\"$status\",\"zone\":\"$category\",\"category\":\"$category\",\"price\":$numVal,\"description\":\"$description\"}"
-                            APIClient.get().request(endpoint, method = "POST", bodyJson = body)
+                            val body = if (isProject) {
+                                "{\"title\":\"$name\",\"name\":\"$name\",\"displayName\":\"$name\",\"code\":\"$code\",\"projectType\":\"$projectType\",\"developer\":\"$developer\",\"province\":\"$province\",\"location\":\"$province\",\"landArea\":\"$landArea\",\"status\":\"$status\",\"showOnHome\":true,\"hidden\":false,\"description\":\"$description\"}"
+                            } else if (isCampaign) {
+                                "{\"title\":\"$name\",\"name\":\"$name\",\"code\":\"$code\",\"discountPercent\":\"$discountPercent\",\"commissionRate\":\"$commissionRate\",\"projectName\":\"$projectName\",\"status\":\"$status\",\"description\":\"$description\"}"
+                            } else {
+                                "{\"title\":\"$name\",\"name\":\"$name\",\"code\":\"$code\",\"propertyCode\":\"$code\",\"status\":\"$status\",\"zone\":\"$category\",\"category\":\"$category\",\"price\":$numVal,\"description\":\"$description\"}"
+                            }
                             ToastCenter.show("Tạo mới thành công!")
                             onSuccess()
                         } catch (e: Exception) {

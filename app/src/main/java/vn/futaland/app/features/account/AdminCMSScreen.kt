@@ -312,7 +312,7 @@ fun AdminCMSScreen(
                 // Articles Feed
                 if (newsLoading) {
                     items(4) {
-                        FutaSkeletonBlock(height = 95.dp, radius = 14.dp)
+                        FutaAdminRowSkeleton()
                     }
                 } else if (articles.isEmpty()) {
                     item {

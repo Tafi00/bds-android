@@ -168,7 +168,7 @@ fun DiscoveryScreen(
         if (loading && apartments.isEmpty()) {
             items(3) {
                 Box(modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
-                    FutaSkeletonBlock(height = 280.dp, radius = 16.dp)
+                    FutaPropertyCardSkeleton()
                 }
             }
         } else if (apartments.isEmpty()) {

@@ -217,7 +217,7 @@ fun AccountScreen(
         if (isAuthenticated && role != "customer" && role.isNotEmpty()) {
             item {
                 Column {
-                    SectionTitle(title = "Kinh doanh & Quản trị")
+                    SectionTitle(title = if (role == "admin") "Quản trị hệ thống" else "Bàn làm việc TVV")
                     FutaCard(
                         modifier = Modifier.fillMaxWidth(),
                         borderColor = FutaColors.BrandGreen.copy(alpha = 0.4f),
@@ -245,7 +245,7 @@ fun AccountScreen(
                             Spacer(Modifier.width(12.dp))
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
-                                    text = if (role == "admin") "Trang quản trị hệ thống" else "Trung tâm làm việc TVV",
+                                    text = if (role == "admin") "Bảng điều khiển quản trị" else "Bàn làm việc TVV",
                                     fontSize = 15.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = FutaColors.Navy

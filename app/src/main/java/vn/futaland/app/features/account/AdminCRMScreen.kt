@@ -25,6 +25,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
+import vn.futaland.app.core.auth.AppSession
 import vn.futaland.app.core.network.APIClient
 import vn.futaland.app.core.network.JSONValue
 import vn.futaland.app.designsystem.*
@@ -45,11 +46,20 @@ fun AdminCRMScreen(
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    var selectedStage by remember { mutableStateOf("lead") }
+    var selectedStage by remember { mutableStateOf("all") }
     var search by remember { mutableStateOf("") }
+    var loading by remember { mutableStateOf(false) }
+    var selectedLead by remember { mutableStateOf<CrmLead?>(null) }
+    var showCreateDialog by remember { mutableStateOf(false) }
+    var newLeadName by remember { mutableStateOf("") }
+    var newLeadPhone by remember { mutableStateOf("") }
+    var newLeadDemand by remember { mutableStateOf("") }
+    var newLeadBudget by remember { mutableStateOf("") }
+    var isSubmittingLead by remember { mutableStateOf(false) }
 
     val stages = remember {
         listOf(
+            "all" to "Tất cả",
             "lead" to "Mới (Lead)",
             "contacted" to "Đang liên hệ",
             "viewing" to "Hẹn xem nhà",
@@ -65,6 +75,45 @@ fun AdminCRMScreen(
             CrmLead("3", "Hoàng Minh Trí", "0987654321", "Căn 1PN Masteri Thảo Điền", "2.8 Tỷ", "viewing", "Trần Thị Mai"),
             CrmLead("4", "Phạm Hải Đăng", "0934567890", "Biệt thự view sông Sài Gòn", "25 Tỷ", "holding", "Admin FutaLand")
         )
+    }
+
+    fun loadLeads() {
+        scope.launch {
+            loading = true
+            try {
+                val res = try {
+                    APIClient.get().request("/crm")
+                } catch (_: Exception) {
+                    APIClient.get().request("/leads")
+                }
+                val list = res["data"]["leads"].array.ifEmpty {
+                    res["data"].array.ifEmpty { res["leads"].array }
+                }
+                if (list.isNotEmpty()) {
+                    leads.clear()
+                    list.forEach { l ->
+                        leads.add(
+                            CrmLead(
+                                id = l.id,
+                                name = l["name"].string.ifEmpty { l["customerName"].string.ifEmpty { "Khách hàng" } },
+                                phone = l["phone"].string.ifEmpty { l["customerPhone"].string.ifEmpty { "Chưa có SĐT" } },
+                                demand = l["demand"].string.ifEmpty { l["note"].string.ifEmpty { "Nhu cầu mua / thuê căn hộ" } },
+                                budget = l["budget"].string.ifEmpty { "Thỏa thuận" },
+                                stage = l["stage"].string.ifEmpty { l["status"].string.ifEmpty { "lead" } },
+                                advisor = l["advisor"]["name"].string.ifEmpty { l["advisorName"].string.ifEmpty { "Chuyên viên FUTA" } }
+                            )
+                        )
+                    }
+                }
+            } catch (_: Exception) {
+            } finally {
+                loading = false
+            }
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        loadLeads()
     }
 
     val filteredLeads = remember(leads, selectedStage, search) {
@@ -102,9 +151,8 @@ fun AdminCRMScreen(
                         )
                         FutaHeaderIconButton(
                             icon = Icons.Default.Add,
-                            contentDescription = "Thêm mới",
-                            tint = FutaColors.BrandGreen,
-                            onClick = { ToastCenter.show("Tạo hồ sơ khách hàng mới") }
+                            contentDescription = "Thêm khách hàng",
+                            onClick = { showCreateDialog = true }
                         )
                     }
 
@@ -216,12 +264,12 @@ fun AdminCRMScreen(
                             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                                 Text("TVV phụ trách: ${lead.advisor}", fontSize = 11.5.sp, color = FutaColors.Slate)
                                 Text(
-                                    text = "Chuyển giai đoạn ▶",
+                                    text = "Chi tiết & Giai đoạn ▶",
                                     fontSize = 11.5.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = FutaColors.BrandGreen,
                                     modifier = Modifier.clickable {
-                                        ToastCenter.show("Đã chuyển khách ${lead.name} sang bước tiếp theo")
+                                        selectedLead = lead
                                     }
                                 )
                             }
@@ -232,6 +280,132 @@ fun AdminCRMScreen(
 
             item {
                 Spacer(Modifier.height(40.dp))
+            }
+        }
+    }
+
+    // Lead Detail & Stage Changer Bottom Sheet
+    selectedLead?.let { lead ->
+        FutaBottomSheet(
+            visible = true,
+            onDismiss = { selectedLead = null },
+            title = "Chi tiết cơ hội: ${lead.name}"
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 20.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = Color(0xFFF8FAFC),
+                    border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text(lead.name, fontSize = 16.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
+                        Text("Số điện thoại: ${lead.phone}", fontSize = 13.sp, color = FutaColors.Slate)
+                        Text("Nhu cầu: ${lead.demand}", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = FutaColors.Navy)
+                        Text("Ngân sách: ${lead.budget}", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Color(0xFF0E7643))
+                        Text("Chuyên viên: ${lead.advisor}", fontSize = 12.sp, color = FutaColors.Slate)
+                    }
+                }
+
+                Text("CẬP NHẬT GIAI ĐOẠN CRM", fontSize = 11.5.sp, fontWeight = FontWeight.Bold, color = FutaColors.Slate)
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf(
+                        "lead" to "1. Mới tiếp nhận (Lead)",
+                        "contacted" to "2. Đang liên hệ tư vấn",
+                        "viewing" to "3. Hẹn xem nhà / Thực địa",
+                        "holding" to "4. Đặt cọc / Giữ chỗ",
+                        "closed" to "5. Giao dịch thành công"
+                    ).forEach { (stKey, stLabel) ->
+                        val isSelected = lead.stage == stKey
+                        Surface(
+                            shape = RoundedCornerShape(10.dp),
+                            color = if (isSelected) FutaColors.MintBg else Color(0xFFF8FAFC),
+                            border = BorderStroke(1.dp, if (isSelected) FutaColors.BrandGreen else Color(0xFFE2E8F0)),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    val idx = leads.indexOfFirst { it.id == lead.id }
+                                    if (idx >= 0) {
+                                        leads[idx] = lead.copy(stage = stKey)
+                                        selectedLead = leads[idx]
+                                        ToastCenter.show("Đã chuyển sang: $stLabel")
+                                    }
+                                }
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(stLabel, fontSize = 13.sp, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium, color = if (isSelected) FutaColors.BrandGreen else FutaColors.Navy)
+                                if (isSelected) {
+                                    Icon(Icons.Default.CheckCircle, null, tint = FutaColors.BrandGreen, modifier = Modifier.size(18.dp))
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+                    FutaButton(
+                        text = "Gọi ngay",
+                        variant = FutaButtonVariant.SECONDARY,
+                        onClick = {
+                            context.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:${lead.phone}")))
+                        },
+                        modifier = Modifier.weight(1f)
+                    )
+                    FutaButton(
+                        text = "Đóng",
+                        variant = FutaButtonVariant.OUTLINE,
+                        onClick = { selectedLead = null },
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+            }
+        }
+    }
+
+    // Create Lead Dialog
+    if (showCreateDialog) {
+        FutaDialog(
+            visible = true,
+            onDismiss = { showCreateDialog = false },
+            title = "Thêm khách hàng tiềm năng",
+            confirmText = "Lưu thông tin",
+            onConfirm = {
+                if (newLeadName.isNotEmpty() && newLeadPhone.isNotEmpty()) {
+                    val newLead = CrmLead(
+                        id = "lead_${System.currentTimeMillis()}",
+                        name = newLeadName,
+                        phone = newLeadPhone,
+                        demand = newLeadDemand.ifEmpty { "Cần tư vấn BĐS" },
+                        budget = newLeadBudget.ifEmpty { "Thỏa thuận" },
+                        stage = "lead",
+                        advisor = AppSession.shared.user?.get("name")?.string?.ifEmpty { "Chuyên viên FUTA" } ?: "Chuyên viên FUTA"
+                    )
+                    leads.add(0, newLead)
+                    showCreateDialog = false
+                    newLeadName = ""
+                    newLeadPhone = ""
+                    newLeadDemand = ""
+                    newLeadBudget = ""
+                    ToastCenter.show("Đã thêm khách hàng mới vào CRM!")
+                }
+            },
+            cancelText = "Hủy",
+            onCancel = { showCreateDialog = false }
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                FutaInput(value = newLeadName, onValueChange = { newLeadName = it }, placeholder = "Họ và tên khách hàng *")
+                FutaInput(value = newLeadPhone, onValueChange = { newLeadPhone = it }, placeholder = "Số điện thoại *")
+                FutaInput(value = newLeadDemand, onValueChange = { newLeadDemand = it }, placeholder = "Nhu cầu (Ví dụ: Căn 2PN View biển)")
+                FutaInput(value = newLeadBudget, onValueChange = { newLeadBudget = it }, placeholder = "Ngân sách dự kiến (Ví dụ: 3 - 4 Tỷ)")
             }
         }
     }

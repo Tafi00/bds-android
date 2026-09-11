@@ -326,7 +326,7 @@ fun PropertySearchScreen(
             if (loading && results.isEmpty()) {
                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
                     repeat(3) {
-                        FutaSkeletonBlock(height = 240.dp, radius = 18.dp)
+                        FutaPropertyCardSkeleton()
                     }
                 }
             } else if (results.isEmpty()) {

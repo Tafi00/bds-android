@@ -91,7 +91,7 @@ fun AdvisorWorkspaceScreen(
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, "Quay lại", tint = FutaColors.Navy)
                     }
                     Text(
-                        text = "Trung tâm làm việc TVV",
+                        text = "Tư vấn viên FutaLand",
                         fontSize = 17.5.sp,
                         fontWeight = FontWeight.Bold,
                         color = FutaColors.Navy,
@@ -311,6 +311,7 @@ fun AdvisorWorkspaceScreen(
     // Step 3: Exam Sheet
     if (showExamSheet) {
         AdvisorExamSheet(
+            alreadyPassed = examDone,
             onDismiss = { showExamSheet = false },
             onSuccess = {
                 showExamSheet = false
@@ -603,6 +604,7 @@ private fun AdvisorProfileSheet(
 // -------------------------------------------------------------
 @Composable
 private fun AdvisorExamSheet(
+    alreadyPassed: Boolean = false,
     onDismiss: () -> Unit,
     onSuccess: () -> Unit
 ) {
@@ -624,6 +626,10 @@ private fun AdvisorExamSheet(
                 .padding(bottom = 24.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
+            if (alreadyPassed) {
+                Text("✓ Bạn đã đạt bài kiểm tra này", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = FutaColors.BrandGreen)
+                return@FutaBottomSheet
+            }
             Text(
                 text = "Trả lời đúng các câu hỏi kiểm tra để được hệ thống kích hoạt quyền giữ chỗ tự động.",
                 fontSize = 12.5.sp,
@@ -676,7 +682,7 @@ private fun AdvisorExamSheet(
                     scope.launch {
                         isSubmitting = true
                         try {
-                            APIClient.get().request("/advisor/exam", method = "POST", bodyJson = "{\"answers\":[$ans1,$ans2,$ans3]}")
+                            APIClient.get().request("/advisor/me/exam", method = "POST", bodyJson = "{\"answers\":{\"q1\":$ans1,\"q2\":$ans2,\"q3\":$ans3},\"submissionReason\":\"manual\"}")
                             ToastCenter.show("Chúc mừng! Bạn đã đạt 100% điểm bài kiểm tra.")
                             onSuccess()
                         } catch (e: Exception) {
@@ -747,9 +753,9 @@ private fun AdvisorVerificationSheet(
                         isSubmitting = true
                         try {
                             APIClient.get().request(
-                                "/advisor/verification",
-                                method = "POST",
-                                bodyJson = "{\"signature\":\"$signatureDataUrl\",\"agreed\":true}"
+                                "/advisor/me/signature",
+                                method = "PATCH",
+                                bodyJson = "{\"contractType\":\"service\",\"signatureDataUrl\":\"$signatureDataUrl\"}"
                             )
                             ToastCenter.show("Kích hoạt tài khoản Chuyên viên FUTA thành công!")
                             onSuccess()

@@ -255,7 +255,7 @@ fun AdminCustomersScreen(
             // Customer Feed
             if (loading && customers.isEmpty()) {
                 items(5) {
-                    FutaSkeletonBlock(height = 80.dp, radius = 16.dp)
+                    FutaAdminRowSkeleton()
                 }
             } else if (customers.isEmpty()) {
                 item {

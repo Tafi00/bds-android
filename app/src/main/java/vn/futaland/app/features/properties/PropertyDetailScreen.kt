@@ -160,7 +160,6 @@ fun PropertyDetailScreen(
                     apt = apt,
                     onCallClick = { showAdvisorContactSheet = true },
                     onChatClick = { showAdvisorContactSheet = true },
-                    onBookVisitClick = { showBookingSheet = true },
                     onHoldClick = { showHoldingSheet = true }
                 )
             }
@@ -1606,7 +1605,6 @@ private fun StickyContactBottomBar(
     apt: JSONValue,
     onCallClick: () -> Unit,
     onChatClick: () -> Unit,
-    onBookVisitClick: () -> Unit,
     onHoldClick: () -> Unit
 ) {
     Surface(
@@ -1643,23 +1641,8 @@ private fun StickyContactBottomBar(
 
             Spacer(Modifier.width(8.dp))
 
-            // Action Buttons: Đặt lịch + Giữ chỗ + Gọi + Chat
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-                // Đặt lịch xem nhà
-                Surface(
-                    shape = RoundedCornerShape(12.dp),
-                    color = Color(0xFFF1F5F9),
-                    modifier = Modifier.clickable(onClick = onBookVisitClick)
-                ) {
-                    Text(
-                        text = "Đặt lịch",
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = FutaColors.Navy,
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 9.dp)
-                    )
-                }
-
+            // Action Buttons: Giữ chỗ + Gọi + Chat
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                 // Giữ chỗ cọc căn hộ
                 Surface(
                     shape = RoundedCornerShape(12.dp),
@@ -1669,10 +1652,11 @@ private fun StickyContactBottomBar(
                 ) {
                     Text(
                         text = "Giữ chỗ ngay",
-                        fontSize = 12.sp,
+                        fontSize = 13.sp,
                         fontWeight = FontWeight.Bold,
                         color = Color.White,
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp)
+                        maxLines = 1,
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)
                     )
                 }
 
@@ -1680,14 +1664,14 @@ private fun StickyContactBottomBar(
                 Surface(
                     shape = CircleShape,
                     color = Color(0xFFF97316),
-                    modifier = Modifier.size(36.dp).clickable(onClick = onCallClick)
+                    modifier = Modifier.size(38.dp).clickable(onClick = onCallClick)
                 ) {
                     Box(contentAlignment = Alignment.Center) {
                         Icon(
                             painter = painterResource(id = R.drawable.sf_btn_phone),
                             contentDescription = "Gọi ngay",
                             tint = Color.White,
-                            modifier = Modifier.size(13.dp)
+                            modifier = Modifier.size(14.dp)
                         )
                     }
                 }
@@ -1695,8 +1679,8 @@ private fun StickyContactBottomBar(
                 // Quick chat icon
                 Surface(
                     shape = CircleShape,
-                    color = Color(0xFF123355),
-                    modifier = Modifier.size(36.dp).clickable(onClick = onChatClick)
+                    color = Color(0xFF0E7643),
+                    modifier = Modifier.size(38.dp).clickable(onClick = onChatClick)
                 ) {
                     Box(contentAlignment = Alignment.Center) {
                         Icon(

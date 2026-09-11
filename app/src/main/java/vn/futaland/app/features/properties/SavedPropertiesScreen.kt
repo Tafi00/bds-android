@@ -126,7 +126,7 @@ fun SavedPropertiesScreen(
                 verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
                 repeat(3) {
-                    FutaSkeletonBlock(height = 240.dp, radius = 18.dp)
+                    FutaPropertyCardSkeleton()
                 }
             }
         } else if (items.isEmpty()) {

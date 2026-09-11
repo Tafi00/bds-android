@@ -188,7 +188,7 @@ fun AdminUsersScreen(
             // Users List
             if (loading) {
                 items(5) {
-                    FutaSkeletonBlock(height = 76.dp, radius = 14.dp)
+                    FutaAdminRowSkeleton()
                 }
             } else if (users.isEmpty()) {
                 item {
