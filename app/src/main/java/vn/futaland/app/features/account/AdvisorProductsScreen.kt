@@ -1,11 +1,15 @@
 package vn.futaland.app.features.account
+
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -38,10 +42,31 @@ fun AdvisorProductsScreen(
     var items by remember { mutableStateOf<List<JSONValue>>(emptyList()) }
     var loading by remember { mutableStateOf(true) }
     var search by remember { mutableStateOf("") }
-    var selectedTab by remember { mutableStateOf("all") }
+    var selectedTab by remember { mutableStateOf("registered") }
+
+    // Product Filter States
+    var projectFilter by remember { mutableStateOf("") }
+    var campaignFilter by remember { mutableStateOf("") }
+    var blockFilter by remember { mutableStateOf("") }
+    var productTypeFilter by remember { mutableStateOf("") }
+    var propertyTypeFilter by remember { mutableStateOf("") }
+    var floorFilter by remember { mutableStateOf("") }
+    var directionFilter by remember { mutableStateOf("") }
+    var balconyDirectionFilter by remember { mutableStateOf("") }
+    var showFilterSheet by remember { mutableStateOf(false) }
+
+    val activeFilterCount = listOf(
+        projectFilter,
+        campaignFilter,
+        blockFilter,
+        productTypeFilter,
+        propertyTypeFilter,
+        floorFilter,
+        directionFilter,
+        balconyDirectionFilter
+    ).count { it.isNotEmpty() }
 
     val tabs = listOf(
-        "all" to "Tất cả",
         "registered" to "Đã đăng ký bán",
         "online_holding" to "Đang giữ chỗ",
         "pending" to "Chờ xác nhận",
@@ -67,11 +92,109 @@ fun AdvisorProductsScreen(
         loadData()
     }
 
-    val filteredItems = remember(items, search, selectedTab) {
+    // Web parity: Only show approved registrations with active sales permission in the basket
+    val activeRegistrations = remember(items) {
         items.filter { reg ->
+            val status = reg["status"].string.lowercase()
+            status == "active" || status == "approved"
+        }
+    }
+
+    val tabCounts = remember(activeRegistrations) {
+        val counts = mutableMapOf(
+            "registered" to 0,
+            "online_holding" to 0,
+            "pending" to 0,
+            "holding" to 0,
+            "completed" to 0
+        )
+        for (reg in activeRegistrations) {
+            val bStatus = reg["bookingStatus"].string.lowercase()
+            when {
+                bStatus == "online_holding" -> counts["online_holding"] = (counts["online_holding"] ?: 0) + 1
+                bStatus == "pending_booking" || bStatus == "cancel_requested" -> counts["pending"] = (counts["pending"] ?: 0) + 1
+                bStatus == "holding_success" -> counts["holding"] = (counts["holding"] ?: 0) + 1
+                listOf("deposited", "commission_pending", "commission_paid", "purchased").contains(bStatus) -> counts["completed"] = (counts["completed"] ?: 0) + 1
+                else -> counts["registered"] = (counts["registered"] ?: 0) + 1
+            }
+        }
+        counts
+    }
+
+    val projectOptions = remember(activeRegistrations) {
+        activeRegistrations.mapNotNull {
+            val p = it["projectName"].string.ifEmpty { it["apartment"]["zone"].string.ifEmpty { it["zone"].string } }
+            if (p.isNotEmpty() && p != "Dự án chưa cập nhật") p else null
+        }.distinct().sorted()
+    }
+    val campaignOptions = remember(activeRegistrations) {
+        activeRegistrations.mapNotNull {
+            val c = it["campaignName"].string.ifEmpty { it["salesCampaignName"].string.ifEmpty { it["apartment"]["salesCampaignName"].string } }
+            if (c.isNotEmpty()) c else null
+        }.distinct().sorted()
+    }
+    val blockOptions = remember(activeRegistrations) {
+        activeRegistrations.mapNotNull {
+            val b = it["block"].string.ifEmpty { it["apartment"]["building"].string.ifEmpty { it["building"].string } }
+            if (b.isNotEmpty() && b != "-") b else null
+        }.distinct().sorted()
+    }
+    val productTypeOptions = remember(activeRegistrations) {
+        val list = activeRegistrations.mapNotNull {
+            val t = it["apartmentType"].string.ifEmpty { it["apartment"]["apartmentType"].string }
+            if (t.isNotEmpty()) t else null
+        } + listOf("Căn hộ", "Shophouse", "Penthouse", "Duplex", "Villa")
+        list.distinct().sorted()
+    }
+    val propertyTypeOptions = remember(activeRegistrations) {
+        activeRegistrations.mapNotNull {
+            val t = it["propertyType"].string.ifEmpty { it["apartment"]["propertyType"].string }
+            if (t.isNotEmpty()) t else null
+        }.distinct().sorted()
+    }
+    val floorOptions = remember(activeRegistrations) {
+        activeRegistrations.mapNotNull {
+            val f = it["floor"].string.ifEmpty {
+                val fl = it["apartment"]["floor"].int
+                if (fl > 0) "$fl" else ""
+            }
+            if (f.isNotEmpty() && f != "-") f else null
+        }.distinct().sortedBy { it.toIntOrNull() ?: 0 }
+    }
+    val directionOptions = remember(activeRegistrations) {
+        val list = activeRegistrations.mapNotNull {
+            val d = it["direction"].string.ifEmpty { it["apartment"]["direction"].string }
+            if (d.isNotEmpty()) d else null
+        } + listOf("Đông", "Tây", "Nam", "Bắc", "Đông Nam", "Đông Bắc", "Tây Nam", "Tây Bắc")
+        list.distinct().sorted()
+    }
+    val balconyDirectionOptions = remember(activeRegistrations) {
+        val list = activeRegistrations.mapNotNull {
+            val d = it["balconyDirection"].string.ifEmpty { it["apartment"]["balconyDirection"].string }
+            if (d.isNotEmpty()) d else null
+        } + listOf("Đông", "Tây", "Nam", "Bắc", "Đông Nam", "Đông Bắc", "Tây Nam", "Tây Bắc")
+        list.distinct().sorted()
+    }
+
+    val filteredItems = remember(
+        activeRegistrations, search, selectedTab,
+        projectFilter, campaignFilter, blockFilter,
+        productTypeFilter, propertyTypeFilter, floorFilter,
+        directionFilter, balconyDirectionFilter
+    ) {
+        activeRegistrations.filter { reg ->
             val unitCode = reg["unitCode"].string.ifEmpty { reg["apartment"]["propertyCode"].string }
-            val projectName = reg["projectName"].string.ifEmpty { reg["apartment"]["zone"].string }
-            val block = reg["block"].string.ifEmpty { reg["apartment"]["building"].string }
+            val projectName = reg["projectName"].string.ifEmpty { reg["apartment"]["zone"].string.ifEmpty { reg["zone"].string } }
+            val campaign = reg["campaignName"].string.ifEmpty { reg["salesCampaignName"].string.ifEmpty { reg["apartment"]["salesCampaignName"].string } }
+            val block = reg["block"].string.ifEmpty { reg["apartment"]["building"].string.ifEmpty { reg["building"].string } }
+            val productType = reg["apartmentType"].string.ifEmpty { reg["apartment"]["apartmentType"].string }
+            val propertyType = reg["propertyType"].string.ifEmpty { reg["apartment"]["propertyType"].string }
+            val floor = reg["floor"].string.ifEmpty {
+                val fl = reg["apartment"]["floor"].int
+                if (fl > 0) "$fl" else ""
+            }
+            val direction = reg["direction"].string.ifEmpty { reg["apartment"]["direction"].string }
+            val balconyDirection = reg["balconyDirection"].string.ifEmpty { reg["apartment"]["balconyDirection"].string }
 
             val q = search.trim().lowercase()
             val matchSearch = q.isEmpty() || unitCode.lowercase().contains(q)
@@ -79,18 +202,25 @@ fun AdvisorProductsScreen(
                 || block.lowercase().contains(q)
 
             val bStatus = reg["bookingStatus"].string.lowercase()
-            val status = reg["status"].string.lowercase()
 
             val matchTab = when (selectedTab) {
-                "registered" -> (status == "active" || status == "approved") && (bStatus.isEmpty() || bStatus == "none" || bStatus == "available")
                 "online_holding" -> bStatus == "online_holding"
                 "pending" -> bStatus == "pending_booking" || bStatus == "cancel_requested"
                 "holding" -> bStatus == "holding_success"
                 "completed" -> listOf("deposited", "commission_pending", "commission_paid", "purchased").contains(bStatus)
+                "registered" -> bStatus.isEmpty() || bStatus == "none" || bStatus == "available"
                 else -> true
             }
 
             matchSearch && matchTab
+                && (projectFilter.isEmpty() || projectName == projectFilter)
+                && (campaignFilter.isEmpty() || campaign == campaignFilter)
+                && (blockFilter.isEmpty() || block == blockFilter)
+                && (productTypeFilter.isEmpty() || productType == productTypeFilter)
+                && (propertyTypeFilter.isEmpty() || propertyType == propertyTypeFilter)
+                && (floorFilter.isEmpty() || floor == floorFilter)
+                && (directionFilter.isEmpty() || direction == directionFilter)
+                && (balconyDirectionFilter.isEmpty() || balconyDirection == balconyDirectionFilter)
         }
     }
 
@@ -127,56 +257,103 @@ fun AdvisorProductsScreen(
                 .padding(padding)
                 .background(Color(0xFFF8FAFC))
         ) {
-            // Search Input
-            Surface(
-                color = Color.White,
-                shape = RoundedCornerShape(12.dp),
-                border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+            // Search Input & Filter Button
+            Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp)
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                Surface(
+                    color = Color.White,
+                    shape = RoundedCornerShape(12.dp),
+                    border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                    modifier = Modifier.weight(1f)
                 ) {
-                    Icon(Icons.Default.Search, "Tìm kiếm", tint = FutaColors.Slate, modifier = Modifier.size(20.dp))
-                    Spacer(modifier = Modifier.width(8.dp))
-                    androidx.compose.foundation.text.BasicTextField(
-                        value = search,
-                        onValueChange = { search = it },
-                        modifier = Modifier.weight(1f),
-                        singleLine = true,
-                        decorationBox = { innerTextField ->
-                            if (search.isEmpty()) {
-                                Text("Mã căn, toà nhà, dự án...", color = Color.Gray, fontSize = 14.sp)
+                    Row(
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(Icons.Default.Search, "Tìm kiếm", tint = FutaColors.Slate, modifier = Modifier.size(20.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        androidx.compose.foundation.text.BasicTextField(
+                            value = search,
+                            onValueChange = { search = it },
+                            modifier = Modifier.weight(1f),
+                            singleLine = true,
+                            decorationBox = { innerTextField ->
+                                if (search.isEmpty()) {
+                                    Text("Mã căn, toà nhà, dự án...", color = Color.Gray, fontSize = 14.sp)
+                                }
+                                innerTextField()
                             }
-                            innerTextField()
-                        }
-                    )
-                    if (search.isNotEmpty()) {
-                        Icon(
-                            Icons.Default.Close,
-                            "Xóa tìm kiếm",
-                            tint = FutaColors.Slate,
-                            modifier = Modifier
-                                .size(18.dp)
-                                .clickable { search = "" }
                         )
+                        if (search.isNotEmpty()) {
+                            Icon(
+                                Icons.Default.Close,
+                                "Xóa tìm kiếm",
+                                tint = FutaColors.Slate,
+                                modifier = Modifier
+                                    .size(18.dp)
+                                    .clickable { search = "" }
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.width(10.dp))
+
+                // Filter Button with Badge
+                Box(
+                    modifier = Modifier
+                        .size(44.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(if (activeFilterCount > 0) FutaColors.BrandGreen else Color.White)
+                        .border(
+                            BorderStroke(1.dp, if (activeFilterCount > 0) Color.Transparent else Color(0xFFE2E8F0)),
+                            RoundedCornerShape(12.dp)
+                        )
+                        .clickable { showFilterSheet = true },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Tune,
+                        contentDescription = "Bộ lọc",
+                        tint = if (activeFilterCount > 0) Color.White else FutaColors.BrandGreen,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    if (activeFilterCount > 0) {
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.TopEnd)
+                                .padding(2.dp)
+                                .size(16.dp)
+                                .clip(CircleShape)
+                                .background(Color(0xFFEF4444)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "$activeFilterCount",
+                                color = Color.White,
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
                     }
                 }
             }
 
-            // Tabs
+            // Tabs with Counts
             LazyRow(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(vertical = 6.dp),
+                    .padding(vertical = 4.dp),
                 contentPadding = PaddingValues(horizontal = 16.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 items(tabs) { (key, label) ->
                     val isSelected = selectedTab == key
+                    val count = tabCounts[key] ?: 0
                     Surface(
                         color = if (isSelected) FutaColors.BrandGreen else Color.White,
                         shape = CircleShape,
@@ -184,7 +361,7 @@ fun AdvisorProductsScreen(
                         modifier = Modifier.clickable { selectedTab = key }
                     ) {
                         Text(
-                            text = label,
+                            text = "$label ($count)",
                             fontSize = 13.sp,
                             fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
                             color = if (isSelected) Color.White else FutaColors.Navy,
@@ -250,12 +427,14 @@ fun AdvisorProductsScreen(
                     contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    items(filteredItems, key = { it["id"].string.ifEmpty { it.id } }) { reg ->
-                        AdvisorCartItemCard(
+                    items(filteredItems, key = { it["id"].string.ifEmpty { it["unitCode"].string } }) { reg ->
+                        AdvisorProductCartCard(
                             reg = reg,
                             onHold = {
-                                val targetId = reg["apartmentId"].string.ifEmpty { reg["apartment"]["recordId"].string.ifEmpty { reg.id } }
-                                onNavigate(FutaDestinations.propertyDetail(targetId))
+                                val targetId = reg["apartmentId"].string.ifEmpty { reg["apartment"]["recordId"].string.ifEmpty { reg["apartment"]["id"].string.ifEmpty { reg.id } } }
+                                if (targetId.isNotEmpty()) {
+                                    onNavigate(FutaDestinations.propertyDetail(targetId))
+                                }
                             }
                         )
                     }
@@ -263,10 +442,171 @@ fun AdvisorProductsScreen(
             }
         }
     }
+
+    // Filter Bottom Sheet
+    if (showFilterSheet) {
+        FutaBottomSheet(
+            visible = true,
+            onDismiss = { showFilterSheet = false },
+            title = "Bộ lọc rổ hàng",
+            headerTrailing = if (activeFilterCount > 0) {
+                {
+                    Text(
+                        text = "Đặt lại",
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = FutaColors.BrandGreen,
+                        modifier = Modifier.clickable {
+                            projectFilter = ""
+                            campaignFilter = ""
+                            blockFilter = ""
+                            productTypeFilter = ""
+                            propertyTypeFilter = ""
+                            floorFilter = ""
+                            directionFilter = ""
+                            balconyDirectionFilter = ""
+                        }
+                    )
+                }
+            } else null
+        ) {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                if (projectOptions.isNotEmpty()) {
+                    FilterChipSection(
+                        title = "DỰ ÁN",
+                        selected = projectFilter,
+                        options = projectOptions,
+                        onSelect = { projectFilter = it }
+                    )
+                }
+
+                if (campaignOptions.isNotEmpty()) {
+                    FilterChipSection(
+                        title = "CHƯƠNG TRÌNH BÁN HÀNG",
+                        selected = campaignFilter,
+                        options = campaignOptions,
+                        onSelect = { campaignFilter = it }
+                    )
+                }
+
+                if (blockOptions.isNotEmpty()) {
+                    FilterChipSection(
+                        title = "TÒA / BLOCK",
+                        selected = blockFilter,
+                        options = blockOptions,
+                        onSelect = { blockFilter = it }
+                    )
+                }
+
+                if (productTypeOptions.isNotEmpty()) {
+                    FilterChipSection(
+                        title = "LOẠI SẢN PHẨM",
+                        selected = productTypeFilter,
+                        options = productTypeOptions,
+                        onSelect = { productTypeFilter = it }
+                    )
+                }
+
+                if (propertyTypeOptions.isNotEmpty()) {
+                    FilterChipSection(
+                        title = "LOẠI BẤT ĐỘNG SẢN",
+                        selected = propertyTypeFilter,
+                        options = propertyTypeOptions,
+                        onSelect = { propertyTypeFilter = it }
+                    )
+                }
+
+                if (floorOptions.isNotEmpty()) {
+                    FilterChipSection(
+                        title = "TẦNG",
+                        selected = floorFilter,
+                        options = floorOptions,
+                        displayTransform = { "Tầng $it" },
+                        onSelect = { floorFilter = it }
+                    )
+                }
+
+                if (directionOptions.isNotEmpty()) {
+                    FilterChipSection(
+                        title = "HƯỚNG CỬA CHÍNH",
+                        selected = directionFilter,
+                        options = directionOptions,
+                        onSelect = { directionFilter = it }
+                    )
+                }
+
+                if (balconyDirectionOptions.isNotEmpty()) {
+                    FilterChipSection(
+                        title = "HƯỚNG BAN CÔNG",
+                        selected = balconyDirectionFilter,
+                        options = balconyDirectionOptions,
+                        onSelect = { balconyDirectionFilter = it }
+                    )
+                }
+            }
+        }
+    }
 }
 
 @Composable
-private fun AdvisorCartItemCard(
+private fun FilterChipSection(
+    title: String,
+    selected: String,
+    options: List<String>,
+    displayTransform: (String) -> String = { it },
+    onSelect: (String) -> Unit
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text(
+            text = title,
+            fontSize = 11.5.sp,
+            fontWeight = FontWeight.Bold,
+            color = FutaColors.Slate
+        )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Surface(
+                shape = CircleShape,
+                color = if (selected.isEmpty()) FutaColors.BrandGreen else Color(0xFFF1F5F9),
+                modifier = Modifier.clickable { onSelect("") }
+            ) {
+                Text(
+                    text = "Tất cả",
+                    fontSize = 12.sp,
+                    fontWeight = if (selected.isEmpty()) FontWeight.Bold else FontWeight.Medium,
+                    color = if (selected.isEmpty()) Color.White else FutaColors.Navy,
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 7.dp)
+                )
+            }
+            options.forEach { opt ->
+                val isSel = selected == opt
+                Surface(
+                    shape = CircleShape,
+                    color = if (isSel) FutaColors.BrandGreen else Color(0xFFF1F5F9),
+                    modifier = Modifier.clickable { onSelect(opt) }
+                ) {
+                    Text(
+                        text = displayTransform(opt),
+                        fontSize = 12.sp,
+                        fontWeight = if (isSel) FontWeight.Bold else FontWeight.Medium,
+                        color = if (isSel) Color.White else FutaColors.Navy,
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 7.dp)
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun AdvisorProductCartCard(
     reg: JSONValue,
     onHold: () -> Unit
 ) {
@@ -274,29 +614,46 @@ private fun AdvisorCartItemCard(
     val projectName = reg["projectName"].string.ifEmpty { reg["apartment"]["zone"].string }
     val block = reg["block"].string.ifEmpty { reg["apartment"]["building"].string }
     val floor = reg["floor"].string.ifEmpty {
-        if (reg["apartment"]["floor"].int > 0) "${reg["apartment"]["floor"].int}" else ""
+        val fl = reg["apartment"]["floor"].int
+        if (fl > 0) "$fl" else ""
     }
-    val rawPrice = if (reg["price"].double > 0) reg["price"].double
-    else if (reg["apartment"]["sellPrice"].double > 0) reg["apartment"]["sellPrice"].double
-    else reg["apartment"]["price"].double
-
+    val rawPrice = if (reg["price"].double > 0) reg["price"].double else (if (reg["apartment"]["sellPrice"].double > 0) reg["apartment"]["sellPrice"].double else reg["apartment"]["price"].double)
     val area = if (reg["area"].double > 0) reg["area"].double else reg["apartment"]["size_m2"].double
-    val bStatus = reg["bookingStatus"].string
-    val status = reg["status"].string
+    val bStatus = reg["bookingStatus"].string.lowercase()
+    val status = reg["status"].string.lowercase()
 
-    FutaCard(modifier = Modifier.fillMaxWidth()) {
+    val canBook = (status == "active" || status == "approved") && (bStatus.isEmpty() || listOf("none", "rejected", "cancelled", "available").contains(bStatus))
+
+    val rawImg = reg["image"].string.ifEmpty {
+        reg["thumbnail"].string.ifEmpty {
+            reg["apartment"]["thumbnail"].string.ifEmpty {
+                reg["apartment"]["image"].string
+            }
+        }
+    }
+    val imgUrl = when {
+        rawImg.isEmpty() -> "https://bds.futaland.vn/images/futa/news-sample.png"
+        rawImg.startsWith("http://") || rawImg.startsWith("https://") -> rawImg
+        else -> "https://bds.futaland.vn${if (rawImg.startsWith("/")) "" else "/"}$rawImg"
+    }
+
+    Surface(
+        color = Color.White,
+        shape = RoundedCornerShape(16.dp),
+        shadowElevation = 1.dp,
+        border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+        modifier = Modifier.fillMaxWidth()
+    ) {
         Column(
             modifier = Modifier.padding(14.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalAlignment = Alignment.Top
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                val thumbUrl = PropertyFormatters.resolveImage(reg)
                 AsyncImage(
-                    model = thumbUrl,
+                    model = imgUrl,
                     contentDescription = unitCode,
                     contentScale = ContentScale.Crop,
                     modifier = Modifier
@@ -371,12 +728,14 @@ private fun AdvisorCartItemCard(
                         fontSize = 11.5.sp,
                         color = FutaColors.Slate
                     )
-                } else {
+                } else if (reg["registeredAt"].string.isNotEmpty()) {
                     Text(
                         text = "Đăng ký: ${reg["registeredAt"].string.take(10)}",
                         fontSize = 11.5.sp,
                         color = FutaColors.Slate
                     )
+                } else {
+                    Spacer(modifier = Modifier.width(1.dp))
                 }
 
                 if (bStatus == "online_holding") {
@@ -393,7 +752,21 @@ private fun AdvisorCartItemCard(
                         fontWeight = FontWeight.Bold,
                         color = FutaColors.BrandGreen
                     )
-                } else {
+                } else if (listOf("deposited", "commission_pending", "commission_paid", "purchased").contains(bStatus)) {
+                    Text(
+                        text = "Giao dịch thành công",
+                        fontSize = 12.5.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF2563EB)
+                    )
+                } else if (bStatus == "pending_booking" || bStatus == "cancel_requested") {
+                    Text(
+                        text = "Chờ xác nhận cọc",
+                        fontSize = 12.5.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFFD97706)
+                    )
+                } else if (canBook) {
                     Button(
                         onClick = onHold,
                         colors = ButtonDefaults.buttonColors(containerColor = FutaColors.BrandGreen),

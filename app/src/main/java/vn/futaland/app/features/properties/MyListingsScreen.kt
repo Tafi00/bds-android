@@ -10,6 +10,7 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
@@ -36,12 +37,19 @@ data class SellingItem(
     val aptId: String,
     val unitCode: String,
     val projectName: String,
+    val campaignName: String = "",
     val block: String,
+    val productType: String = "",
+    val propertyType: String = "",
+    val floor: String = "",
+    val direction: String = "",
+    val balconyDirection: String = "",
     val price: Double,
     val area: Double,
     val imgUrl: String,
-    val status: String, // available, pending, active, expired, rejected
-    val expiresAt: String
+    val status: String, // available, pending, active, expired, rejected, revoked
+    val expiresAt: String,
+    val isAvailableProduct: Boolean = false
 )
 
 /**
@@ -56,19 +64,39 @@ fun MyListingsScreen(
     var selectedTab by remember { mutableStateOf("all") }
     var search by remember { mutableStateOf("") }
     var projectFilter by remember { mutableStateOf("") }
+    var campaignFilter by remember { mutableStateOf("") }
     var blockFilter by remember { mutableStateOf("") }
-    var projectMenuOpen by remember { mutableStateOf(false) }
-    var blockMenuOpen by remember { mutableStateOf(false) }
+    var productTypeFilter by remember { mutableStateOf("") }
+    var propertyTypeFilter by remember { mutableStateOf("") }
+    var floorFilter by remember { mutableStateOf("") }
+    var directionFilter by remember { mutableStateOf("") }
+    var balconyDirectionFilter by remember { mutableStateOf("") }
+
+    var showFilterSheet by remember { mutableStateOf(false) }
+
     var items by remember { mutableStateOf<List<SellingItem>>(emptyList()) }
     var loading by remember { mutableStateOf(true) }
     var registeringApartment by remember { mutableStateOf<SellingItem?>(null) }
+
+    val activeFilterCount = listOf(
+        projectFilter,
+        campaignFilter,
+        blockFilter,
+        productTypeFilter,
+        propertyTypeFilter,
+        floorFilter,
+        directionFilter,
+        balconyDirectionFilter
+    ).count { it.isNotEmpty() }
 
     val tabs = listOf(
         "all" to "Tất cả",
         "available" to "Chưa đăng ký",
         "pending" to "Chờ duyệt",
         "active" to "Đang bán",
-        "expired" to "Đã hết hạn"
+        "expired" to "Đã hết hạn",
+        "rejected" to "Từ chối duyệt",
+        "revoked" to "Đã thu hồi"
     )
 
     fun loadData() {
@@ -76,12 +104,16 @@ fun MyListingsScreen(
             loading = true
             try {
                 val invList = try {
-                    val invRes = APIClient.get().request("/sales/inventory")
-                    invRes["data"].array.ifEmpty { invRes.array }
+                    val invRes = APIClient.get().request("/sales/inventory", query = mapOf("page" to "1", "limit" to "200"))
+                    val dataVal = invRes["data"]
+                    if (dataVal.array.isNotEmpty()) dataVal.array
+                    else if (dataVal["data"].array.isNotEmpty()) dataVal["data"].array
+                    else invRes.array
                 } catch (_: Exception) {
                     try {
                         val aptRes = APIClient.get().request("/apartments?limit=50")
-                        aptRes["data"].array
+                        val dataVal = aptRes["data"]
+                        if (dataVal.array.isNotEmpty()) dataVal.array else aptRes.array
                     } catch (_: Exception) {
                         emptyList()
                     }
@@ -89,19 +121,30 @@ fun MyListingsScreen(
 
                 val regList = try {
                     val regRes = APIClient.get().request("/sales/registrations")
-                    regRes["data"].array.ifEmpty { regRes.array }
+                    val dataVal = regRes["data"]
+                    if (dataVal.array.isNotEmpty()) dataVal.array
+                    else if (dataVal["data"].array.isNotEmpty()) dataVal["data"].array
+                    else regRes.array
                 } catch (_: Exception) {
                     emptyList()
+                }
+
+                val campaignList = try {
+                    val cRes = APIClient.get().request("/sales/campaigns")
+                    val dataVal = cRes["data"]
+                    if (dataVal.array.isNotEmpty()) dataVal.array
+                    else cRes.array
+                } catch (_: Exception) {
+                    emptyList()
+                }
+                val campaignMap = campaignList.associate {
+                    (it["id"].string.ifEmpty { it.id }) to (it["name"].string.ifEmpty { it["title"].string })
                 }
 
                 val merged = mutableListOf<SellingItem>()
                 val registeredIds = mutableSetOf<String>()
 
                 for (reg in regList) {
-                    // Use the canonical apartment record id when it is
-                    // present. Older registration payloads may contain a
-                    // legacy/internal id that the detail endpoint cannot
-                    // resolve; propertyCode is handled as a safe fallback.
                     val aptId = reg["apartment"]["recordId"].string.ifEmpty {
                         reg["apartmentId"].string.ifEmpty {
                             reg["apartment"]["id"].string.ifEmpty { reg["apartment"]["propertyCode"].string }
@@ -113,6 +156,16 @@ fun MyListingsScreen(
 
                     val projectName = reg["projectName"].string.ifEmpty { reg["apartment"]["zone"].string }
                     val block = reg["block"].string.ifEmpty { reg["apartment"]["building"].string }
+                    val cId = reg["salesCampaignId"].string.ifEmpty { reg["apartment"]["salesCampaignId"].string }
+                    val campaignName = reg["campaignName"].string.ifEmpty {
+                        reg["salesCampaignName"].string.ifEmpty { campaignMap[cId] ?: "" }
+                    }
+                    val productType = reg["apartmentType"].string.ifEmpty { reg["apartment"]["apartmentType"].string }
+                    val propertyType = reg["propertyType"].string.ifEmpty { reg["apartment"]["propertyType"].string }
+                    val floor = reg["floor"].string.ifEmpty { reg["apartment"]["floor"].string }
+                    val direction = formatDirection(reg["direction"].string.ifEmpty { reg["apartment"]["direction"].string })
+                    val balconyDirection = formatDirection(reg["balconyDirection"].string.ifEmpty { reg["apartment"]["balconyDirection"].string })
+
                     val rawPrice = if (reg["price"].double > 0) reg["price"].double
                     else if (reg["apartment"]["sellPrice"].double > 0) reg["apartment"]["sellPrice"].double
                     else reg["apartment"]["price"].double
@@ -126,12 +179,19 @@ fun MyListingsScreen(
                             aptId = aptId,
                             unitCode = unitCode,
                             projectName = projectName,
+                            campaignName = campaignName,
                             block = block,
+                            productType = productType,
+                            propertyType = propertyType,
+                            floor = floor,
+                            direction = direction,
+                            balconyDirection = balconyDirection,
                             price = rawPrice,
                             area = area,
                             imgUrl = imgUrl,
                             status = status,
-                            expiresAt = reg["expiresAt"].string
+                            expiresAt = reg["expiresAt"].string,
+                            isAvailableProduct = false
                         )
                     )
                 }
@@ -143,26 +203,50 @@ fun MyListingsScreen(
                         val rawPrice = if (apt["sellPrice"].double > 0) apt["sellPrice"].double else apt["price"].double
                         val area = apt["size_m2"].double
                         val imgUrl = PropertyFormatters.resolveImage(apt)
+                        val cId = apt["salesCampaignId"].string
+                        val campaignName = apt["salesCampaignName"].string.ifEmpty {
+                            apt["campaignName"].string.ifEmpty { campaignMap[cId] ?: "" }
+                        }
+                        val productType = apt["apartmentType"].string.ifEmpty { "Căn hộ" }
+                        val propertyType = apt["propertyType"].string
+                        val floor = apt["floor"].string
+                        val direction = formatDirection(apt["direction"].string)
+                        val balconyDirection = formatDirection(apt["balconyDirection"].string)
+
                         merged.add(
                             SellingItem(
                                 id = "avail-$recId",
                                 aptId = recId,
                                 unitCode = pCode,
                                 projectName = apt["zone"].string,
+                                campaignName = campaignName,
                                 block = apt["building"].string,
+                                productType = productType,
+                                propertyType = propertyType,
+                                floor = floor,
+                                direction = direction,
+                                balconyDirection = balconyDirection,
                                 price = rawPrice,
                                 area = area,
                                 imgUrl = imgUrl,
                                 status = "available",
-                                expiresAt = ""
+                                expiresAt = "",
+                                isAvailableProduct = true
                             )
                         )
                     }
                 }
 
-                items = merged
-            } catch (_: Exception) {
-                items = emptyList()
+                if (merged.isNotEmpty()) {
+                    items = merged
+                } else if (items.isEmpty()) {
+                    items = emptyList()
+                }
+            } catch (e: Exception) {
+                if (items.isEmpty()) {
+                    items = emptyList()
+                }
+                ToastCenter.show("Không thể làm mới danh sách: ${e.message}", isError = true)
             } finally {
                 loading = false
             }
@@ -173,24 +257,54 @@ fun MyListingsScreen(
         loadData()
     }
 
-    val projectOptions = remember(items) { items.map { it.projectName }.filter { it.isNotBlank() }.distinct().sorted() }
-    val blockOptions = remember(items) { items.map { it.block }.filter { it.isNotBlank() }.distinct().sorted() }
-    val filteredItems = remember(items, selectedTab, search, projectFilter, blockFilter) {
+    val projectOptions = remember(items) { items.map { it.projectName }.filter { it.isNotBlank() && it != "Dự án chưa cập nhật" }.distinct().sorted() }
+    val campaignOptions = remember(items) { items.map { it.campaignName }.filter { it.isNotBlank() }.distinct().sorted() }
+    val blockOptions = remember(items) { items.map { it.block }.filter { it.isNotBlank() && it != "-" }.distinct().sorted() }
+    val productTypeOptions = remember(items) {
+        (items.map { it.productType }.filter { it.isNotBlank() } + listOf("Căn hộ", "Shophouse", "Penthouse", "Duplex", "Villa")).distinct().sorted()
+    }
+    val propertyTypeOptions = remember(items) {
+        items.map { it.propertyType }.filter { it.isNotBlank() }.distinct().sorted()
+    }
+    val floorOptions = remember(items) {
+        items.map { it.floor }.filter { it.isNotBlank() && it != "-" }.distinct().sortedBy { it.toIntOrNull() ?: 0 }
+    }
+    val directionOptions = remember(items) {
+        (items.map { it.direction }.filter { it.isNotBlank() } + listOf("Đông", "Tây", "Nam", "Bắc", "Đông Nam", "Đông Bắc", "Tây Nam", "Tây Bắc")).distinct().sorted()
+    }
+    val balconyDirectionOptions = remember(items) {
+        (items.map { it.balconyDirection }.filter { it.isNotBlank() } + listOf("Đông", "Tây", "Nam", "Bắc", "Đông Nam", "Đông Bắc", "Tây Nam", "Tây Bắc")).distinct().sorted()
+    }
+
+    val filteredItems = remember(
+        items, selectedTab, search,
+        projectFilter, campaignFilter, blockFilter,
+        productTypeFilter, propertyTypeFilter, floorFilter,
+        directionFilter, balconyDirectionFilter
+    ) {
         items.filter { item ->
             val q = search.trim().lowercase()
             val matchSearch = q.isEmpty() || item.unitCode.lowercase().contains(q) || item.projectName.lowercase().contains(q)
 
             val matchTab = when (selectedTab) {
-                "available" -> item.status == "available"
-                "pending" -> item.status == "pending"
-                "active" -> item.status == "active" || item.status == "approved"
-                "expired" -> item.status == "expired" || item.status == "rejected" || item.status == "revoked"
+                "available" -> item.isAvailableProduct || item.status == "available"
+                "pending" -> !item.isAvailableProduct && item.status == "pending"
+                "active" -> !item.isAvailableProduct && (item.status == "active" || item.status == "approved")
+                "expired" -> !item.isAvailableProduct && item.status == "expired"
+                "rejected" -> !item.isAvailableProduct && item.status == "rejected"
+                "revoked" -> !item.isAvailableProduct && item.status == "revoked"
                 else -> true
             }
 
             matchSearch && matchTab
                 && (projectFilter.isEmpty() || item.projectName == projectFilter)
+                && (campaignFilter.isEmpty() || item.campaignName == campaignFilter)
                 && (blockFilter.isEmpty() || item.block == blockFilter)
+                && (productTypeFilter.isEmpty() || item.productType == productTypeFilter)
+                && (propertyTypeFilter.isEmpty() || item.propertyType == propertyTypeFilter)
+                && (floorFilter.isEmpty() || item.floor == floorFilter)
+                && (directionFilter.isEmpty() || item.direction == directionFilter)
+                && (balconyDirectionFilter.isEmpty() || item.balconyDirection == balconyDirectionFilter)
         }
     }
 
@@ -238,47 +352,68 @@ fun MyListingsScreen(
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            // Search Bar
+            // Search Bar & Filter Button
             item {
-                FutaInput(
-                    value = search,
-                    onValueChange = { search = it },
-                    placeholder = "Tìm theo mã căn, toà nhà, dự án…",
-                    leadingIcon = Icons.Default.Search,
-                    trailingIcon = if (search.isNotEmpty()) {
-                        {
-                            Icon(
-                                Icons.Default.Close,
-                                contentDescription = "Xóa",
-                                modifier = Modifier
-                                    .size(18.dp)
-                                    .clickable { search = "" },
-                                tint = FutaColors.Slate
-                            )
-                        }
-                    } else null,
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    FutaInput(
+                        value = search,
+                        onValueChange = { search = it },
+                        placeholder = "Tìm theo mã căn, toà nhà, dự án…",
+                        leadingIcon = Icons.Default.Search,
+                        trailingIcon = if (search.isNotEmpty()) {
+                            {
+                                Icon(
+                                    Icons.Default.Close,
+                                    contentDescription = "Xóa",
+                                    modifier = Modifier
+                                        .size(18.dp)
+                                        .clickable { search = "" },
+                                    tint = FutaColors.Slate
+                                )
+                            }
+                        } else null,
+                        modifier = Modifier.weight(1f)
+                    )
 
-            item {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Box {
-                        OutlinedButton(onClick = { projectMenuOpen = true }, shape = RoundedCornerShape(10.dp)) {
-                            Text(if (projectFilter.isEmpty()) "Tất cả dự án" else projectFilter, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        }
-                        DropdownMenu(expanded = projectMenuOpen, onDismissRequest = { projectMenuOpen = false }) {
-                            DropdownMenuItem(text = { Text("Tất cả dự án") }, onClick = { projectFilter = ""; projectMenuOpen = false })
-                            projectOptions.forEach { option -> DropdownMenuItem(text = { Text(option) }, onClick = { projectFilter = option; projectMenuOpen = false }) }
-                        }
-                    }
-                    Box {
-                        OutlinedButton(onClick = { blockMenuOpen = true }, shape = RoundedCornerShape(10.dp)) {
-                            Text(if (blockFilter.isEmpty()) "Tất cả block" else blockFilter)
-                        }
-                        DropdownMenu(expanded = blockMenuOpen, onDismissRequest = { blockMenuOpen = false }) {
-                            DropdownMenuItem(text = { Text("Tất cả block") }, onClick = { blockFilter = ""; blockMenuOpen = false })
-                            blockOptions.forEach { option -> DropdownMenuItem(text = { Text(option) }, onClick = { blockFilter = option; blockMenuOpen = false }) }
+                    Spacer(Modifier.width(10.dp))
+
+                    // Filter Button with Badge indicator
+                    Box(
+                        modifier = Modifier
+                            .size(48.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(if (activeFilterCount > 0) FutaColors.BrandGreen else Color(0xFFF1F5F9))
+                            .clickable {
+                                showFilterSheet = true
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Tune,
+                            contentDescription = "Bộ lọc",
+                            tint = if (activeFilterCount > 0) Color.White else FutaColors.Navy,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        if (activeFilterCount > 0) {
+                            Box(
+                                modifier = Modifier
+                                    .align(Alignment.TopEnd)
+                                    .padding(4.dp)
+                                    .size(16.dp)
+                                    .clip(CircleShape)
+                                    .background(Color(0xFFF97316)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = "$activeFilterCount",
+                                    color = Color.White,
+                                    fontSize = 9.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
                         }
                     }
                 }
@@ -483,6 +618,115 @@ fun MyListingsScreen(
         }
     }
 
+    // Filter BottomSheet
+    if (showFilterSheet) {
+        FutaBottomSheet(
+            visible = true,
+            onDismiss = { showFilterSheet = false },
+            title = "Bộ lọc sản phẩm",
+            headerTrailing = if (activeFilterCount > 0) {
+                {
+                    Text(
+                        text = "Đặt lại",
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = FutaColors.BrandGreen,
+                        modifier = Modifier.clickable {
+                            projectFilter = ""
+                            campaignFilter = ""
+                            blockFilter = ""
+                            productTypeFilter = ""
+                            propertyTypeFilter = ""
+                            floorFilter = ""
+                            directionFilter = ""
+                            balconyDirectionFilter = ""
+                        }
+                    )
+                }
+            } else null
+        ) {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                if (projectOptions.isNotEmpty()) {
+                    FilterChipSection(
+                        title = "DỰ ÁN",
+                        selected = projectFilter,
+                        options = projectOptions,
+                        onSelect = { projectFilter = it }
+                    )
+                }
+
+                if (campaignOptions.isNotEmpty()) {
+                    FilterChipSection(
+                        title = "CHƯƠNG TRÌNH BÁN HÀNG",
+                        selected = campaignFilter,
+                        options = campaignOptions,
+                        onSelect = { campaignFilter = it }
+                    )
+                }
+
+                if (blockOptions.isNotEmpty()) {
+                    FilterChipSection(
+                        title = "TÒA / BLOCK",
+                        selected = blockFilter,
+                        options = blockOptions,
+                        onSelect = { blockFilter = it }
+                    )
+                }
+
+                if (productTypeOptions.isNotEmpty()) {
+                    FilterChipSection(
+                        title = "LOẠI SẢN PHẨM",
+                        selected = productTypeFilter,
+                        options = productTypeOptions,
+                        onSelect = { productTypeFilter = it }
+                    )
+                }
+
+                if (propertyTypeOptions.isNotEmpty()) {
+                    FilterChipSection(
+                        title = "LOẠI BẤT ĐỘNG SẢN",
+                        selected = propertyTypeFilter,
+                        options = propertyTypeOptions,
+                        onSelect = { propertyTypeFilter = it }
+                    )
+                }
+
+                if (floorOptions.isNotEmpty()) {
+                    FilterChipSection(
+                        title = "TẦNG",
+                        selected = floorFilter,
+                        options = floorOptions,
+                        displayTransform = { "Tầng $it" },
+                        onSelect = { floorFilter = it }
+                    )
+                }
+
+                if (directionOptions.isNotEmpty()) {
+                    FilterChipSection(
+                        title = "HƯỚNG CỬA CHÍNH",
+                        selected = directionFilter,
+                        options = directionOptions,
+                        onSelect = { directionFilter = it }
+                    )
+                }
+
+                if (balconyDirectionOptions.isNotEmpty()) {
+                    FilterChipSection(
+                        title = "HƯỚNG BAN CÔNG",
+                        selected = balconyDirectionFilter,
+                        options = balconyDirectionOptions,
+                        onSelect = { balconyDirectionFilter = it }
+                    )
+                }
+
+                Spacer(Modifier.height(16.dp))
+            }
+        }
+    }
+
     // Sales Policy Confirmation Dialog
     registeringApartment?.let { apt ->
         var agreed by remember { mutableStateOf(false) }
@@ -586,6 +830,74 @@ fun MyListingsScreen(
                 }
             }
         )
+    }
+}
+
+@Composable
+private fun FilterChipSection(
+    title: String,
+    selected: String,
+    options: List<String>,
+    displayTransform: (String) -> String = { it },
+    onSelect: (String) -> Unit
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text(
+            text = title,
+            fontSize = 11.5.sp,
+            fontWeight = FontWeight.Bold,
+            color = FutaColors.Slate
+        )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Surface(
+                shape = CircleShape,
+                color = if (selected.isEmpty()) FutaColors.BrandGreen else Color(0xFFF1F5F9),
+                modifier = Modifier.clickable { onSelect("") }
+            ) {
+                Text(
+                    text = "Tất cả",
+                    fontSize = 12.sp,
+                    fontWeight = if (selected.isEmpty()) FontWeight.Bold else FontWeight.Medium,
+                    color = if (selected.isEmpty()) Color.White else FutaColors.Navy,
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 7.dp)
+                )
+            }
+            options.forEach { opt ->
+                val isSel = selected == opt
+                Surface(
+                    shape = CircleShape,
+                    color = if (isSel) FutaColors.BrandGreen else Color(0xFFF1F5F9),
+                    modifier = Modifier.clickable { onSelect(opt) }
+                ) {
+                    Text(
+                        text = displayTransform(opt),
+                        fontSize = 12.sp,
+                        fontWeight = if (isSel) FontWeight.Bold else FontWeight.Medium,
+                        color = if (isSel) Color.White else FutaColors.Navy,
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 7.dp)
+                    )
+                }
+            }
+        }
+    }
+}
+
+private fun formatDirection(dir: String): String {
+    return when (dir.lowercase().trim()) {
+        "dong", "đông", "east" -> "Đông"
+        "tay", "tây", "west" -> "Tây"
+        "nam", "south" -> "Nam"
+        "bac", "bắc", "north" -> "Bắc"
+        "dong-nam", "đông nam", "southeast" -> "Đông Nam"
+        "dong-bac", "đông bắc", "northeast" -> "Đông Bắc"
+        "tay-nam", "tây nam", "southwest" -> "Tây Nam"
+        "tay-bac", "tây bắc", "northwest" -> "Tây Bắc"
+        else -> dir
     }
 }
 

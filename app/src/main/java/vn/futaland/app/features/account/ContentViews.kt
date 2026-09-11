@@ -31,6 +31,9 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextOverflow
 import kotlinx.coroutines.launch
+import coil3.compose.LocalPlatformContext
+import coil3.request.ImageRequest
+import coil3.request.crossfade
 import vn.futaland.app.core.network.APIClient
 import vn.futaland.app.core.network.JSONValue
 import vn.futaland.app.designsystem.*
@@ -54,11 +57,10 @@ fun NewsScreen(
     val categories = listOf(
         "all" to "Tất cả",
         "Thị trường" to "Thị trường",
-        "Dự án" to "Dự án",
         "Quy hoạch" to "Quy hoạch",
-        "Chính sách" to "Chính sách",
-        "Phong thủy" to "Phong thủy",
-        "Kiến thức" to "Kiến thức"
+        "Tài chính" to "Tài chính",
+        "Cẩm nang" to "Cẩm nang",
+        "Kinh nghiệm" to "Kinh nghiệm"
     )
 
     fun loadNews() {
@@ -238,6 +240,16 @@ fun NewsScreen(
     }
 }
 
+private fun resolveNewsImage(raw: String): String {
+    val trimmed = raw.trim()
+    if (trimmed.isEmpty() || trimmed == "null") return "https://bds.futaland.vn/images/futa/news-sample.png"
+    return if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
+        trimmed
+    } else {
+        "https://bds.futaland.vn/${trimmed.removePrefix("/")}"
+    }
+}
+
 // NewsArticleCard matching iOS NewsArticleRow 100%
 @Composable
 private fun NewsArticleCard(
@@ -246,7 +258,8 @@ private fun NewsArticleCard(
 ) {
     val title = article["title"].string
     val excerpt = article["excerpt"].string
-    val cover = article["coverImageUrl"].string.ifEmpty { article["image"].string }
+    val rawCover = article["coverImageUrl"].string.ifEmpty { article["image"].string }
+    val cover = resolveNewsImage(rawCover)
     val category = article["category"].string
     val publishedAt = article["publishedAt"].string.take(10)
 
@@ -265,21 +278,15 @@ private fun NewsArticleCard(
                 .clip(RoundedCornerShape(10.dp))
                 .background(Color(0xFFF1F5F9))
         ) {
-            if (cover.isNotEmpty()) {
-                coil3.compose.AsyncImage(
-                    model = cover,
-                    contentDescription = title,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize()
-                )
-            } else {
-                Icon(
-                    imageVector = Icons.Default.Newspaper,
-                    contentDescription = null,
-                    tint = Color(0xFF94A3B8),
-                    modifier = Modifier.size(32.dp).align(Alignment.Center)
-                )
-            }
+            coil3.compose.AsyncImage(
+                model = ImageRequest.Builder(LocalPlatformContext.current)
+                    .data(cover)
+                    .crossfade(true)
+                    .build(),
+                contentDescription = title,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize()
+            )
         }
 
         // Details column
@@ -413,7 +420,8 @@ fun NewsDetailScreen(
         } else {
             val a = article!!
             val title = a["title"].string
-            val cover = a["coverImageUrl"].string.ifEmpty { a["image"].string }
+            val rawCover = a["coverImageUrl"].string.ifEmpty { a["image"].string }
+            val cover = resolveNewsImage(rawCover)
             val category = a["category"].string
             val publishedAt = a["publishedAt"].string.take(10)
             val excerpt = a["excerpt"].string
@@ -435,7 +443,10 @@ fun NewsDetailScreen(
                                 .background(Color(0xFFE2E8F0))
                         ) {
                             coil3.compose.AsyncImage(
-                                model = cover,
+                                model = ImageRequest.Builder(LocalPlatformContext.current)
+                                    .data(cover)
+                                    .crossfade(true)
+                                    .build(),
                                 contentDescription = title,
                                 contentScale = ContentScale.Crop,
                                 modifier = Modifier.fillMaxSize()

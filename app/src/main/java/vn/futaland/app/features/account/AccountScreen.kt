@@ -274,7 +274,7 @@ fun AccountScreen(
         // 4. Personal Features Section ("Quản lý của tôi" - Matching iOS Image #2)
         item {
             Column {
-                SectionTitle(title = "Quản lý của tôi")
+                SectionTitle(title = "Tài khoản & Tiện ích")
                 FutaCard(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(16.dp)
@@ -284,13 +284,6 @@ fun AccountScreen(
                             iconRes = R.drawable.sf_acc_heart,
                             title = "Tin đã lưu & Thư mục",
                             onClick = { onNavigate(FutaDestinations.SAVED) }
-                        )
-
-                        AccountDivider()
-                        AccountMenuItem(
-                            iconRes = R.drawable.sf_acc_history,
-                            title = "Lịch sử đã xem",
-                            onClick = { onNavigate(FutaDestinations.VIEW_HISTORY) }
                         )
 
                         if (isAuthenticated && canManageListings) {
@@ -304,9 +297,9 @@ fun AccountScreen(
 
                         AccountDivider()
                         AccountMenuItem(
-                            iconRes = R.drawable.sf_acc_pricing,
-                            title = "Bảng giá dịch vụ FUTA",
-                            onClick = { onNavigate(FutaDestinations.PRICING) }
+                            iconRes = R.drawable.sf_acc_history,
+                            title = "Lịch sử đã xem",
+                            onClick = { onNavigate(FutaDestinations.VIEW_HISTORY) }
                         )
 
                         AccountDivider()
@@ -328,15 +321,6 @@ fun AccountScreen(
                                         onNavigate(FutaDestinations.AUTH)
                                     }
                                 }
-                            )
-                        }
-
-                        if (isAuthenticated && canAccessBilling) {
-                            AccountDivider()
-                            AccountMenuItem(
-                                iconRes = R.drawable.sf_acc_billing,
-                                title = "Gói dịch vụ & Hạn mức",
-                                onClick = { onNavigate(FutaDestinations.BILLING) }
                             )
                         }
                     }

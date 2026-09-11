@@ -384,6 +384,8 @@ fun FutaBottomSheet(
     visible: Boolean,
     onDismiss: () -> Unit,
     title: String,
+    headerTrailing: (@Composable () -> Unit)? = null,
+    footer: (@Composable () -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit
 ) {
     if (visible) {
@@ -439,20 +441,26 @@ fun FutaBottomSheet(
                             fontWeight = FontWeight.Bold,
                             color = FutaColors.Navy
                         )
-                        Box(
-                            modifier = Modifier
-                                .size(30.dp)
-                                .clip(CircleShape)
-                                .background(Color(0xFFF1F5F9))
-                                .clickable(onClick = onDismiss),
-                            contentAlignment = Alignment.Center
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
-                            Icon(
-                                imageVector = Icons.Default.Close,
-                                contentDescription = "Đóng",
-                                tint = FutaColors.Slate,
-                                modifier = Modifier.size(16.dp)
-                            )
+                            headerTrailing?.invoke()
+                            Box(
+                                modifier = Modifier
+                                    .size(30.dp)
+                                    .clip(CircleShape)
+                                    .background(Color(0xFFF1F5F9))
+                                    .clickable(onClick = onDismiss),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Close,
+                                    contentDescription = "Đóng",
+                                    tint = FutaColors.Slate,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
                         }
                     }
 
@@ -469,10 +477,27 @@ fun FutaBottomSheet(
                             .fillMaxWidth()
                             .weight(1f, fill = false)
                             .padding(horizontal = 16.dp, vertical = 8.dp)
-                            .padding(bottom = 16.dp)
+                            .padding(bottom = if (footer != null) 8.dp else 16.dp)
                             .verticalScroll(rememberScrollState()),
                         content = content
                     )
+
+                    if (footer != null) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(1.dp)
+                                .background(FutaColors.LightBlueBorder)
+                        )
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(Color.White)
+                                .padding(horizontal = 16.dp, vertical = 12.dp)
+                        ) {
+                            footer()
+                        }
+                    }
                 }
             }
         }

@@ -226,7 +226,7 @@ fun WorkspaceScreen(
             ),
             WorkspaceModuleItem(
                 id = "proposals",
-                title = "Đề xuất báo giá",
+                title = "Đề xuất của tôi",
                 subtitle = "Đề xuất sản phẩm & chính sách bán hàng",
                 vectorIcon = Icons.Default.Description,
                 badgeColor = Color(0xFFD97706),
@@ -250,6 +250,15 @@ fun WorkspaceScreen(
                 badgeColor = Color(0xFF0073E6),
                 group = "Quản lý bán hàng",
                 route = FutaDestinations.ADMIN_ZALO
+            ),
+            WorkspaceModuleItem(
+                id = "chat",
+                title = "Trung tâm trò chuyện",
+                subtitle = "Hộp thư tư vấn & trao đổi khách hàng",
+                vectorIcon = Icons.Default.Forum,
+                badgeColor = Color(0xFF059669),
+                group = "Quản lý bán hàng",
+                route = FutaDestinations.INBOX
             ),
 
             // TÀI KHOẢN & TIỆN ÍCH (Tất cả người dùng)

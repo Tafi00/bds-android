@@ -416,12 +416,46 @@ fun PropertySearchScreen(
     FutaBottomSheet(
         visible = showFilterSheet,
         onDismiss = { showFilterSheet = false },
-        title = "Bộ lọc bất động sản"
+        title = "Bộ lọc bất động sản",
+        footer = {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                FutaButton(
+                    text = "Đặt lại",
+                    variant = FutaButtonVariant.OUTLINE,
+                    onClick = {
+                        listingType = ""
+                        propertyType = ""
+                        zone = ""
+                        furniture = ""
+                        minPrice = ""
+                        maxPrice = ""
+                        bedrooms = ""
+                        direction = ""
+                        minArea = ""
+                        maxArea = ""
+                        sort = "newest"
+                        showFilterSheet = false
+                        search(1)
+                    },
+                    modifier = Modifier.weight(1f)
+                )
+                FutaButton(
+                    text = if (totalCount > 0) "Xem $totalCount bất động sản" else "Áp dụng bộ lọc",
+                    variant = FutaButtonVariant.PRIMARY,
+                    onClick = {
+                        showFilterSheet = false
+                        search(1)
+                    },
+                    modifier = Modifier.weight(1.5f)
+                )
+            }
+        }
     ) {
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .verticalScroll(rememberScrollState()),
+            modifier = Modifier.fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             // 1. Price Range with Slider & Presets (Matching iOS)
@@ -610,43 +644,6 @@ fun PropertySearchScreen(
                 }
             }
 
-            Spacer(Modifier.height(10.dp))
-
-            // Action Buttons
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                FutaButton(
-                    text = "Đặt lại",
-                    variant = FutaButtonVariant.OUTLINE,
-                    onClick = {
-                        listingType = ""
-                        propertyType = ""
-                        zone = ""
-                        furniture = ""
-                        minPrice = ""
-                        maxPrice = ""
-                        bedrooms = ""
-                        direction = ""
-                        minArea = ""
-                        maxArea = ""
-                        sort = "newest"
-                        showFilterSheet = false
-                        search(1)
-                    },
-                    modifier = Modifier.weight(1f)
-                )
-                FutaButton(
-                    text = if (totalCount > 0) "Xem $totalCount bất động sản" else "Áp dụng bộ lọc",
-                    variant = FutaButtonVariant.PRIMARY,
-                    onClick = {
-                        showFilterSheet = false
-                        search(1)
-                    },
-                    modifier = Modifier.weight(1.5f)
-                )
-            }
             Spacer(Modifier.height(10.dp))
         }
     }

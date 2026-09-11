@@ -74,7 +74,9 @@ fun AdvisorWorkspaceScreen(
     val isActivated = workspace["isActivated"].bool
     val packageDone = workspace["packagePurchased"].bool
     val profileDone = workspace["profileStatus"].string == "approved"
-    val examDone = workspace["examStatus"].string == "passed"
+    val attemptsList = workspace["attempts"].array
+    val examDone = workspace["examStatus"].string == "passed" ||
+        attemptsList.any { it["status"].string == "passed" || it["score"].int >= 85 }
     val verifyDone = workspace["verificationStatus"].string == "approved"
 
     Scaffold(
@@ -265,11 +267,11 @@ fun AdvisorWorkspaceScreen(
                         horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         BusinessQuickCard(
-                            title = "Đề xuất báo giá",
-                            subtitle = "Tạo báo giá gửi khách",
-                            icon = Icons.Default.RequestQuote,
+                            title = "Đề xuất của tôi",
+                            subtitle = "Đề xuất sản phẩm & chính sách bán hàng",
+                            icon = Icons.Default.Description,
                             color = Color(0xFF2563EB),
-                            onClick = { onNavigate(FutaDestinations.CRM) },
+                            onClick = { onNavigate(FutaDestinations.ADVISOR_PROPOSALS) },
                             modifier = Modifier.weight(1f)
                         )
                         BusinessQuickCard(
@@ -278,6 +280,30 @@ fun AdvisorWorkspaceScreen(
                             icon = Icons.Default.Handshake,
                             color = Color(0xFF7C3AED),
                             onClick = { onNavigate(FutaDestinations.ADMIN_CONTRACTS) },
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                }
+
+                item {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        BusinessQuickCard(
+                            title = "Trung tâm trò chuyện",
+                            subtitle = "Hộp thư tư vấn & trao đổi",
+                            icon = Icons.Default.Forum,
+                            color = FutaColors.BrandGreen,
+                            onClick = { onNavigate(FutaDestinations.INBOX) },
+                            modifier = Modifier.weight(1f)
+                        )
+                        BusinessQuickCard(
+                            title = "Marketing Zalo OA",
+                            subtitle = "Đồng bộ khách hàng & Zalo",
+                            icon = Icons.Default.Chat,
+                            color = Color(0xFF0073E6),
+                            onClick = { onNavigate(FutaDestinations.ADMIN_ZALO) },
                             modifier = Modifier.weight(1f)
                         )
                     }
@@ -627,7 +653,43 @@ private fun AdvisorExamSheet(
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
             if (alreadyPassed) {
-                Text("✓ Bạn đã đạt bài kiểm tra này", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = FutaColors.BrandGreen)
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    color = FutaColors.BrandGreen.copy(alpha = 0.1f)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.CheckCircle,
+                            contentDescription = null,
+                            tint = FutaColors.BrandGreen,
+                            modifier = Modifier.size(28.dp)
+                        )
+                        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                            Text(
+                                "Bạn đã đạt bài kiểm tra này",
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = FutaColors.BrandGreen
+                            )
+                            Text(
+                                "Kết quả đạt đã được hệ thống ghi nhận. Bạn không cần làm lại bài kiểm tra.",
+                                fontSize = 12.sp,
+                                color = FutaColors.Slate
+                            )
+                        }
+                    }
+                }
+                Spacer(Modifier.height(8.dp))
+                FutaButton(
+                    text = "Đóng",
+                    variant = FutaButtonVariant.OUTLINE,
+                    onClick = onDismiss
+                )
                 return@FutaBottomSheet
             }
             Text(
