@@ -195,6 +195,7 @@ class MainActivity : ComponentActivity() {
                 Box(modifier = Modifier.fillMaxSize().clearFocusOnTap()) {
                     Scaffold(
                         containerColor = Color.White,
+                        contentWindowInsets = WindowInsets(0, 0, 0, 0),
                         bottomBar = {
                             if (isRootTab) {
                                 FutaBottomBar(
@@ -214,7 +215,7 @@ class MainActivity : ComponentActivity() {
                         NavHost(
                             navController = navController,
                             startDestination = FutaDestinations.DISCOVER,
-                            modifier = Modifier.padding(padding)
+                            modifier = Modifier.padding(bottom = padding.calculateBottomPadding())
                         ) {
                             // 1. Discover Tab
                             composable(FutaDestinations.DISCOVER) {
