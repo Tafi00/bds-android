@@ -45,7 +45,6 @@ fun WorkspaceScreen(
     onNavigate: (String) -> Unit
 ) {
     val session = AppSession.shared
-    var search by remember { mutableStateOf("") }
 
     // Exactly matching iOS WorkspaceModule (labels, icons, colors, descriptions, routes)
     val allModules = remember {
@@ -390,33 +389,8 @@ fun WorkspaceScreen(
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(18.dp)
         ) {
-            // Pinned Search Bar matching iOS prompt "Tìm mục quản trị"
-            item {
-                FutaInput(
-                    value = search,
-                    onValueChange = { search = it },
-                    placeholder = "Tìm kiếm chức năng, phân hệ…",
-                    leadingIcon = Icons.Default.Search,
-                    trailingIcon = if (search.isNotEmpty()) {
-                        {
-                            Icon(
-                                Icons.Default.Close,
-                                contentDescription = "Xóa",
-                                modifier = Modifier
-                                    .size(18.dp)
-                                    .clickable { search = "" },
-                                tint = FutaColors.Slate
-                            )
-                        }
-                    } else null,
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
-
             groups.forEach { grp ->
-                val itemsInGroup = allModules.filter {
-                    it.group == grp && (search.isEmpty() || it.title.contains(search, ignoreCase = true) || it.subtitle.contains(search, ignoreCase = true))
-                }
+                val itemsInGroup = allModules.filter { it.group == grp }
 
                 if (itemsInGroup.isNotEmpty()) {
                     item {
