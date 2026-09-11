@@ -121,59 +121,94 @@ fun AdvisorProductsScreen(
         counts
     }
 
-    val projectOptions = remember(activeRegistrations) {
-        activeRegistrations.mapNotNull {
-            val p = it["projectName"].string.ifEmpty { it["apartment"]["zone"].string.ifEmpty { it["zone"].string } }
+    fun getRegProject(reg: JSONValue) = reg["projectName"].string.ifEmpty { reg["apartment"]["zone"].string.ifEmpty { reg["zone"].string } }
+    fun getRegCampaign(reg: JSONValue) = reg["campaignName"].string.ifEmpty { reg["salesCampaignName"].string.ifEmpty { reg["apartment"]["salesCampaignName"].string } }
+    fun getRegBlock(reg: JSONValue) = reg["block"].string.ifEmpty { reg["apartment"]["building"].string.ifEmpty { reg["building"].string } }
+    fun getRegProductType(reg: JSONValue) = reg["apartmentType"].string.ifEmpty { reg["apartment"]["apartmentType"].string }
+    fun getRegPropertyType(reg: JSONValue) = reg["propertyType"].string.ifEmpty { reg["apartment"]["propertyType"].string }
+    fun getRegFloor(reg: JSONValue): String {
+        val f = reg["floor"].string
+        if (f.isNotEmpty()) return f
+        val fl = reg["apartment"]["floor"].int
+        return if (fl > 0) "$fl" else ""
+    }
+    fun getRegDirection(reg: JSONValue) = reg["direction"].string.ifEmpty { reg["apartment"]["direction"].string }
+    fun getRegBalconyDirection(reg: JSONValue) = reg["balconyDirection"].string.ifEmpty { reg["apartment"]["balconyDirection"].string }
+
+    fun filterRegistrations(exclude: String): List<JSONValue> {
+        return activeRegistrations.filter { reg ->
+            (exclude == "project" || projectFilter.isEmpty() || getRegProject(reg) == projectFilter) &&
+            (exclude == "campaign" || campaignFilter.isEmpty() || getRegCampaign(reg) == campaignFilter) &&
+            (exclude == "block" || blockFilter.isEmpty() || getRegBlock(reg) == blockFilter) &&
+            (exclude == "productType" || productTypeFilter.isEmpty() || getRegProductType(reg) == productTypeFilter) &&
+            (exclude == "propertyType" || propertyTypeFilter.isEmpty() || getRegPropertyType(reg) == propertyTypeFilter) &&
+            (exclude == "floor" || floorFilter.isEmpty() || getRegFloor(reg) == floorFilter) &&
+            (exclude == "direction" || directionFilter.isEmpty() || getRegDirection(reg) == directionFilter) &&
+            (exclude == "balconyDirection" || balconyDirectionFilter.isEmpty() || getRegBalconyDirection(reg) == balconyDirectionFilter)
+        }
+    }
+
+    val projectOptions = remember(activeRegistrations, campaignFilter, blockFilter, productTypeFilter, propertyTypeFilter, floorFilter, directionFilter, balconyDirectionFilter) {
+        filterRegistrations("project").mapNotNull {
+            val p = getRegProject(it)
             if (p.isNotEmpty() && p != "Dự án chưa cập nhật") p else null
         }.distinct().sorted()
     }
-    val campaignOptions = remember(activeRegistrations) {
-        activeRegistrations.mapNotNull {
-            val c = it["campaignName"].string.ifEmpty { it["salesCampaignName"].string.ifEmpty { it["apartment"]["salesCampaignName"].string } }
+    val campaignOptions = remember(activeRegistrations, projectFilter, blockFilter, productTypeFilter, propertyTypeFilter, floorFilter, directionFilter, balconyDirectionFilter) {
+        filterRegistrations("campaign").mapNotNull {
+            val c = getRegCampaign(it)
             if (c.isNotEmpty()) c else null
         }.distinct().sorted()
     }
-    val blockOptions = remember(activeRegistrations) {
-        activeRegistrations.mapNotNull {
-            val b = it["block"].string.ifEmpty { it["apartment"]["building"].string.ifEmpty { it["building"].string } }
+    val blockOptions = remember(activeRegistrations, projectFilter, campaignFilter, productTypeFilter, propertyTypeFilter, floorFilter, directionFilter, balconyDirectionFilter) {
+        filterRegistrations("block").mapNotNull {
+            val b = getRegBlock(it)
             if (b.isNotEmpty() && b != "-") b else null
         }.distinct().sorted()
     }
-    val productTypeOptions = remember(activeRegistrations) {
-        val list = activeRegistrations.mapNotNull {
-            val t = it["apartmentType"].string.ifEmpty { it["apartment"]["apartmentType"].string }
+    val productTypeOptions = remember(activeRegistrations, projectFilter, campaignFilter, blockFilter, propertyTypeFilter, floorFilter, directionFilter, balconyDirectionFilter) {
+        val list = filterRegistrations("productType").mapNotNull {
+            val t = getRegProductType(it)
             if (t.isNotEmpty()) t else null
         } + listOf("Căn hộ", "Shophouse", "Penthouse", "Duplex", "Villa")
         list.distinct().sorted()
     }
-    val propertyTypeOptions = remember(activeRegistrations) {
-        activeRegistrations.mapNotNull {
-            val t = it["propertyType"].string.ifEmpty { it["apartment"]["propertyType"].string }
+    val propertyTypeOptions = remember(activeRegistrations, projectFilter, campaignFilter, blockFilter, productTypeFilter, floorFilter, directionFilter, balconyDirectionFilter) {
+        filterRegistrations("propertyType").mapNotNull {
+            val t = getRegPropertyType(it)
             if (t.isNotEmpty()) t else null
         }.distinct().sorted()
     }
-    val floorOptions = remember(activeRegistrations) {
-        activeRegistrations.mapNotNull {
-            val f = it["floor"].string.ifEmpty {
-                val fl = it["apartment"]["floor"].int
-                if (fl > 0) "$fl" else ""
-            }
+    val floorOptions = remember(activeRegistrations, projectFilter, campaignFilter, blockFilter, productTypeFilter, propertyTypeFilter, directionFilter, balconyDirectionFilter) {
+        filterRegistrations("floor").mapNotNull {
+            val f = getRegFloor(it)
             if (f.isNotEmpty() && f != "-") f else null
         }.distinct().sortedBy { it.toIntOrNull() ?: 0 }
     }
-    val directionOptions = remember(activeRegistrations) {
-        val list = activeRegistrations.mapNotNull {
-            val d = it["direction"].string.ifEmpty { it["apartment"]["direction"].string }
+    val directionOptions = remember(activeRegistrations, projectFilter, campaignFilter, blockFilter, productTypeFilter, propertyTypeFilter, floorFilter, balconyDirectionFilter) {
+        val list = filterRegistrations("direction").mapNotNull {
+            val d = getRegDirection(it)
             if (d.isNotEmpty()) d else null
         } + listOf("Đông", "Tây", "Nam", "Bắc", "Đông Nam", "Đông Bắc", "Tây Nam", "Tây Bắc")
         list.distinct().sorted()
     }
-    val balconyDirectionOptions = remember(activeRegistrations) {
-        val list = activeRegistrations.mapNotNull {
-            val d = it["balconyDirection"].string.ifEmpty { it["apartment"]["balconyDirection"].string }
+    val balconyDirectionOptions = remember(activeRegistrations, projectFilter, campaignFilter, blockFilter, productTypeFilter, propertyTypeFilter, floorFilter, directionFilter) {
+        val list = filterRegistrations("balconyDirection").mapNotNull {
+            val d = getRegBalconyDirection(it)
             if (d.isNotEmpty()) d else null
         } + listOf("Đông", "Tây", "Nam", "Bắc", "Đông Nam", "Đông Bắc", "Tây Nam", "Tây Bắc")
         list.distinct().sorted()
+    }
+
+    LaunchedEffect(projectOptions, campaignOptions, blockOptions, productTypeOptions, propertyTypeOptions, floorOptions, directionOptions, balconyDirectionOptions) {
+        if (projectFilter.isNotEmpty() && !projectOptions.contains(projectFilter)) projectFilter = ""
+        if (campaignFilter.isNotEmpty() && !campaignOptions.contains(campaignFilter)) campaignFilter = ""
+        if (blockFilter.isNotEmpty() && !blockOptions.contains(blockFilter)) blockFilter = ""
+        if (productTypeFilter.isNotEmpty() && !productTypeOptions.contains(productTypeFilter)) productTypeFilter = ""
+        if (propertyTypeFilter.isNotEmpty() && !propertyTypeOptions.contains(propertyTypeFilter)) propertyTypeFilter = ""
+        if (floorFilter.isNotEmpty() && !floorOptions.contains(floorFilter)) floorFilter = ""
+        if (directionFilter.isNotEmpty() && !directionOptions.contains(directionFilter)) directionFilter = ""
+        if (balconyDirectionFilter.isNotEmpty() && !balconyDirectionOptions.contains(balconyDirectionFilter)) balconyDirectionFilter = ""
     }
 
     val filteredItems = remember(

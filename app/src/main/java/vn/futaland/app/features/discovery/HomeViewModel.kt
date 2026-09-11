@@ -13,7 +13,7 @@ enum class HomePropertySegment(val id: String, val title: String) {
     ALL("all", "Tất cả"),
     APARTMENT("apartment", "Căn hộ"),
     TOWNHOUSE("townhouse", "Nhà phố"),
-    UNDER_3B("under3B", "Dưới 3 tỷ"),
+    UNDER_8B("under8B", "Dưới 8 tỷ"),
     SELLING("selling", "Đang mở bán")
 }
 
@@ -33,6 +33,9 @@ class HomeViewModel : ViewModel() {
 
     private val _allApartments = MutableStateFlow<List<JSONValue>>(emptyList())
     val allApartments = _allApartments.asStateFlow()
+
+    private val _featuredApartments = MutableStateFlow<List<JSONValue>>(emptyList())
+    val featuredApartments = _featuredApartments.asStateFlow()
 
     private val _cmsSettings = MutableStateFlow(JSONValue.EmptyObject)
     val cmsSettings = _cmsSettings.asStateFlow()
@@ -149,9 +152,9 @@ class HomeViewModel : ViewModel() {
                     val text = (it["propertyType"].string + " " + it["title"].string).lowercase()
                     text.contains("nha-pho") || text.contains("biet-thu") || text.contains("nhà phố")
                 }
-                HomePropertySegment.UNDER_3B -> res.filter {
+                HomePropertySegment.UNDER_8B -> res.filter {
                     val price = it["price"].double
-                    price in 1.0..3_000_000_000.0
+                    price in 1.0..8_000_000_000.0
                 }
                 HomePropertySegment.SELLING -> res.filter {
                     it["status"].string.equals("available", ignoreCase = true) ||
@@ -175,10 +178,18 @@ class HomeViewModel : ViewModel() {
             try {
                 val pDeferred = async { APIClient.get().request("/projects") }
                 val aDeferred = async { APIClient.get().request("/apartments", query = mapOf("limit" to "24", "showOnHome" to "true")) }
+                val fDeferred = async {
+                    try {
+                        APIClient.get().request("/apartments", query = mapOf("limit" to "12", "isFavorite" to "true", "sort" to "newest"))
+                    } catch (_: Exception) {
+                        JSONValue.EmptyObject
+                    }
+                }
                 val sDeferred = async { APIClient.get().request("/cms/settings") }
 
                 val pRes = pDeferred.await()
                 val aRes = aDeferred.await()
+                val fRes = fDeferred.await()
                 val sRes = sDeferred.await()
 
                 _cmsSettings.value = sRes["data"]
@@ -186,7 +197,15 @@ class HomeViewModel : ViewModel() {
                 val homeOnly = allNonHidden.filter { it["showOnHome"].bool }
                 val rawProjects = if (homeOnly.size >= 4) homeOnly else allNonHidden
                 _projects.value = rawProjects.sortedBy { it["homeOrder"].int }
-                _allApartments.value = aRes["data"].array
+                val apartmentsList = aRes["data"].array
+                _allApartments.value = apartmentsList
+                val featList = fRes["data"].array
+                _featuredApartments.value = if (featList.isNotEmpty()) {
+                    featList
+                } else {
+                    val favs = apartmentsList.filter { it["isFavorite"].bool }
+                    if (favs.isNotEmpty()) favs else apartmentsList.take(8)
+                }
             } catch (_: Exception) {
             } finally {
                 _loading.value = false

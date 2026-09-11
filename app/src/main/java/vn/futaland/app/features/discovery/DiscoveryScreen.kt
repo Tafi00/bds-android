@@ -61,6 +61,7 @@ fun DiscoveryScreen(
     val loading by viewModel.loading.collectAsState()
     val selectedCity by viewModel.selectedCity.collectAsState()
     val selectedSegment by viewModel.selectedSegment.collectAsState()
+    val featuredApartments by viewModel.featuredApartments.collectAsState()
 
     LaunchedEffect(Unit) {
         if (viewModel.projects.value.isEmpty()) {
@@ -123,12 +124,12 @@ fun DiscoveryScreen(
             }
         }
 
-        // 4B. Featured Products (Horizontal Scroll - Thay thế "Dự án nổi bật khác")
+        // 4B. Featured Products (Horizontal Scroll - Cố định, độc lập với filter phân khúc bên dưới)
         item {
-            val featuredApartments = viewModel.filteredApartments.take(8)
-            if (featuredApartments.isNotEmpty()) {
+            val displayFeatured = if (featuredApartments.isNotEmpty()) featuredApartments.take(8) else viewModel.allApartments.value.take(8)
+            if (displayFeatured.isNotEmpty()) {
                 FeaturedProductsHorizontalSection(
-                    apartments = featuredApartments,
+                    apartments = displayFeatured,
                     onApartmentClick = { onNavigate(FutaDestinations.propertyDetail(it)) },
                     onViewAllClick = { onNavigate(FutaDestinations.SEARCH) },
                     onFavoriteToggle = { aptId ->
@@ -886,7 +887,7 @@ private fun ApartmentSegmentFilter(
                 Triple(HomePropertySegment.ALL, R.drawable.sf_chip_all_active, R.drawable.sf_chip_all_inactive),
                 Triple(HomePropertySegment.APARTMENT, R.drawable.sf_chip_apt_active, R.drawable.sf_chip_apt_inactive),
                 Triple(HomePropertySegment.TOWNHOUSE, R.drawable.sf_chip_house_active, R.drawable.sf_chip_house_inactive),
-                Triple(HomePropertySegment.UNDER_3B, R.drawable.sf_chip_tag_active, R.drawable.sf_chip_tag_inactive),
+                Triple(HomePropertySegment.UNDER_8B, R.drawable.sf_chip_tag_active, R.drawable.sf_chip_tag_inactive),
                 Triple(HomePropertySegment.SELLING, R.drawable.sf_chip_sparkles_active, R.drawable.sf_chip_sparkles_inactive)
             ).forEach { (seg, activeIcon, inactiveIcon) ->
                 val isSelected = seg == selectedSegment

@@ -9,6 +9,32 @@ class AppSession private constructor() {
 
     companion object {
         val shared = AppSession()
+
+        fun defaultPermissions(role: String): Set<String> {
+            return when (role) {
+                "admin" -> setOf(
+                    "admin:access", "apartments:view", "apartments:create", "apartments:edit", "apartments:delete",
+                    "customers:view", "customers:create", "customers:edit", "contracts:view", "contracts:create",
+                    "contracts:edit", "reports:view", "folders:view", "folders:manage", "chat:view", "chat:send",
+                    "zalo:view", "zalo:manage", "projects:view", "projects:create", "projects:edit"
+                )
+                "sale" -> setOf(
+                    "apartments:view", "apartments:create", "apartments:edit", "apartments:owner_contacts",
+                    "apartments:owner_pricing", "apartments:internal_notes", "apartments:property_code",
+                    "apartments:exact_unit", "customers:view", "customers:create", "customers:edit",
+                    "contracts:view", "contracts:create", "contracts:edit", "reports:view", "folders:view",
+                    "folders:manage", "chat:view", "chat:send", "zalo:view", "zalo:accounts", "zalo:campaigns", "projects:view"
+                )
+                "telesale" -> setOf(
+                    "apartments:view", "apartments:owner_contacts", "apartments:property_code", "apartments:exact_unit",
+                    "customers:view", "customers:create", "customers:edit", "contracts:view", "folders:view", "zalo:view"
+                )
+                "customer" -> setOf(
+                    "apartments:view", "folders:view", "chat:view", "chat:send"
+                )
+                else -> emptySet()
+            }
+        }
     }
 
     private val _currentUser = MutableStateFlow<JSONValue?>(null)
@@ -31,8 +57,12 @@ class AppSession private constructor() {
 
     val canManageListings: Boolean
         get() = hasPermission("apartments:create") || hasPermission("apartments:edit") || (isInternalStaff && role != "telesale")
+
     fun hasPermission(permission: String): Boolean {
         if (role == "admin") return true
+        if (_permissions.value.isEmpty()) {
+            return defaultPermissions(role).contains(permission)
+        }
         return _permissions.value.contains(permission)
     }
 
@@ -60,11 +90,23 @@ class AppSession private constructor() {
 
     suspend fun fetchPermissions() {
         try {
-            val permRes = APIClient.get().request("/auth/permissions")
-            val list = permRes["data"].array.map { it.string }.filter { it.isNotEmpty() }
-            _permissions.value = list.toSet()
+            val custom = _currentUser.value?.get("customPermissions")?.array?.map { it.string }?.filter { it.isNotEmpty() }
+            if (!custom.isNullOrEmpty()) {
+                _permissions.value = custom.toSet()
+                return
+            }
+            val permRes = APIClient.get().request("/users/role-permissions")
+            val userRole = role
+            val list = permRes["data"][userRole].array.map { it.string }.filter { it.isNotEmpty() }
+            if (list.isNotEmpty()) {
+                _permissions.value = list.toSet()
+            } else {
+                _permissions.value = defaultPermissions(userRole)
+            }
         } catch (_: Exception) {
-            _permissions.value = emptySet()
+            if (_permissions.value.isEmpty()) {
+                _permissions.value = defaultPermissions(role)
+            }
         }
     }
 

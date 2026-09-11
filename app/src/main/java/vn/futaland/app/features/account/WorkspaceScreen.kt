@@ -36,8 +36,24 @@ data class WorkspaceModuleItem(
     val vectorIcon: ImageVector? = null,
     val badgeColor: Color,
     val group: String,
-    val route: String
-)
+    val route: String,
+    val requiredPermissions: List<String> = emptyList(),
+    val requiresAdmin: Boolean = false,
+    val requiresStaff: Boolean = false,
+    val hideIfStaff: Boolean = false
+) {
+    fun isVisible(session: AppSession): Boolean {
+        if (requiresAdmin && session.role != "admin") return false
+        if (requiresStaff && !session.isInternalStaff && session.role != "admin") return false
+        if (hideIfStaff && session.isInternalStaff) return false
+        if (requiredPermissions.isNotEmpty()) {
+            if (!session.isAuthenticated) return false
+            if (session.role == "admin") return true
+            return requiredPermissions.any { session.hasPermission(it) }
+        }
+        return true
+    }
+}
 
 @Composable
 fun WorkspaceScreen(
@@ -45,19 +61,24 @@ fun WorkspaceScreen(
     onNavigate: (String) -> Unit
 ) {
     val session = AppSession.shared
+    val permissions by session.permissions.collectAsState()
+
+    LaunchedEffect(Unit) {
+        session.fetchPermissions()
+    }
 
     // Exactly matching iOS WorkspaceModule (labels, icons, colors, descriptions, routes)
-    val allModules = remember {
+    val allModules = remember(session.role) {
         listOf(
             // TỔNG QUAN
             WorkspaceModuleItem(
                 id = "dashboard",
                 title = "Bảng điều khiển",
-                subtitle = "Số liệu doanh thu, đơn hàng & người dùng",
+                subtitle = if (session.role == "admin") "Số liệu doanh thu, đơn hàng & người dùng" else "Bảng điều khiển & hiệu suất tư vấn viên",
                 iconRes = R.drawable.sf_adm_dashboard,
                 badgeColor = Color(0xFF2563EB),
                 group = "Tổng quan",
-                route = FutaDestinations.ADMIN_DASHBOARD
+                route = if (session.role == "admin") FutaDestinations.ADMIN_DASHBOARD else FutaDestinations.ADVISOR
             ),
 
             // QUẢN TRỊ VIÊN (Chỉ dành cho Admin - Thứ tự chuẩn Web 100%)
@@ -68,7 +89,8 @@ fun WorkspaceScreen(
                 iconRes = R.drawable.sf_adm_users,
                 badgeColor = Color(0xFF8B5CF6),
                 group = "Quản trị viên",
-                route = FutaDestinations.ADMIN_USERS
+                route = FutaDestinations.ADMIN_USERS,
+                requiresAdmin = true
             ),
             WorkspaceModuleItem(
                 id = "roles",
@@ -77,7 +99,8 @@ fun WorkspaceScreen(
                 iconRes = R.drawable.sf_adm_roles,
                 badgeColor = Color(0xFF0D9488),
                 group = "Quản trị viên",
-                route = FutaDestinations.ADMIN_ROLES
+                route = FutaDestinations.ADMIN_ROLES,
+                requiresAdmin = true
             ),
             WorkspaceModuleItem(
                 id = "projects",
@@ -86,7 +109,8 @@ fun WorkspaceScreen(
                 iconRes = R.drawable.sf_quick_projects,
                 badgeColor = FutaColors.BrandGreen,
                 group = "Quản trị viên",
-                route = FutaDestinations.ADMIN_PROJECTS
+                route = FutaDestinations.ADMIN_PROJECTS,
+                requiresAdmin = true
             ),
             WorkspaceModuleItem(
                 id = "campaigns",
@@ -95,7 +119,8 @@ fun WorkspaceScreen(
                 iconRes = R.drawable.sf_adm_campaigns,
                 badgeColor = Color(0xFFF97316),
                 group = "Quản trị viên",
-                route = FutaDestinations.ADMIN_CAMPAIGNS
+                route = FutaDestinations.ADMIN_CAMPAIGNS,
+                requiresAdmin = true
             ),
             WorkspaceModuleItem(
                 id = "game_admin",
@@ -104,7 +129,8 @@ fun WorkspaceScreen(
                 iconRes = R.drawable.sf_quick_wheel,
                 badgeColor = Color(0xFFD97706),
                 group = "Quản trị viên",
-                route = FutaDestinations.ADMIN_LUCKY_WHEEL
+                route = FutaDestinations.ADMIN_LUCKY_WHEEL,
+                requiresAdmin = true
             ),
             WorkspaceModuleItem(
                 id = "inventory",
@@ -113,7 +139,8 @@ fun WorkspaceScreen(
                 iconRes = R.drawable.sf_adm_inventory,
                 badgeColor = Color(0xFF0EA5E9),
                 group = "Quản trị viên",
-                route = FutaDestinations.ADMIN_INVENTORY
+                route = FutaDestinations.ADMIN_INVENTORY,
+                requiresAdmin = true
             ),
             WorkspaceModuleItem(
                 id = "registrations",
@@ -122,7 +149,8 @@ fun WorkspaceScreen(
                 iconRes = R.drawable.sf_adm_registrations,
                 badgeColor = Color(0xFFD97706),
                 group = "Quản trị viên",
-                route = FutaDestinations.ADMIN_REGISTRATIONS
+                route = FutaDestinations.ADMIN_REGISTRATIONS,
+                requiresAdmin = true
             ),
             WorkspaceModuleItem(
                 id = "transactions",
@@ -131,7 +159,8 @@ fun WorkspaceScreen(
                 iconRes = R.drawable.sf_adm_transactions,
                 badgeColor = Color(0xFF10B981),
                 group = "Quản trị viên",
-                route = FutaDestinations.ADMIN_TRANSACTIONS
+                route = FutaDestinations.ADMIN_TRANSACTIONS,
+                requiresAdmin = true
             ),
             WorkspaceModuleItem(
                 id = "advisors",
@@ -140,7 +169,8 @@ fun WorkspaceScreen(
                 iconRes = R.drawable.sf_adm_advisors,
                 badgeColor = Color(0xFF0284C7),
                 group = "Quản trị viên",
-                route = FutaDestinations.ADMIN_ADVISOR_PROFILES
+                route = FutaDestinations.ADMIN_ADVISOR_PROFILES,
+                requiresAdmin = true
             ),
             WorkspaceModuleItem(
                 id = "exams",
@@ -149,7 +179,8 @@ fun WorkspaceScreen(
                 vectorIcon = Icons.Default.School,
                 badgeColor = Color(0xFFBF3359),
                 group = "Quản trị viên",
-                route = FutaDestinations.ADMIN_EXAMS
+                route = FutaDestinations.ADMIN_EXAMS,
+                requiresAdmin = true
             ),
             WorkspaceModuleItem(
                 id = "ai",
@@ -158,7 +189,8 @@ fun WorkspaceScreen(
                 iconRes = R.drawable.sf_adm_ai,
                 badgeColor = Color(0xFFA855F7),
                 group = "Quản trị viên",
-                route = FutaDestinations.ADMIN_AI
+                route = FutaDestinations.ADMIN_AI,
+                requiresAdmin = true
             ),
             WorkspaceModuleItem(
                 id = "settings",
@@ -167,7 +199,8 @@ fun WorkspaceScreen(
                 iconRes = R.drawable.sf_adm_settings,
                 badgeColor = Color(0xFF64748B),
                 group = "Quản trị viên",
-                route = FutaDestinations.ADMIN_SETTINGS
+                route = FutaDestinations.ADMIN_SETTINGS,
+                requiresAdmin = true
             ),
             WorkspaceModuleItem(
                 id = "cms",
@@ -176,7 +209,8 @@ fun WorkspaceScreen(
                 iconRes = R.drawable.sf_adm_cms,
                 badgeColor = Color(0xFF6366F1),
                 group = "Quản trị viên",
-                route = FutaDestinations.ADMIN_CMS
+                route = FutaDestinations.ADMIN_CMS,
+                requiresAdmin = true
             ),
             // QUẢN LÝ BÁN HÀNG (TVV & Admin - Chuẩn Web)
             WorkspaceModuleItem(
@@ -186,7 +220,8 @@ fun WorkspaceScreen(
                 iconRes = R.drawable.ic_sf_building_circle_fill,
                 badgeColor = FutaColors.BrandGreen,
                 group = "Quản lý bán hàng",
-                route = FutaDestinations.ADVISOR_PRODUCTS
+                route = FutaDestinations.ADVISOR_PRODUCTS,
+                requiresStaff = true
             ),
             WorkspaceModuleItem(
                 id = "my_listings",
@@ -195,7 +230,8 @@ fun WorkspaceScreen(
                 iconRes = R.drawable.ic_sf_checkmark_rectangle_stack_fill,
                 badgeColor = Color(0xFF10B981),
                 group = "Quản lý bán hàng",
-                route = FutaDestinations.MY_LISTINGS
+                route = FutaDestinations.MY_LISTINGS,
+                requiredPermissions = listOf("apartments:create", "apartments:edit")
             ),
             WorkspaceModuleItem(
                 id = "customers",
@@ -204,7 +240,8 @@ fun WorkspaceScreen(
                 iconRes = R.drawable.sf_adm_users,
                 badgeColor = Color(0xFF2563EB),
                 group = "Quản lý bán hàng",
-                route = FutaDestinations.ADMIN_CUSTOMERS
+                route = FutaDestinations.ADMIN_CUSTOMERS,
+                requiredPermissions = listOf("customers:view")
             ),
             WorkspaceModuleItem(
                 id = "crm",
@@ -213,7 +250,8 @@ fun WorkspaceScreen(
                 iconRes = R.drawable.ic_sf_person_crop_rectangle_stack_fill,
                 badgeColor = Color(0xFFF97316),
                 group = "Quản lý bán hàng",
-                route = FutaDestinations.CRM
+                route = FutaDestinations.CRM,
+                requiredPermissions = listOf("customers:view")
             ),
             WorkspaceModuleItem(
                 id = "contracts",
@@ -222,7 +260,8 @@ fun WorkspaceScreen(
                 iconRes = R.drawable.sf_adm_contracts,
                 badgeColor = Color(0xFF0D9488),
                 group = "Quản lý bán hàng",
-                route = FutaDestinations.ADMIN_CONTRACTS
+                route = FutaDestinations.ADMIN_CONTRACTS,
+                requiredPermissions = listOf("contracts:view")
             ),
             WorkspaceModuleItem(
                 id = "proposals",
@@ -231,7 +270,8 @@ fun WorkspaceScreen(
                 vectorIcon = Icons.Default.Description,
                 badgeColor = Color(0xFFD97706),
                 group = "Quản lý bán hàng",
-                route = FutaDestinations.ADVISOR_PROPOSALS
+                route = FutaDestinations.ADVISOR_PROPOSALS,
+                requiresStaff = true
             ),
             WorkspaceModuleItem(
                 id = "reports",
@@ -240,7 +280,8 @@ fun WorkspaceScreen(
                 iconRes = R.drawable.ic_sf_chart_xyaxis_line,
                 badgeColor = Color(0xFF6366F1),
                 group = "Quản lý bán hàng",
-                route = FutaDestinations.ADMIN_REPORTS
+                route = FutaDestinations.ADMIN_REPORTS,
+                requiredPermissions = listOf("reports:view")
             ),
             WorkspaceModuleItem(
                 id = "zalo",
@@ -249,7 +290,8 @@ fun WorkspaceScreen(
                 iconRes = R.drawable.sf_adm_zalo,
                 badgeColor = Color(0xFF0073E6),
                 group = "Quản lý bán hàng",
-                route = FutaDestinations.ADMIN_ZALO
+                route = FutaDestinations.ADMIN_ZALO,
+                requiredPermissions = listOf("zalo:view", "zalo:manage")
             ),
             WorkspaceModuleItem(
                 id = "chat",
@@ -258,7 +300,8 @@ fun WorkspaceScreen(
                 vectorIcon = Icons.Default.Forum,
                 badgeColor = Color(0xFF059669),
                 group = "Quản lý bán hàng",
-                route = FutaDestinations.INBOX
+                route = FutaDestinations.INBOX,
+                requiredPermissions = listOf("chat:view")
             ),
 
             // TÀI KHOẢN & TIỆN ÍCH (Tất cả người dùng)
@@ -332,7 +375,8 @@ fun WorkspaceScreen(
                 vectorIcon = Icons.Default.VerifiedUser,
                 badgeColor = FutaColors.BrandGreen,
                 group = "Tài khoản & Tiện ích",
-                route = FutaDestinations.ADVISOR
+                route = FutaDestinations.ADVISOR,
+                hideIfStaff = true
             )
         )
     }
@@ -399,7 +443,7 @@ fun WorkspaceScreen(
             verticalArrangement = Arrangement.spacedBy(18.dp)
         ) {
             groups.forEach { grp ->
-                val itemsInGroup = allModules.filter { it.group == grp }
+                val itemsInGroup = allModules.filter { it.group == grp && it.isVisible(session) }
 
                 if (itemsInGroup.isNotEmpty()) {
                     item {

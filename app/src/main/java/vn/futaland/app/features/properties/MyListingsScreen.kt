@@ -257,23 +257,53 @@ fun MyListingsScreen(
         loadData()
     }
 
-    val projectOptions = remember(items) { items.map { it.projectName }.filter { it.isNotBlank() && it != "Dự án chưa cập nhật" }.distinct().sorted() }
-    val campaignOptions = remember(items) { items.map { it.campaignName }.filter { it.isNotBlank() }.distinct().sorted() }
-    val blockOptions = remember(items) { items.map { it.block }.filter { it.isNotBlank() && it != "-" }.distinct().sorted() }
-    val productTypeOptions = remember(items) {
-        (items.map { it.productType }.filter { it.isNotBlank() } + listOf("Căn hộ", "Shophouse", "Penthouse", "Duplex", "Villa")).distinct().sorted()
+    fun filterItems(exclude: String): List<SellingItem> {
+        return items.filter { item ->
+            (exclude == "project" || projectFilter.isEmpty() || item.projectName == projectFilter) &&
+            (exclude == "campaign" || campaignFilter.isEmpty() || item.campaignName == campaignFilter) &&
+            (exclude == "block" || blockFilter.isEmpty() || item.block == blockFilter) &&
+            (exclude == "productType" || productTypeFilter.isEmpty() || item.productType == productTypeFilter) &&
+            (exclude == "propertyType" || propertyTypeFilter.isEmpty() || item.propertyType == propertyTypeFilter) &&
+            (exclude == "floor" || floorFilter.isEmpty() || item.floor == floorFilter) &&
+            (exclude == "direction" || directionFilter.isEmpty() || item.direction == directionFilter) &&
+            (exclude == "balconyDirection" || balconyDirectionFilter.isEmpty() || item.balconyDirection == balconyDirectionFilter)
+        }
     }
-    val propertyTypeOptions = remember(items) {
-        items.map { it.propertyType }.filter { it.isNotBlank() }.distinct().sorted()
+
+    val projectOptions = remember(items, campaignFilter, blockFilter, productTypeFilter, propertyTypeFilter, floorFilter, directionFilter, balconyDirectionFilter) {
+        filterItems("project").map { it.projectName }.filter { it.isNotBlank() && it != "Dự án chưa cập nhật" }.distinct().sorted()
     }
-    val floorOptions = remember(items) {
-        items.map { it.floor }.filter { it.isNotBlank() && it != "-" }.distinct().sortedBy { it.toIntOrNull() ?: 0 }
+    val campaignOptions = remember(items, projectFilter, blockFilter, productTypeFilter, propertyTypeFilter, floorFilter, directionFilter, balconyDirectionFilter) {
+        filterItems("campaign").map { it.campaignName }.filter { it.isNotBlank() }.distinct().sorted()
     }
-    val directionOptions = remember(items) {
-        (items.map { it.direction }.filter { it.isNotBlank() } + listOf("Đông", "Tây", "Nam", "Bắc", "Đông Nam", "Đông Bắc", "Tây Nam", "Tây Bắc")).distinct().sorted()
+    val blockOptions = remember(items, projectFilter, campaignFilter, productTypeFilter, propertyTypeFilter, floorFilter, directionFilter, balconyDirectionFilter) {
+        filterItems("block").map { it.block }.filter { it.isNotBlank() && it != "-" }.distinct().sorted()
     }
-    val balconyDirectionOptions = remember(items) {
-        (items.map { it.balconyDirection }.filter { it.isNotBlank() } + listOf("Đông", "Tây", "Nam", "Bắc", "Đông Nam", "Đông Bắc", "Tây Nam", "Tây Bắc")).distinct().sorted()
+    val productTypeOptions = remember(items, projectFilter, campaignFilter, blockFilter, propertyTypeFilter, floorFilter, directionFilter, balconyDirectionFilter) {
+        (filterItems("productType").map { it.productType }.filter { it.isNotBlank() } + listOf("Căn hộ", "Shophouse", "Penthouse", "Duplex", "Villa")).distinct().sorted()
+    }
+    val propertyTypeOptions = remember(items, projectFilter, campaignFilter, blockFilter, productTypeFilter, floorFilter, directionFilter, balconyDirectionFilter) {
+        filterItems("propertyType").map { it.propertyType }.filter { it.isNotBlank() }.distinct().sorted()
+    }
+    val floorOptions = remember(items, projectFilter, campaignFilter, blockFilter, productTypeFilter, propertyTypeFilter, directionFilter, balconyDirectionFilter) {
+        filterItems("floor").map { it.floor }.filter { it.isNotBlank() && it != "-" }.distinct().sortedBy { it.toIntOrNull() ?: 0 }
+    }
+    val directionOptions = remember(items, projectFilter, campaignFilter, blockFilter, productTypeFilter, propertyTypeFilter, floorFilter, balconyDirectionFilter) {
+        (filterItems("direction").map { it.direction }.filter { it.isNotBlank() } + listOf("Đông", "Tây", "Nam", "Bắc", "Đông Nam", "Đông Bắc", "Tây Nam", "Tây Bắc")).distinct().sorted()
+    }
+    val balconyDirectionOptions = remember(items, projectFilter, campaignFilter, blockFilter, productTypeFilter, propertyTypeFilter, floorFilter, directionFilter) {
+        (filterItems("balconyDirection").map { it.balconyDirection }.filter { it.isNotBlank() } + listOf("Đông", "Tây", "Nam", "Bắc", "Đông Nam", "Đông Bắc", "Tây Nam", "Tây Bắc")).distinct().sorted()
+    }
+
+    LaunchedEffect(projectOptions, campaignOptions, blockOptions, productTypeOptions, propertyTypeOptions, floorOptions, directionOptions, balconyDirectionOptions) {
+        if (projectFilter.isNotEmpty() && !projectOptions.contains(projectFilter)) projectFilter = ""
+        if (campaignFilter.isNotEmpty() && !campaignOptions.contains(campaignFilter)) campaignFilter = ""
+        if (blockFilter.isNotEmpty() && !blockOptions.contains(blockFilter)) blockFilter = ""
+        if (productTypeFilter.isNotEmpty() && !productTypeOptions.contains(productTypeFilter)) productTypeFilter = ""
+        if (propertyTypeFilter.isNotEmpty() && !propertyTypeOptions.contains(propertyTypeFilter)) propertyTypeFilter = ""
+        if (floorFilter.isNotEmpty() && !floorOptions.contains(floorFilter)) floorFilter = ""
+        if (directionFilter.isNotEmpty() && !directionOptions.contains(directionFilter)) directionFilter = ""
+        if (balconyDirectionFilter.isNotEmpty() && !balconyDirectionOptions.contains(balconyDirectionFilter)) balconyDirectionFilter = ""
     }
 
     val filteredItems = remember(

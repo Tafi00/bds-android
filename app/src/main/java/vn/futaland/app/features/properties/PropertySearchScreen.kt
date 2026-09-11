@@ -48,6 +48,8 @@ fun PropertySearchScreen(
     var keyword by remember { mutableStateOf(initialKeyword.orEmpty()) }
     var listingType by remember { mutableStateOf("") } // "", "sell", "rent"
     var propertyType by remember { mutableStateOf(initialPropertyType.orEmpty()) }
+    var hasVideo by remember { mutableStateOf(false) }
+    var has360 by remember { mutableStateOf(false) }
     var zone by remember { mutableStateOf("") }
     var furniture by remember { mutableStateOf("") }
     var sort by remember { mutableStateOf("newest") } // "newest", "price_asc", "price_desc", "area_desc"
@@ -77,7 +79,62 @@ fun PropertySearchScreen(
     var results by remember { mutableStateOf<List<JSONValue>>(emptyList()) }
     var loading by remember { mutableStateOf(false) }
 
+    var availableZones by remember {
+        mutableStateOf<List<String>>(listOf("Times Square", "Khu Đô Thị C5B", "Hilton Phan Thiết", "Thuận Phước", "FUTA Kim Long", "Bến Tre Riverside"))
+    }
+    var availableBedrooms by remember { mutableStateOf<List<Int>>(emptyList()) }
+    var availablePropertyTypes by remember { mutableStateOf<List<String>>(emptyList()) }
+
+    fun loadFilterOptions() {
+        scope.launch {
+            try {
+                val query = mutableMapOf<String, String>()
+                if (bedrooms.isNotEmpty()) query["bedrooms"] = bedrooms
+                if (zone.isNotEmpty()) query["zone"] = zone
+                if (propertyType.isNotEmpty()) query["propertyType"] = propertyType
+                if (hasVideo) query["hasVideo"] = "true"
+                if (has360) {
+                    query["has360"] = "true"
+                    query["hasVirtualTour"] = "true"
+                }
+                if (direction.isNotEmpty()) query["direction"] = direction
+                if (furniture.isNotEmpty()) query["furniture"] = furniture
+                if (minPrice.isNotEmpty()) query["priceMin"] = minPrice.filter { it.isDigit() }
+                if (maxPrice.isNotEmpty()) query["priceMax"] = maxPrice.filter { it.isDigit() }
+                if (minArea.isNotEmpty()) query["areaMin"] = minArea
+                if (maxArea.isNotEmpty()) query["areaMax"] = maxArea
+
+                val res = APIClient.get().request("/apartments/filter-options", query = query)
+                val zList = res["data"]["zones"].array.map { it.string }.filter { it.isNotEmpty() }
+                val brList = res["data"]["bedrooms"].array.mapNotNull { it.int.takeIf { v -> v > 0 } }
+                val ptList = (res["data"]["propertyTypes"].array + res["data"]["apartmentTypes"].array).map { it.string }.filter { it.isNotEmpty() }.distinct()
+
+                if (zList.isNotEmpty()) {
+                    availableZones = zList
+                    if (zone.isNotEmpty() && !zList.any { it.equals(zone, ignoreCase = true) }) {
+                        zone = ""
+                    }
+                }
+                if (brList.isNotEmpty()) {
+                    availableBedrooms = brList
+                    val currentBr = bedrooms.toIntOrNull()
+                    if (currentBr != null && !brList.contains(currentBr) && !(currentBr >= 4 && brList.any { it >= 4 })) {
+                        bedrooms = ""
+                    }
+                }
+                if (ptList.isNotEmpty()) {
+                    availablePropertyTypes = ptList
+                }
+            } catch (_: Exception) {}
+        }
+    }
+
+    LaunchedEffect(bedrooms, zone, propertyType, hasVideo, has360, minPrice, maxPrice, minArea, maxArea, direction, furniture) {
+        loadFilterOptions()
+    }
+
     val hasActiveFilters = listingType.isNotEmpty() || propertyType.isNotEmpty() ||
+            hasVideo || has360 ||
             minPrice.isNotEmpty() || maxPrice.isNotEmpty() || bedrooms.isNotEmpty() ||
             direction.isNotEmpty() || minArea.isNotEmpty() || maxArea.isNotEmpty() ||
             zone.isNotEmpty() || furniture.isNotEmpty() || sort != "newest"
@@ -94,6 +151,11 @@ fun PropertySearchScreen(
                 }
                 if (listingType.isNotEmpty()) query["listingType"] = listingType
                 if (propertyType.isNotEmpty()) query["propertyType"] = propertyType
+                if (hasVideo) query["hasVideo"] = "true"
+                if (has360) {
+                    query["has360"] = "true"
+                    query["hasVirtualTour"] = "true"
+                }
                 if (minPrice.isNotEmpty()) {
                     val p = minPrice.filter { it.isDigit() }
                     query["priceMin"] = p
@@ -132,7 +194,7 @@ fun PropertySearchScreen(
         }
     }
 
-    LaunchedEffect(listingType, sort) {
+    LaunchedEffect(propertyType, hasVideo, has360, listingType, sort) {
         search(1)
     }
 
@@ -231,26 +293,41 @@ fun PropertySearchScreen(
 
                     Spacer(Modifier.height(10.dp))
 
-                    // Quick Filter Bar matching iOS PropertiesViews.swift
+                    // Quick Filter Bar: Căn hộ, Nhà phố, Có video, Có view 360
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
                         Row(
+                            modifier = Modifier
+                                .weight(1f)
+                                .horizontalScroll(rememberScrollState()),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            QuickChip(title = "Tất cả", isSelected = listingType.isEmpty()) {
-                                listingType = ""
+                            val isAllSelected = propertyType.isEmpty() && !hasVideo && !has360
+                            QuickChip(title = "Tất cả", isSelected = isAllSelected) {
+                                propertyType = ""
+                                hasVideo = false
+                                has360 = false
                             }
-                            QuickChip(title = "Mua bán", isSelected = listingType == "sell") {
-                                listingType = if (listingType == "sell") "" else "sell"
+                            val isCanHo = propertyType == "can-ho" || propertyType == "can-ho-chung-cu"
+                            QuickChip(title = "Căn hộ", isSelected = isCanHo) {
+                                propertyType = if (isCanHo) "" else "can-ho"
                             }
-                            QuickChip(title = "Cho thuê", isSelected = listingType == "rent") {
-                                listingType = if (listingType == "rent") "" else "rent"
+                            val isNhaPho = propertyType == "nha-pho"
+                            QuickChip(title = "Nhà phố", isSelected = isNhaPho) {
+                                propertyType = if (isNhaPho) "" else "nha-pho"
+                            }
+                            QuickChip(title = "Có video", isSelected = hasVideo) {
+                                hasVideo = !hasVideo
+                            }
+                            QuickChip(title = "Có view 360", isSelected = has360) {
+                                has360 = !has360
                             }
                         }
+
+                        Spacer(Modifier.width(8.dp))
 
                         // Sort pill trigger with anchored popover
                         Box {
@@ -428,6 +505,8 @@ fun PropertySearchScreen(
                     onClick = {
                         listingType = ""
                         propertyType = ""
+                        hasVideo = false
+                        has360 = false
                         zone = ""
                         furniture = ""
                         minPrice = ""
@@ -572,11 +651,20 @@ fun PropertySearchScreen(
             }
             // Bedrooms
             Text("SỐ PHÒNG NGỦ", fontSize = 11.5.sp, fontWeight = FontWeight.Bold, color = FutaColors.Slate)
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
                 listOf("" to "Tất cả", "1" to "1 PN", "2" to "2 PN", "3" to "3 PN", "4" to "4+ PN").forEach { (valStr, label) ->
                     val isSelected = bedrooms == valStr
-                    QuickChip(title = label, isSelected = isSelected) {
-                        bedrooms = valStr
+                    val num = valStr.toIntOrNull() ?: 0
+                    val isAvail = availableBedrooms.isEmpty() || num == 0 || (if (num >= 4) availableBedrooms.any { it >= 4 } else availableBedrooms.contains(num))
+                    if (isAvail || isSelected) {
+                        QuickChip(title = label, isSelected = isSelected) {
+                            bedrooms = if (isSelected && valStr.isNotEmpty()) "" else valStr
+                        }
                     }
                 }
             }
@@ -591,8 +679,11 @@ fun PropertySearchScreen(
             ) {
                 listOf("" to "Tất cả", "can-ho" to "Căn hộ", "nha-pho" to "Nhà phố", "biet-thu" to "Biệt thự", "dat-nen" to "Đất nền").forEach { (valStr, label) ->
                     val isSelected = propertyType == valStr
-                    QuickChip(title = label, isSelected = isSelected) {
-                        propertyType = valStr
+                    val isAvail = availablePropertyTypes.isEmpty() || valStr.isEmpty() || availablePropertyTypes.any { it.contains(valStr, ignoreCase = true) || it.contains(label, ignoreCase = true) }
+                    if (isAvail || isSelected) {
+                        QuickChip(title = label, isSelected = isSelected) {
+                            propertyType = if (isSelected && valStr.isNotEmpty()) "" else valStr
+                        }
                     }
                 }
             }
@@ -608,11 +699,11 @@ fun PropertySearchScreen(
                 listOf("", "Đông", "Tây", "Nam", "Bắc", "Đông Nam", "Đông Bắc", "Tây Nam", "Tây Bắc").forEach { dir ->
                     val isSelected = direction == dir
                     QuickChip(title = dir.ifEmpty { "Tất cả" }, isSelected = isSelected) {
-                        direction = dir
+                        direction = if (isSelected && dir.isNotEmpty()) "" else dir
                     }
                 }
             }
-            // Zone / Project Filter (Matching iOS availableZones)
+            // Zone / Project Filter (Faceted cascading options)
             Text("DỰ ÁN / PHÂN KHU", fontSize = 11.5.sp, fontWeight = FontWeight.Bold, color = FutaColors.Slate)
             Row(
                 modifier = Modifier
@@ -620,10 +711,13 @@ fun PropertySearchScreen(
                     .horizontalScroll(rememberScrollState()),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                listOf("", "Times Square", "Khu Đô Thị C5B", "Hilton Phan Thiết", "Thuận Phước", "FUTA Kim Long", "Bến Tre Riverside").forEach { z ->
-                    val isSelected = zone == z
-                    QuickChip(title = z.ifEmpty { "Tất cả" }, isSelected = isSelected) {
-                        zone = z
+                QuickChip(title = "Tất cả", isSelected = zone.isEmpty()) {
+                    zone = ""
+                }
+                availableZones.forEach { z ->
+                    val isSelected = zone.equals(z, ignoreCase = true)
+                    QuickChip(title = z, isSelected = isSelected) {
+                        zone = if (isSelected) "" else z
                     }
                 }
             }
@@ -641,6 +735,20 @@ fun PropertySearchScreen(
                     QuickChip(title = fLabel, isSelected = isSelected) {
                         furniture = fVal
                     }
+                }
+            }
+
+            // Media Filter: Có video, Có view 360
+            Text("TIỆN ÍCH MEDIA", fontSize = 11.5.sp, fontWeight = FontWeight.Bold, color = FutaColors.Slate)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                QuickChip(title = "Có video", isSelected = hasVideo) {
+                    hasVideo = !hasVideo
+                }
+                QuickChip(title = "Có view 360", isSelected = has360) {
+                    has360 = !has360
                 }
             }
 
