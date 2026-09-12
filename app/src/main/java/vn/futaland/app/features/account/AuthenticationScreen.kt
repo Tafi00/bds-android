@@ -68,9 +68,9 @@ fun AuthenticationScreen(
     val scope = rememberCoroutineScope()
     var step by remember { mutableStateOf(initialStep) }
 
-    var rawPhone by remember { mutableStateOf(if (initialStep == AuthStep.PASSWORD) "0858606168" else "") }
-    var resolvedPhone by remember { mutableStateOf(if (initialStep == AuthStep.PASSWORD) "0858606168" else "") }
-    var displayIdentifier by remember { mutableStateOf(if (initialStep == AuthStep.PASSWORD) "0858606168" else "") }
+    var rawPhone by remember { mutableStateOf("") }
+    var resolvedPhone by remember { mutableStateOf("") }
+    var displayIdentifier by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var confirmPassword by remember { mutableStateOf("") }
     var otp by remember { mutableStateOf("") }

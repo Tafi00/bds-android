@@ -311,11 +311,14 @@ fun PropertySearchScreen(
                                 hasVideo = false
                                 has360 = false
                             }
-                            val isCanHo = propertyType == "can-ho" || propertyType == "can-ho-chung-cu"
+                            val isCanHo = propertyType == "can-ho" || propertyType == "can-ho-chung-cu" ||
+                                propertyType.lowercase().contains("căn hộ") || propertyType.lowercase().contains("chung cư")
                             QuickChip(title = "Căn hộ", isSelected = isCanHo) {
                                 propertyType = if (isCanHo) "" else "can-ho"
                             }
-                            val isNhaPho = propertyType == "nha-pho"
+                            val isNhaPho = propertyType == "nha-pho" || propertyType == "biet-thu-lien-ke" ||
+                                propertyType.lowercase().contains("nhà phố") || propertyType.lowercase().contains("liền kề") ||
+                                propertyType.lowercase().contains("shophouse")
                             QuickChip(title = "Nhà phố", isSelected = isNhaPho) {
                                 propertyType = if (isNhaPho) "" else "nha-pho"
                             }

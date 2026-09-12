@@ -197,7 +197,7 @@ fun ProfileScreen(
                                 modifier = Modifier.fillMaxWidth()
                             ) {
                                 Text(
-                                    text = phone.ifEmpty { "0858606168" },
+                                    text = phone.ifEmpty { "Chưa cập nhật" },
                                     fontSize = 14.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = FutaColors.Navy,

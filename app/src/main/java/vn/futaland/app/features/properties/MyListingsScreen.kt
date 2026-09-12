@@ -359,7 +359,7 @@ fun MyListingsScreen(
                     )
 
                     Text(
-                        text = "Đăng ký bán sản phẩm",
+                        text = "Đăng ký sản phẩm",
                         fontSize = 17.5.sp,
                         fontWeight = FontWeight.Bold,
                         color = FutaColors.Navy

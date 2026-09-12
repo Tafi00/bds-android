@@ -54,6 +54,7 @@ fun AdvisorProductsScreen(
     var directionFilter by remember { mutableStateOf("") }
     var balconyDirectionFilter by remember { mutableStateOf("") }
     var showFilterSheet by remember { mutableStateOf(false) }
+    var detailItem by remember { mutableStateOf<JSONValue?>(null) }
 
     val activeFilterCount = listOf(
         projectFilter,
@@ -470,7 +471,8 @@ fun AdvisorProductsScreen(
                                 if (targetId.isNotEmpty()) {
                                     onNavigate(FutaDestinations.propertyDetail(targetId))
                                 }
-                            }
+                            },
+                            onClick = { detailItem = reg }
                         )
                     }
                 }
@@ -581,8 +583,151 @@ fun AdvisorProductsScreen(
                         onSelect = { balconyDirectionFilter = it }
                     )
                 }
+
+                Spacer(modifier = Modifier.height(4.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(Color.White)
+                            .border(
+                                1.dp,
+                                FutaColors.BrandGreen.copy(alpha = if (activeFilterCount > 0) 0.45f else 0.15f),
+                                RoundedCornerShape(12.dp)
+                            )
+                            .clickable(enabled = activeFilterCount > 0) {
+                                projectFilter = ""
+                                campaignFilter = ""
+                                blockFilter = ""
+                                productTypeFilter = ""
+                                propertyTypeFilter = ""
+                                floorFilter = ""
+                                directionFilter = ""
+                                balconyDirectionFilter = ""
+                            }
+                            .padding(vertical = 13.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "Xóa bộ lọc",
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = if (activeFilterCount > 0) FutaColors.BrandGreen else FutaColors.Slate
+                        )
+                    }
+
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(FutaColors.BrandGreen)
+                            .clickable { showFilterSheet = false }
+                            .padding(vertical = 13.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "Áp dụng",
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
+                        )
+                    }
+                }
             }
         }
+    }
+
+    // Product Detail Bottom Sheet (held / registered items)
+    detailItem?.let { item ->
+        FutaBottomSheet(
+            visible = true,
+            onDismiss = { detailItem = null },
+            title = item["unitCode"].string.ifEmpty { item["apartment"]["propertyCode"].string.ifEmpty { "Chi tiết sản phẩm" } }
+        ) {
+            val status = item["status"].string.lowercase()
+            val bStatus = item["bookingStatus"].string.lowercase()
+            val sellStatusText = when (status) {
+                "active", "approved" -> "Đang mở quyền bán"
+                "pending" -> "Chờ duyệt quyền bán"
+                "revoked", "expired", "cancelled", "rejected" -> "Đã hết hạn / Thu hồi"
+                else -> if (status.isEmpty()) "Chưa đăng ký" else item["status"].string
+            }
+            val bookingStatusText = when (bStatus) {
+                "", "none", "available" -> "Chưa giữ chỗ"
+                "online_holding" -> "Đang giữ chỗ (15 phút)"
+                "pending_booking" -> "Chờ xác nhận cọc"
+                "cancel_requested" -> "Đang chờ duyệt huỷ giữ chỗ"
+                "holding_success" -> "ERP đã khóa căn"
+                "deposited", "commission_pending", "commission_paid", "purchased" -> "Giao dịch thành công"
+                "rejected" -> "Bị từ chối giữ chỗ"
+                "cancelled" -> "Đã huỷ giữ chỗ"
+                else -> item["bookingStatus"].string
+            }
+            val rejectReason = item["rejectReason"].string.ifEmpty { item["apartment"]["activeHoldingRejectReason"].string }
+            val customerName = item["customerName"].string
+            val customerPhone = item["customerPhone"].string
+            val customerEmail = item["customerEmail"].string
+            val notes = item["notes"].string
+            val registrationCode = item["code"].string
+            val expiresAt = item["expiresAt"].string.take(10)
+
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                DetailRow("Dự án / Phân khu", item["projectName"].string.ifEmpty { item["apartment"]["zone"].string.ifEmpty { "-" } })
+                DetailRow("Tòa / Block", item["block"].string.ifEmpty { item["apartment"]["building"].string.ifEmpty { "-" } })
+                val fl = item["floor"].int.let { if (it > 0) it else item["apartment"]["floor"].int }
+                DetailRow("Tầng", if (fl > 0) "$fl" else "-")
+                DetailRow("Quyền bán", sellStatusText)
+                DetailRow("Giữ chỗ", bookingStatusText)
+                if (registrationCode.isNotEmpty()) DetailRow("Mã đăng ký", registrationCode)
+                if (expiresAt.isNotEmpty()) DetailRow("Hạn quyền bán", expiresAt)
+                HorizontalDivider(color = Color(0xFFF1F5F9))
+                if (customerName.isEmpty() && customerPhone.isEmpty()) {
+                    Text("Chưa có khách hàng giữ chỗ", fontSize = 13.5.sp, color = FutaColors.Slate)
+                } else {
+                    Text("Khách hàng giữ chỗ", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
+                    if (customerName.isNotEmpty()) DetailRow("Họ và tên", customerName)
+                    if (customerPhone.isNotEmpty()) DetailRow("Số điện thoại", customerPhone)
+                    if (customerEmail.isNotEmpty()) DetailRow("Email", customerEmail)
+                }
+                if (rejectReason.isNotEmpty()) {
+                    HorizontalDivider(color = Color(0xFFF1F5F9))
+                    Text("Lý do từ chối", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color(0xFFDC2626))
+                    Text(rejectReason, fontSize = 13.5.sp, color = Color(0xFFDC2626))
+                }
+                if (notes.isNotEmpty()) {
+                    HorizontalDivider(color = Color(0xFFF1F5F9))
+                    Text("Ghi chú xử lý", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
+                    Text(notes, fontSize = 13.5.sp, color = FutaColors.Slate)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun DetailRow(label: String, value: String) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.Top
+    ) {
+        Text(text = label, fontSize = 13.sp, color = FutaColors.Slate)
+        Spacer(modifier = Modifier.width(12.dp))
+        Text(
+            text = value,
+            fontSize = 13.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = FutaColors.Navy,
+            textAlign = androidx.compose.ui.text.style.TextAlign.End,
+            modifier = Modifier.weight(1f)
+        )
     }
 }
 
@@ -643,7 +788,8 @@ private fun FilterChipSection(
 @Composable
 private fun AdvisorProductCartCard(
     reg: JSONValue,
-    onHold: () -> Unit
+    onHold: () -> Unit,
+    onClick: () -> Unit = {}
 ) {
     val unitCode = reg["unitCode"].string.ifEmpty { reg["apartment"]["propertyCode"].string }
     val projectName = reg["projectName"].string.ifEmpty { reg["apartment"]["zone"].string }
@@ -677,7 +823,9 @@ private fun AdvisorProductCartCard(
         shape = RoundedCornerShape(16.dp),
         shadowElevation = 1.dp,
         border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
     ) {
         Column(
             modifier = Modifier.padding(14.dp),
@@ -720,6 +868,8 @@ private fun AdvisorProductCartCard(
                             listOf("deposited", "commission_pending", "commission_paid", "purchased").contains(bStatus) -> StatusBadge("GD thành công", Color(0xFF2563EB), Color(0xFFEFF6FF))
                             status == "active" || status == "approved" -> StatusBadge("Đang mở quyền bán", FutaColors.BrandGreen, Color(0xFFECFDF5))
                             status == "pending" -> StatusBadge("Chờ duyệt quyền bán", Color(0xFFD97706), Color(0xFFFEF3C7))
+                            status == "rejected" -> StatusBadge("Từ chối duyệt", Color(0xFFDC2626), Color(0xFFFEF2F2))
+                            status == "revoked" -> StatusBadge("Đã thu hồi", Color.Gray, Color(0xFFF1F5F9))
                             else -> StatusBadge("Đã hết hạn", Color.Gray, Color(0xFFF1F5F9))
                         }
                     }

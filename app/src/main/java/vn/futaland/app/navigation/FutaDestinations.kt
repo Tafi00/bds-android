@@ -19,6 +19,7 @@ object FutaDestinations {
     const val NEWS_DETAIL = "news_detail/{slug}"
     const val LUCKY_WHEEL = "lucky_wheel"
     const val WORKSPACE = "workspace"
+    const val CHAT_CENTER = "chat_center"
     const val CHAT_CONVERSATION = "chat_conversation/{conversationId}"
     const val CHAT_ROUTE = "chat?conversationId={conversationId}&advisorId={advisorId}&advisorName={advisorName}&apartmentId={apartmentId}&isAi={isAi}"
 

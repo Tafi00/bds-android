@@ -46,7 +46,9 @@ data class ConversationItem(
     val unreadCount: Int = 0,
     val isOnline: Boolean = true,
     val isAi: Boolean = false,
-    val badge: String = ""
+    val badge: String = "",
+    val contextZone: String = "",
+    val contextCode: String = ""
 )
 
 data class ChatMessage(
@@ -65,10 +67,22 @@ fun ChatScreen(
     targetAdvisorName: String? = null,
     targetApartmentId: String? = null,
     isAiChat: Boolean = false,
+    staffContext: Boolean = false,
     onBack: (() -> Unit)? = null
 ) {
     val scope = rememberCoroutineScope()
-    val isStaff = AppSession.shared.role != "customer" && AppSession.shared.role != "guest"
+    val accountIsStaff = AppSession.shared.role != "customer" && AppSession.shared.role != "guest"
+    // Role follows the screen context: outside the advisor workspace the
+    // account always talks as a customer, even when the account is staff.
+    val isStaff = staffContext && accountIsStaff
+    val buyerPhone = if (accountIsStaff) AppSession.shared.user?.get("phone")?.string.orEmpty() else ""
+
+    fun conversationBody(vararg fields: Pair<String, String>): String {
+        val parts = mutableListOf<String>()
+        if (buyerPhone.isNotEmpty()) parts.add("\"customerPhone\":\"$buyerPhone\"")
+        fields.forEach { (key, value) -> if (value.isNotEmpty()) parts.add("\"$key\":\"$value\"") }
+        return if (parts.isEmpty()) "{}" else "{${parts.joinToString(",")}}"
+    }
 
     var activeConversationId by remember { mutableStateOf(if (!isStaff) (initialConversationId ?: "ai_agent") else initialConversationId) }
     var activeConversationName by remember { mutableStateOf(targetAdvisorName ?: (if (isAiChat) "Trợ lý AI FUTA Land" else "Trợ lý AI FUTA Land")) }
@@ -107,6 +121,9 @@ fun ChatScreen(
             val query = mutableMapOf("limit" to "50")
             if (isStaff) {
                 query["mode"] = mode
+            } else if (accountIsStaff) {
+                // Staff outside the advisor workspace only sees own buyer chats.
+                query["mode"] = "buyer"
             }
             val res = APIClient.get().request("/chat/conversations", query = query)
             val list = res["data"].array
@@ -125,7 +142,22 @@ fun ChatScreen(
                 val lastMsg = c["lastMessageContent"].string.ifEmpty { "Bắt đầu cuộc trò chuyện..." }
                 val time = c["lastMessageAt"].string.take(16).replace("T", " ")
                 val unread = unreadMap[c.id] ?: c["unreadCount"].int
-                conversations.add(ConversationItem(c.id, name, lastMsg, time, unread, true, isAi, badge))
+                val zone = c["apartment"]["zone"].string.ifEmpty { c["apartment"]["projectName"].string }
+                val code = c["apartment"]["propertyCode"].string.ifEmpty { c["apartment"]["unitCode"].string }
+                conversations.add(
+                    ConversationItem(
+                        id = c.id,
+                        name = name,
+                        lastMessage = lastMsg,
+                        time = time,
+                        unreadCount = unread,
+                        isOnline = true,
+                        isAi = isAi,
+                        badge = badge,
+                        contextZone = zone,
+                        contextCode = code
+                    )
+                )
             }
 
             if (isStaff && mode == "buyer") {
@@ -153,7 +185,10 @@ fun ChatScreen(
                     activeConversationId = existing.id
                     activeConversationName = targetAdvisorName ?: existing.name
                 } else {
-                    val body = """{"advisorId":"$targetAdvisorId"${if (!targetApartmentId.isNullOrEmpty()) ""","apartmentId":"$targetApartmentId"""" else ""}}"""
+                    val body = conversationBody(
+                        "advisorId" to targetAdvisorId,
+                        "apartmentId" to (targetApartmentId ?: "")
+                    )
                     val createRes = APIClient.get().request("/chat/conversations", method = "POST", bodyJson = body)
                     val newConv = createRes["data"]
                     if (!newConv.id.isEmpty()) {
@@ -169,7 +204,7 @@ fun ChatScreen(
                     activeConversationId = aiConv.id
                     activeConversationName = aiConv.name
                 } else {
-                    val createRes = APIClient.get().request("/chat/conversations", method = "POST", bodyJson = "{}")
+                    val createRes = APIClient.get().request("/chat/conversations", method = "POST", bodyJson = conversationBody())
                     val newConv = createRes["data"]
                     if (!newConv.id.isEmpty()) {
                         conversations.add(0, ConversationItem(newConv.id, "Trợ lý AI FUTA Land", "Bắt đầu cuộc trò chuyện...", "Bây giờ", 0, true, true, ""))
@@ -178,7 +213,7 @@ fun ChatScreen(
                     }
                 }
             } else if (!isStaff && conversations.isEmpty()) {
-                val createRes = APIClient.get().request("/chat/conversations", method = "POST", bodyJson = "{}")
+                val createRes = APIClient.get().request("/chat/conversations", method = "POST", bodyJson = conversationBody())
                 val newConv = createRes["data"]
                 if (!newConv.id.isEmpty()) {
                     conversations.add(ConversationItem(newConv.id, "Trợ lý AI FUTA Land", "Bắt đầu cuộc trò chuyện...", "Bây giờ", 0, true, true, ""))
@@ -501,7 +536,10 @@ fun ChatScreen(
                             onClick = {
                                 scope.launch {
                                     try {
-                                        val body = """{"advisorId":"${adv["id"].string}"${if (apt["recordId"].string.isNotEmpty()) ""","apartmentId":"${apt["recordId"].string}"""" else ""}}"""
+                                        val body = conversationBody(
+                                            "advisorId" to adv["id"].string,
+                                            "apartmentId" to apt["recordId"].string
+                                        )
                                         val res = APIClient.get().request("/chat/conversations", method = "POST", bodyJson = body)
                                         val newConv = res["data"]
                                         if (!newConv.id.isEmpty()) {
@@ -575,9 +613,15 @@ fun ChatScreen(
                         val msgList = msgRes["data"].array
                         if (msgList.isNotEmpty()) {
                             messages.clear()
+                            val currentUserId = AppSession.shared.user?.id.orEmpty()
                             for (m in msgList.reversed()) {
                                 val sType = m["senderType"].string
-                                val isMe = sType == "customer"
+                                val senderId = m["senderId"].string
+                                val isMe = if (currentUserId.isNotEmpty() && senderId.isNotEmpty()) {
+                                    senderId == currentUserId
+                                } else {
+                                    sType == "customer"
+                                }
                                 val timeStr = m["createdAt"].string.take(16).replace("T", " ")
                                 messages.add(
                                     ChatMessage(
@@ -642,7 +686,7 @@ fun ChatScreen(
                 try {
                     var targetConvId = activeConversationId ?: "ai_agent"
                     if (targetConvId == "ai_agent") {
-                        val createRes = APIClient.get().request("/chat/conversations", method = "POST", bodyJson = "{}")
+                        val createRes = APIClient.get().request("/chat/conversations", method = "POST", bodyJson = conversationBody())
                         val newConv = createRes["data"]
                         if (!newConv.id.isEmpty()) {
                             targetConvId = newConv.id
@@ -897,7 +941,23 @@ fun ChatScreen(
                 contentPadding = PaddingValues(16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                if (messages.isEmpty()) {
+                if (messages.isEmpty() && !isStaff) {
+                    val activeConv = conversations.find { it.id == activeConversationId }
+                    val contextZone = activeConv?.contextZone.orEmpty()
+                    val contextCode = activeConv?.contextCode.orEmpty()
+                    val suggestions = buildList {
+                        if (contextZone.isNotEmpty()) {
+                            if (contextCode.isNotEmpty()) {
+                                add("Căn $contextCode thuộc $contextZone còn chính sách ưu đãi nào?")
+                            }
+                            add("$contextZone còn những căn nào đang mở bán?")
+                        } else {
+                            add("Những dự án nào đang mở bán tại Đà Nẵng?")
+                        }
+                        add("Tư vấn bảng tính dòng tiền và lãi suất vay")
+                        add("Chính sách ưu đãi và chiết khấu thanh toán")
+                        add("Kết nối với tư vấn viên phụ trách")
+                    }.take(4)
                     item {
                         Surface(
                             shape = RoundedCornerShape(16.dp),
@@ -917,7 +977,11 @@ fun ChatScreen(
                                 )
                                 Spacer(Modifier.height(8.dp))
                                 Text(
-                                    text = "Bạn đang trò chuyện với Trợ lý AI FUTA Land",
+                                    text = when {
+                                        contextCode.isNotEmpty() -> "Trợ lý AI FUTA Land đang hỗ trợ căn $contextCode"
+                                        contextZone.isNotEmpty() -> "Trợ lý AI FUTA Land đang hỗ trợ dự án $contextZone"
+                                        else -> "Bạn đang trò chuyện với Trợ lý AI FUTA Land"
+                                    },
                                     fontSize = 14.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = FutaColors.Navy,
@@ -925,7 +989,11 @@ fun ChatScreen(
                                 )
                                 Spacer(Modifier.height(4.dp))
                                 Text(
-                                    text = "Trợ lý AI sẵn sàng giải đáp 24/7 về thông tin dự án, tiến độ mở bán và chính sách căn hộ.",
+                                    text = if (contextZone.isNotEmpty()) {
+                                        "Trợ lý AI sẵn sàng giải đáp 24/7 về $contextZone: bảng hàng, tiến độ mở bán, chính sách ưu đãi và dòng tiền."
+                                    } else {
+                                        "Trợ lý AI sẵn sàng giải đáp 24/7 về thông tin dự án, tiến độ mở bán và chính sách căn hộ."
+                                    },
                                     fontSize = 12.sp,
                                     color = Color(0xFF64748B),
                                     textAlign = androidx.compose.ui.text.style.TextAlign.Center,
@@ -939,12 +1007,6 @@ fun ChatScreen(
                                     color = FutaColors.BrandGreen
                                 )
                                 Spacer(Modifier.height(8.dp))
-                                val suggestions = listOf(
-                                    "Dự án Times Square Đà Nẵng có những căn nào?",
-                                    "Tư vấn bảng tính dòng tiền và lãi suất vay",
-                                    "Chính sách ưu đãi và chiết khấu thanh toán",
-                                    "Kết nối với tư vấn viên phụ trách"
-                                )
                                 suggestions.forEach { prompt ->
                                     Surface(
                                         shape = RoundedCornerShape(20.dp),

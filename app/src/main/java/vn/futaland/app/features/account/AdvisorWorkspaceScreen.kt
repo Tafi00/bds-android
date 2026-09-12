@@ -295,7 +295,7 @@ fun AdvisorWorkspaceScreen(
                             subtitle = "Hộp thư tư vấn & trao đổi",
                             icon = Icons.Default.Forum,
                             color = FutaColors.BrandGreen,
-                            onClick = { onNavigate(FutaDestinations.INBOX) },
+                            onClick = { onNavigate(FutaDestinations.CHAT_CENTER) },
                             modifier = Modifier.weight(1f)
                         )
                         BusinessQuickCard(

@@ -409,14 +409,14 @@ fun PricingScreen(
                         }
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                             Text("Nội dung CK:", fontSize = 12.5.sp, color = FutaColors.Slate)
-                            Text("FUTA ${plan.id.uppercase()} ${AppSession.shared.user?.get("phone")?.string.orEmpty().ifEmpty { "0858606168" }}", fontSize = 12.5.sp, fontWeight = FontWeight.Bold, color = FutaColors.BrandOrange)
+                            Text("FUTA ${plan.id.uppercase()} ${AppSession.shared.user?.get("phone")?.string.orEmpty()}".trim(), fontSize = 12.5.sp, fontWeight = FontWeight.Bold, color = FutaColors.BrandOrange)
                         }
                     }
                 }
 
                 // VietQR Code Image
-                val userPhone = AppSession.shared.user?.get("phone")?.string.orEmpty().ifEmpty { "0858606168" }
-                val transferDesc = "FUTA ${plan.id.uppercase()} $userPhone"
+                val userPhone = AppSession.shared.user?.get("phone")?.string.orEmpty()
+                val transferDesc = "FUTA ${plan.id.uppercase()} $userPhone".trim()
                 val qrUrl = "https://img.vietqr.io/image/ICB-0858606168-compact2.png?amount=$totalAmount&addInfo=${java.net.URLEncoder.encode(transferDesc, "UTF-8")}"
 
                 Column(

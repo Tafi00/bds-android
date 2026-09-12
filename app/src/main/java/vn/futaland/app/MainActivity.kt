@@ -243,6 +243,13 @@ class MainActivity : ComponentActivity() {
                                     onBack = if (!isRootTab) ({ navController.popBackStack() }) else null
                                 )
                             }
+                            // Staff chat center lives inside the advisor workspace only
+                            composable(FutaDestinations.CHAT_CENTER) {
+                                ChatScreen(
+                                    staffContext = true,
+                                    onBack = { navController.popBackStack() }
+                                )
+                            }
                             composable(
                                 route = FutaDestinations.CHAT_ROUTE,
                                 arguments = listOf(

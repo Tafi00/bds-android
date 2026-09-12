@@ -300,7 +300,7 @@ fun WorkspaceScreen(
                 vectorIcon = Icons.Default.Forum,
                 badgeColor = Color(0xFF059669),
                 group = "Quản lý bán hàng",
-                route = FutaDestinations.INBOX,
+                route = FutaDestinations.CHAT_CENTER,
                 requiredPermissions = listOf("chat:view")
             ),
 
@@ -316,8 +316,8 @@ fun WorkspaceScreen(
             ),
             WorkspaceModuleItem(
                 id = "pricing",
-                title = "Gói dịch vụ & Hạn mức",
-                subtitle = "Bảng giá gói tin & quyền lợi tài khoản",
+                title = "Gói tư vấn viên",
+                subtitle = "Quyền lợi & hạn mức dành cho tư vấn viên",
                 vectorIcon = Icons.Default.Stars,
                 badgeColor = Color(0xFFD97706),
                 group = "Tài khoản & Tiện ích",
@@ -339,7 +339,8 @@ fun WorkspaceScreen(
                 vectorIcon = Icons.Default.CreditCard,
                 badgeColor = Color(0xFF10B981),
                 group = "Tài khoản & Tiện ích",
-                route = FutaDestinations.BILLING
+                route = FutaDestinations.BILLING,
+                hideIfStaff = true
             ),
             WorkspaceModuleItem(
                 id = "saved",
