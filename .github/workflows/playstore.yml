@@ -51,11 +51,20 @@ jobs:
           name: FutaLand-release-aab
           path: app/build/outputs/bundle/release/app-release.aab
 
-      - name: Deploy to Google Play Closed Testing
-        if: env.PLAY_STORE_JSON_KEY != ''
-        uses: r0adkll/upload-google-play@v1
+      - name: Check Google Play credentials
+        id: play_credentials
         env:
           PLAY_STORE_JSON_KEY: ${{ secrets.PLAY_STORE_JSON_KEY }}
+        run: |
+          if [ -n "$PLAY_STORE_JSON_KEY" ]; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "available=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Deploy to Google Play Closed Testing
+        if: steps.play_credentials.outputs.available == 'true'
+        uses: r0adkll/upload-google-play@v1
         with:
           serviceAccountJsonPlainText: ${{ secrets.PLAY_STORE_JSON_KEY }}
           packageName: com.futaland.realestate
