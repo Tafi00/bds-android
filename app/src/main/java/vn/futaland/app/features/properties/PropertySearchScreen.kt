@@ -446,7 +446,7 @@ fun PropertySearchScreen(
                                 context.startActivity(Intent.createChooser(sendIntent, "Chia sẻ sản phẩm"))
                             },
                             onCallClick = {
-                                val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:02838386852"))
+                                val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:02363575757"))
                                 context.startActivity(intent)
                             },
                             onChatClick = { onNavigate(FutaDestinations.INBOX) },

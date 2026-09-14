@@ -112,7 +112,7 @@ fun ProjectDetailScreen(
                     variant = FutaButtonVariant.CREAM,
                     icon = Icons.Default.Phone,
                     onClick = {
-                        val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:02838386852"))
+                        val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:02363575757"))
                         context.startActivity(intent)
                     }
                 )
@@ -425,7 +425,7 @@ fun ProjectDetailScreen(
                             FutaPropertyCard(
                                 apartment = apt,
                                 onCallClick = {
-                                    val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:02838386852"))
+                                    val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:02363575757"))
                                     context.startActivity(intent)
                                 },
                                 onChatClick = { onNavigate(FutaDestinations.INBOX) },

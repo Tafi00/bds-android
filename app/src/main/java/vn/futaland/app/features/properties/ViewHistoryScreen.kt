@@ -102,7 +102,7 @@ fun ViewHistoryScreen(
                     FutaPropertyCard(
                         apartment = apt,
                         onCallClick = {
-                            val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:02838386852"))
+                            val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:02363575757"))
                             context.startActivity(intent)
                         },
                         onChatClick = { onNavigate(FutaDestinations.INBOX) },

@@ -671,7 +671,7 @@ fun ContactScreen(
 
                         Row(
                             modifier = Modifier.fillMaxWidth().clickable {
-                                context.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:02838386852")))
+                                context.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:02363575757")))
                             },
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
@@ -681,7 +681,7 @@ fun ContactScreen(
                                 Spacer(Modifier.width(12.dp))
                                 Column {
                                     Text("Tổng đài CSKH 24/7", fontSize = 13.5.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
-                                    Text("028 3838 6852 (Miễn phí cước)", fontSize = 11.5.sp, color = FutaColors.Slate)
+                                    Text("0236 3575757 (Miễn phí cước)", fontSize = 11.5.sp, color = FutaColors.Slate)
                                 }
                             }
                             Icon(Icons.AutoMirrored.Filled.ArrowForward, null, tint = FutaColors.Slate, modifier = Modifier.size(15.dp))

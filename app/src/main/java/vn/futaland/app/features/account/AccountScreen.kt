@@ -453,7 +453,7 @@ fun AccountScreen(
                 lineHeight = 18.sp
             )
             Text(
-                text = "Hotline: 028 3838 6852\nĐịa chỉ: TP. Hồ Chí Minh & Đà Nẵng",
+                text = "Hotline: 0236 3575757\nĐịa chỉ: TP. Hồ Chí Minh & Đà Nẵng",
                 fontSize = 12.sp,
                 color = FutaColors.BrandGreen
             )

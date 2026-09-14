@@ -1029,7 +1029,7 @@ fun PropertyDetailScreen(
                     } else {
                         val advId = apt["advisorId"].string.ifEmpty { apt["advisor"]["id"].string.ifEmpty { apt["createdBy"]["id"].string } }
                         val advName = apt["advisor"]["name"].string.ifEmpty { apt["createdBy"]["name"].string }.ifEmpty { apt["ownerName"].string.ifEmpty { "Chuyên viên tư vấn FUTA Land" } }
-                        val advPhone = apt["advisor"]["phone"].string.ifEmpty { apt["createdBy"]["phone"].string }.ifEmpty { apt["ownerPhone"].string.ifEmpty { "02838386852" } }
+                        val advPhone = apt["advisor"]["phone"].string.ifEmpty { apt["createdBy"]["phone"].string }.ifEmpty { apt["ownerPhone"].string.ifEmpty { "02363575757" } }
                         val advAvatar = apt["advisor"]["avatar"].string.ifEmpty { apt["createdBy"]["avatar"].string }
                         listOf(
                             JSONValue.parse("""{"id":"$advId","name":"$advName","phone":"$advPhone","avatar":"$advAvatar"}""")
@@ -1067,7 +1067,7 @@ fun PropertyDetailScreen(
                             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                                 advisors.forEachIndexed { idx, adv ->
                                     val advName = adv["name"].string.ifEmpty { "Chuyên viên tư vấn FUTA Land" }
-                                    val advPhone = adv["phone"].string.ifEmpty { "02838386852" }
+                                    val advPhone = adv["phone"].string.ifEmpty { "02363575757" }
                                     val advAvatar = adv["avatar"].string
                                     val advId = adv["id"].string.ifEmpty { adv["advisorId"].string }
 
@@ -1786,7 +1786,7 @@ private fun AdvisorContactBottomSheet(
     } else {
         val advId = apt["advisorId"].string.ifEmpty { apt["advisor"]["id"].string.ifEmpty { apt["createdBy"]["id"].string } }
         val advName = apt["advisor"]["name"].string.ifEmpty { apt["createdBy"]["name"].string }.ifEmpty { apt["ownerName"].string.ifEmpty { "Chuyên viên tư vấn FUTA Land" } }
-        val advPhone = apt["advisor"]["phone"].string.ifEmpty { apt["createdBy"]["phone"].string }.ifEmpty { apt["ownerPhone"].string.ifEmpty { "02838386852" } }
+        val advPhone = apt["advisor"]["phone"].string.ifEmpty { apt["createdBy"]["phone"].string }.ifEmpty { apt["ownerPhone"].string.ifEmpty { "02363575757" } }
         val advAvatar = apt["advisor"]["avatar"].string.ifEmpty { apt["createdBy"]["avatar"].string }
         listOf(
             JSONValue.parse("""{"id":"$advId","name":"$advName","phone":"$advPhone","avatar":"$advAvatar"}""")
@@ -1951,7 +1951,7 @@ private fun AdvisorContactBottomSheet(
 
                 advisors.forEach { adv ->
                     val name = adv["name"].string.ifEmpty { "Chuyên viên FUTA Land" }
-                    val phone = adv["phone"].string.ifEmpty { "02838386852" }
+                    val phone = adv["phone"].string.ifEmpty { "02363575757" }
                     val avatar = adv["avatar"].string
                     val advId = adv["id"].string.ifEmpty { adv["advisorId"].string }
 
@@ -2073,7 +2073,7 @@ private fun AdvisorContactBottomSheet(
                             color = FutaColors.Navy
                         )
                         Text(
-                            text = "028 3838 6852 · Hỗ trợ toàn diện",
+                            text = "0236 3575757 · Hỗ trợ toàn diện",
                             fontSize = 11.5.sp,
                             color = FutaColors.Slate
                         )
@@ -2081,7 +2081,7 @@ private fun AdvisorContactBottomSheet(
                     Surface(
                         shape = CircleShape,
                         color = Color(0xFFFDF6EE),
-                        modifier = Modifier.clickable { onCallAdvisor("02838386852") }
+                        modifier = Modifier.clickable { onCallAdvisor("02363575757") }
                     ) {
                         Text(
                             text = "Gọi tổng đài",
