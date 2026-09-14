@@ -29,6 +29,7 @@ class ChatWebSocketManager private constructor() {
     private var webSocket: WebSocket? = null
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private var pingJob: Job? = null
+    private val typingJobs = mutableMapOf<String, Job>()
     private val joinedConversations = mutableSetOf<String>()
     private var isManualDisconnect = false
 
@@ -108,6 +109,10 @@ class ChatWebSocketManager private constructor() {
         isManualDisconnect = true
         pingJob?.cancel()
         pingJob = null
+        synchronized(typingJobs) {
+            typingJobs.values.forEach { it.cancel() }
+            typingJobs.clear()
+        }
         webSocket?.close(1000, "Normal closure")
         webSocket = null
         _isConnected.value = false
@@ -171,6 +176,17 @@ class ChatWebSocketManager private constructor() {
             when (type) {
                 "new_message" -> {
                     val msg = json["message"]
+                    val convId = msg["conversationId"].string
+                    if (convId.isNotEmpty()) {
+                        synchronized(typingJobs) {
+                            typingJobs.remove(convId)?.cancel()
+                        }
+                        if (_typingUsers.value.containsKey(convId)) {
+                            val updated = _typingUsers.value.toMutableMap()
+                            updated.remove(convId)
+                            _typingUsers.value = updated
+                        }
+                    }
                     scope.launch(Dispatchers.Main) {
                         onNewMessage?.invoke(msg)
                     }
@@ -178,17 +194,28 @@ class ChatWebSocketManager private constructor() {
                 "typing" -> {
                     val convId = json["conversationId"].string
                     val user = json["userName"].string.ifEmpty { "Tư vấn viên" }
-                    val current = _typingUsers.value.toMutableMap()
-                    current[convId] = user
-                    _typingUsers.value = current
-
-                    // Auto-clear typing after 3.5 seconds
-                    scope.launch {
-                        delay(3500)
-                        val updated = _typingUsers.value.toMutableMap()
-                        if (updated[convId] == user) {
-                            updated.remove(convId)
+                    if (convId.isNotEmpty()) {
+                        val current = _typingUsers.value
+                        if (current[convId] != user) {
+                            val updated = current.toMutableMap()
+                            updated[convId] = user
                             _typingUsers.value = updated
+                        }
+
+                        // Renew auto-clear timer per conversation (5 seconds)
+                        synchronized(typingJobs) {
+                            typingJobs[convId]?.cancel()
+                            typingJobs[convId] = scope.launch {
+                                delay(5000)
+                                synchronized(typingJobs) {
+                                    typingJobs.remove(convId)
+                                }
+                                val updated = _typingUsers.value.toMutableMap()
+                                if (updated[convId] == user) {
+                                    updated.remove(convId)
+                                    _typingUsers.value = updated
+                                }
+                            }
                         }
                     }
                 }

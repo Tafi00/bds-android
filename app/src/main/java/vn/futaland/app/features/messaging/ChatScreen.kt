@@ -38,6 +38,8 @@ import vn.futaland.app.core.auth.AppSession
 import vn.futaland.app.core.network.APIClient
 import vn.futaland.app.core.network.JSONValue
 import vn.futaland.app.designsystem.*
+import coil3.compose.AsyncImage
+
 data class ConversationItem(
     val id: String,
     val name: String,
@@ -57,7 +59,8 @@ data class ChatMessage(
     val senderName: String,
     val content: String,
     val isMe: Boolean,
-    val time: String
+    val time: String,
+    val apartmentCard: JSONValue? = null
 )
 
 @Composable
@@ -603,6 +606,13 @@ fun ChatScreen(
             }
         }
 
+        val activeTypingUser = activeConversationId?.let { typingUsers[it] }
+        LaunchedEffect(activeTypingUser) {
+            if (!activeTypingUser.isNullOrEmpty() && messages.isNotEmpty()) {
+                listState.animateScrollToItem(messages.size)
+            }
+        }
+
         LaunchedEffect(activeConversationId) {
             activeConversationId?.let { convId ->
                 ChatWebSocketManager.shared.join(convId)
@@ -623,6 +633,8 @@ fun ChatScreen(
                                     sType == "customer"
                                 }
                                 val timeStr = m["createdAt"].string.take(16).replace("T", " ")
+                                val card = m["metadata"]["apartmentCard"]
+                                val hasCard = !card.isNull && (card["propertyCode"].string.isNotEmpty() || card["title"].string.isNotEmpty() || card["recordId"].string.isNotEmpty())
                                 messages.add(
                                     ChatMessage(
                                         id = m.id,
@@ -630,7 +642,8 @@ fun ChatScreen(
                                         senderName = if (isMe) "Tôi" else (if (sType == "bot") "Trợ lý AI FUTA Land" else "Tư vấn viên"),
                                         content = m["content"].string,
                                         isMe = isMe,
-                                        time = timeStr
+                                        time = timeStr,
+                                        apartmentCard = if (hasCard) card else null
                                     )
                                 )
                             }
@@ -645,13 +658,16 @@ fun ChatScreen(
             ChatWebSocketManager.shared.onNewMessage = { jsonMsg ->
                 val convId = jsonMsg["conversationId"].string
                 if (convId == activeConversationId || activeConversationId == null || activeConversationId == "ai_agent") {
+                    val card = jsonMsg["metadata"]["apartmentCard"]
+                    val hasCard = !card.isNull && (card["propertyCode"].string.isNotEmpty() || card["title"].string.isNotEmpty() || card["recordId"].string.isNotEmpty())
                     val newMsg = ChatMessage(
                         id = jsonMsg["id"].string.ifEmpty { System.currentTimeMillis().toString() },
                         senderId = jsonMsg["senderId"].string,
                         senderName = jsonMsg["senderName"].string.ifEmpty { activeConversationName },
                         content = jsonMsg["content"].string,
                         isMe = false,
-                        time = "Vừa xong"
+                        time = "Vừa xong",
+                        apartmentCard = if (hasCard) card else null
                     )
                     messages.add(newMsg)
                     scope.launch {
@@ -826,22 +842,6 @@ fun ChatScreen(
                         .navigationBarsPadding()
                         .background(Color.White)
                 ) {
-                    // Typing Indicator if active
-                    val typingUser = activeConversationId?.let { typingUsers[it] }
-                    if (!typingUser.isNullOrEmpty()) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = "$typingUser đang soạn tin nhắn...",
-                                fontSize = 11.5.sp,
-                                color = FutaColors.BrandGreen,
-                                fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
-                            )
-                        }
-                    }
-
                     // Quick Reply Suggestion Chips (Staff only, hidden for customer)
                     if (isStaff) {
                         val quickReplies = listOf(
@@ -1045,6 +1045,42 @@ fun ChatScreen(
                 itemsIndexed(messages, key = { _, msg -> msg.id }) { _, msg ->
                     MessageBubble(msg = msg)
                 }
+
+                val typingUser = activeConversationId?.let { typingUsers[it] }
+                if (!typingUser.isNullOrEmpty()) {
+                    item(key = "typing_indicator_item") {
+                        Row(
+                            modifier = Modifier.padding(start = 4.dp, top = 2.dp, bottom = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Surface(
+                                shape = RoundedCornerShape(16.dp),
+                                color = Color.White,
+                                border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                                shadowElevation = 0.5.dp
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    Icon(
+                                        painter = painterResource(R.drawable.ic_lucide_bot),
+                                        contentDescription = null,
+                                        tint = FutaColors.BrandGreen,
+                                        modifier = Modifier.size(14.dp)
+                                    )
+                                    Text(
+                                        text = "$typingUser đang soạn tin nhắn...",
+                                        fontSize = 11.5.sp,
+                                        color = Color(0xFF64748B),
+                                        fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
     }
@@ -1131,6 +1167,62 @@ private fun MessageBubble(msg: ChatMessage) {
                 if (!msg.isMe) {
                     Text(msg.senderName, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = FutaColors.BrandGreen)
                     Spacer(Modifier.height(3.dp))
+                }
+                if (msg.apartmentCard != null) {
+                    val card = msg.apartmentCard
+                    val title = card["title"].string.ifEmpty { "Căn hộ ${card["propertyCode"].string}" }
+                    val zone = card["zone"].string
+                    val price = card["price"].double
+                    val imgUrl = card["imageUrl"].string
+                    Surface(
+                        shape = RoundedCornerShape(10.dp),
+                        color = if (msg.isMe) Color.White.copy(alpha = 0.15f) else Color(0xFFF8FAFC),
+                        border = BorderStroke(1.dp, if (msg.isMe) Color.White.copy(alpha = 0.25f) else Color(0xFFE2E8F0)),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 8.dp)
+                    ) {
+                        Column(modifier = Modifier.padding(8.dp)) {
+                            if (imgUrl.isNotEmpty()) {
+                                AsyncImage(
+                                    model = imgUrl,
+                                    contentDescription = title,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(110.dp)
+                                        .clip(RoundedCornerShape(6.dp)),
+                                    contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                                )
+                                Spacer(Modifier.height(6.dp))
+                            }
+                            Text(
+                                text = title,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = if (msg.isMe) Color.White else FutaColors.Navy,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            if (zone.isNotEmpty()) {
+                                Text(
+                                    text = zone,
+                                    fontSize = 10.5.sp,
+                                    color = if (msg.isMe) Color.White.copy(alpha = 0.8f) else Color(0xFF64748B),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                            if (price > 0) {
+                                val priceFormatted = "%,.0f đ".format(price).replace(",", ".")
+                                Text(
+                                    text = priceFormatted,
+                                    fontSize = 11.5.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (msg.isMe) Color(0xFFFEF08A) else FutaColors.BrandGreen
+                                )
+                            }
+                        }
+                    }
                 }
                 Text(
                     text = msg.content,
