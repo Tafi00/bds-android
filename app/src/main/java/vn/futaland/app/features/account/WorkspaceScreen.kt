@@ -221,7 +221,7 @@ fun WorkspaceScreen(
                 badgeColor = FutaColors.BrandGreen,
                 group = "Quản lý bán hàng",
                 route = FutaDestinations.ADVISOR_PRODUCTS,
-                requiresStaff = true
+                requiredPermissions = listOf("apartments:view")
             ),
             WorkspaceModuleItem(
                 id = "my_listings",
@@ -231,7 +231,7 @@ fun WorkspaceScreen(
                 badgeColor = Color(0xFF10B981),
                 group = "Quản lý bán hàng",
                 route = FutaDestinations.MY_LISTINGS,
-                requiredPermissions = listOf("apartments:create", "apartments:edit")
+                requiredPermissions = listOf("apartments:view")
             ),
             WorkspaceModuleItem(
                 id = "customers",
@@ -305,15 +305,7 @@ fun WorkspaceScreen(
             ),
 
             // TÀI KHOẢN & TIỆN ÍCH (Tất cả người dùng)
-            WorkspaceModuleItem(
-                id = "lucky_wheel",
-                title = "Vòng quay may mắn",
-                subtitle = "Tham gia vòng quay may mắn nhận quà",
-                vectorIcon = Icons.Default.CardGiftcard,
-                badgeColor = Color(0xFFD97706),
-                group = "Tài khoản & Tiện ích",
-                route = FutaDestinations.LUCKY_WHEEL
-            ),
+            // Lucky wheel entry temporarily hidden from the workspace.
             WorkspaceModuleItem(
                 id = "pricing",
                 title = "Gói tư vấn viên",

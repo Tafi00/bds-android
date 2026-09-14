@@ -723,7 +723,7 @@ fun PropertyDetailScreen(
 
 
                 // 5. Commission Panel (Sale & Admin View Only - Matching iOS)
-                val isSaleView = AppSession.shared.isAuthenticated && listOf("admin", "sale", "advisor", "agent", "telesale").contains(AppSession.shared.role)
+                val isSaleView = AppSession.shared.isAuthenticated && AppSession.shared.hasPermission("apartments:view")
                 if (isSaleView) {
                     item {
                         FutaCard(modifier = Modifier.fillMaxWidth()) {
@@ -2096,4 +2096,3 @@ private fun AdvisorContactBottomSheet(
         }
     }
 }
-

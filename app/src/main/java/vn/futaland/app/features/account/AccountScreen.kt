@@ -47,11 +47,10 @@ fun AccountScreen(
 
     val isAuthenticated = user != null && session.isAuthenticated
     val role = user?.get("role")?.string ?: session.role
-    val isInternalStaff = isAuthenticated && role != "customer" && role.isNotEmpty()
+    val isInternalStaff = session.isInternalStaff
     val canManageListings = session.hasPermission("apartments:create") ||
-        session.hasPermission("apartments:edit") ||
-        (isInternalStaff && role != "telesale")
-    val canAccessBilling = isInternalStaff || session.hasPermission("pricing:subscribe")
+        session.hasPermission("apartments:edit")
+    val canAccessBilling = session.hasPermission("pricing:subscribe")
 
     var showSignOutDialog by remember { mutableStateOf(false) }
     var showAboutDialog by remember { mutableStateOf(false) }
