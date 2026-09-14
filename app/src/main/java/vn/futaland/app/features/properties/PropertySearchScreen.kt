@@ -80,7 +80,7 @@ fun PropertySearchScreen(
     var loading by remember { mutableStateOf(false) }
 
     var availableZones by remember {
-        mutableStateOf<List<String>>(listOf("Times Square", "Khu Đô Thị C5B", "Hilton Phan Thiết", "Thuận Phước", "FUTA Kim Long", "Bến Tre Riverside"))
+        mutableStateOf<List<String>>(listOf("Đà Nẵng Times Square", "Khu Đô Thị C5B"))
     }
     var availableBedrooms by remember { mutableStateOf<List<Int>>(emptyList()) }
     var availablePropertyTypes by remember { mutableStateOf<List<String>>(emptyList()) }
@@ -105,7 +105,17 @@ fun PropertySearchScreen(
                 if (maxArea.isNotEmpty()) query["areaMax"] = maxArea
 
                 val res = APIClient.get().request("/apartments/filter-options", query = query)
-                val zList = res["data"]["zones"].array.map { it.string }.filter { it.isNotEmpty() }
+                var zList = res["data"]["zones"].array.map { it.string }.filter { it.isNotEmpty() }
+                if (zList.isEmpty()) {
+                    val zRes = try { APIClient.get().request("/zones") } catch (_: Exception) { null }
+                    val fromZones = zRes?.get("data")?.array?.mapNotNull { item ->
+                        val value = item["value"].string.ifEmpty { item["label"].string }
+                        value.takeIf { it.isNotEmpty() }
+                    } ?: emptyList()
+                    if (fromZones.isNotEmpty()) {
+                        zList = fromZones
+                    }
+                }
                 val brList = res["data"]["bedrooms"].array.mapNotNull { it.int.takeIf { v -> v > 0 } }
                 val ptList = (res["data"]["propertyTypes"].array + res["data"]["apartmentTypes"].array).map { it.string }.filter { it.isNotEmpty() }.distinct()
 
