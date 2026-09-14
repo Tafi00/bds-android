@@ -43,9 +43,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import kotlinx.coroutines.launch
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 import vn.futaland.app.R
 import vn.futaland.app.core.auth.AppSession
 import vn.futaland.app.core.network.APIClient
+import vn.futaland.app.core.sales.SalesPolicy
 import vn.futaland.app.core.network.JSONValue
 import vn.futaland.app.designsystem.*
 import vn.futaland.app.navigation.FutaDestinations
@@ -83,13 +86,41 @@ fun PropertyDetailScreen(
     var holdingName by remember { mutableStateOf(AppSession.shared.user?.get("name")?.string.orEmpty()) }
     var holdingPhone by remember { mutableStateOf(AppSession.shared.user?.get("phone")?.string.orEmpty()) }
     var holdingCccd by remember { mutableStateOf("") }
+    var holdingEmail by remember { mutableStateOf(AppSession.shared.user?.get("email")?.string.orEmpty()) }
     var holdingBusy by remember { mutableStateOf(false) }
+    var showRegistrationDialog by remember { mutableStateOf(false) }
+    var isRegistering by remember { mutableStateOf(false) }
+    var registrationInfo by remember { mutableStateOf<JSONValue?>(null) }
+
+    val isAdvisorViewer = AppSession.shared.isAuthenticated &&
+        (AppSession.shared.role == "sale" || AppSession.shared.role == "admin")
+    val sellingAction = SalesPolicy.sellingAction(
+        isAuthenticated = AppSession.shared.isAuthenticated,
+        isAdvisor = isAdvisorViewer,
+        hasActiveSellingRights = registrationInfo?.get("viewerRegistration")?.get("hasActiveRights")?.bool == true,
+        hasPendingRegistration = registrationInfo?.get("viewerRegistration")?.get("status")?.string == "pending",
+        remainingSlots = registrationInfo?.get("remainingSlots")?.int ?: 0
+    )
+
+    suspend fun loadRegistrationInfo() {
+        if (!AppSession.shared.isAuthenticated) {
+            registrationInfo = null
+            return
+        }
+        try {
+            val res = APIClient.get().request("/sales/registrations/apartment/$propertyId")
+            registrationInfo = res["data"]
+        } catch (_: Exception) {
+            registrationInfo = null
+        }
+    }
     LaunchedEffect(propertyId) {
         scope.launch {
             loading = true
             try {
                 val res = APIClient.get().request("/apartments/$propertyId")
                 property = res["data"]
+                loadRegistrationInfo()
                 val zone = property?.get("zone")?.string.orEmpty()
                 if (zone.isNotEmpty()) {
                     val simRes = APIClient.get().request("/apartments", query = mapOf("zone" to zone, "limit" to "6"))
@@ -158,9 +189,11 @@ fun PropertyDetailScreen(
             property?.let { apt ->
                 StickyContactBottomBar(
                     apt = apt,
+                    sellingAction = sellingAction,
                     onCallClick = { showAdvisorContactSheet = true },
                     onChatClick = { showAdvisorContactSheet = true },
-                    onHoldClick = { showHoldingSheet = true }
+                    onHoldClick = { showHoldingSheet = true },
+                    onRegisterClick = { showRegistrationDialog = true }
                 )
             }
         }
@@ -1378,6 +1411,43 @@ fun PropertyDetailScreen(
         }
 
         // =========================================================================
+        // 1b. SALES REGISTRATION POLICY DIALOG
+        // =========================================================================
+        if (showRegistrationDialog) {
+            property?.let { apt ->
+                SalesPolicyConfirmDialog(
+                    unitCode = apt["propertyCode"].string.ifEmpty { apt["unitCode"].string },
+                    projectName = apt["projectName"].string.ifEmpty { apt["zone"].string },
+                    isSubmitting = isRegistering,
+                    onDismiss = { if (!isRegistering) showRegistrationDialog = false },
+                    onConfirm = {
+                        scope.launch {
+                            isRegistering = true
+                            try {
+                                val body = buildJsonObject {
+                                    put("apartmentId", apt["recordId"].string.ifEmpty { apt.id })
+                                    put("customerName", AppSession.shared.user?.get("name")?.string ?: "Tư vấn viên FUTA Land")
+                                    put("customerPhone", AppSession.shared.user?.get("phone")?.string.orEmpty())
+                                    put("notes", "Đăng ký bán từ chi tiết sản phẩm (Android)")
+                                    put("salesPolicyAccepted", true)
+                                    put("salesPolicyVersion", SalesPolicy.VERSION)
+                                }.toString()
+                                APIClient.get().request("/sales/registrations", method = "POST", bodyJson = body)
+                                ToastCenter.show("Đã gửi yêu cầu đăng ký bán! Đang chờ Admin duyệt.")
+                                showRegistrationDialog = false
+                                loadRegistrationInfo()
+                            } catch (e: Exception) {
+                                ToastCenter.show(e.message ?: "Không gửi được yêu cầu đăng ký bán", isError = true)
+                            } finally {
+                                isRegistering = false
+                            }
+                        }
+                    }
+                )
+            }
+        }
+
+        // =========================================================================
         // 2. HOLDING DEPOSIT BOTTOM SHEET (Matching iOS)
         // =========================================================================
         if (showHoldingSheet) {
@@ -1425,23 +1495,62 @@ fun PropertyDetailScreen(
                             value = holdingCccd,
                             onValueChange = { holdingCccd = it },
                             placeholder = "Số CCCD / Hộ chiếu",
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done)
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next)
+                        )
+                        FutaInput(
+                            value = holdingEmail,
+                            onValueChange = { holdingEmail = it },
+                            placeholder = "Email khách hàng (bắt buộc)",
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email, imeAction = ImeAction.Done)
                         )
 
+                        val canSubmit = holdingName.isNotBlank() && holdingPhone.isNotBlank() && holdingEmail.isNotBlank()
                         FutaButton(
-                            text = if (holdingBusy) "Đang xử lý..." else "Xác nhận đặt cọc giữ chỗ",
+                            text = if (holdingBusy) "Đang xử lý..." else "Xác nhận giữ chỗ",
                             variant = FutaButtonVariant.SECONDARY,
-                            enabled = !holdingBusy,
+                            enabled = !holdingBusy && canSubmit,
                             onClick = {
                                 scope.launch {
                                     holdingBusy = true
                                     try {
-                                        val body = "{\"apartmentId\":\"${apt.id}\",\"customerName\":\"$holdingName\",\"customerPhone\":\"$holdingPhone\",\"amount\":50000000}"
-                                        APIClient.get().request("/sales/holding", method = "POST", bodyJson = body)
-                                    } catch (_: Exception) {}
-                                    holdingBusy = false
-                                    showHoldingSheet = false
-                                    ToastCenter.show("Đã gửi yêu cầu giữ chỗ căn thành công! Bộ phận pháp chế sẽ gọi bàn giao thỏa thuận.")
+                                        val registrationId = registrationInfo
+                                            ?.get("viewerRegistration")?.get("registrationId")?.string.orEmpty()
+                                        val hasActiveRights = registrationInfo
+                                            ?.get("viewerRegistration")?.get("hasActiveRights")?.bool == true
+
+                                        if (hasActiveRights && registrationId.isNotEmpty()) {
+                                            val holdBody = buildJsonObject {
+                                                put("customerName", holdingName)
+                                                put("customerPhone", holdingPhone)
+                                                put("customerEmail", holdingEmail)
+                                                if (holdingCccd.isNotBlank()) put("customerCccd", holdingCccd)
+                                            }.toString()
+                                            APIClient.get().request(
+                                                "/sales/registrations/$registrationId/hold",
+                                                method = "POST",
+                                                bodyJson = holdBody
+                                            )
+                                            ToastCenter.show("Đã giữ chỗ căn thành công! Chuyên viên FUTA sẽ liên hệ đối soát.")
+                                        } else {
+                                            val body = buildJsonObject {
+                                                put("apartmentId", apt["recordId"].string.ifEmpty { apt.id })
+                                                put("customerName", holdingName)
+                                                put("customerPhone", holdingPhone)
+                                                put("customerEmail", holdingEmail)
+                                                if (holdingCccd.isNotBlank()) put("customerCccd", holdingCccd)
+                                                put("salesPolicyAccepted", true)
+                                                put("salesPolicyVersion", SalesPolicy.VERSION)
+                                            }.toString()
+                                            APIClient.get().request("/sales/registrations", method = "POST", bodyJson = body)
+                                            ToastCenter.show("Đã gửi hồ sơ đăng ký bán. Vui lòng chờ Admin duyệt trước khi giữ chỗ.")
+                                        }
+                                        showHoldingSheet = false
+                                        loadRegistrationInfo()
+                                    } catch (e: Exception) {
+                                        ToastCenter.show(e.message ?: "Không gửi được yêu cầu giữ chỗ", isError = true)
+                                    } finally {
+                                        holdingBusy = false
+                                    }
                                 }
                             },
                             modifier = Modifier.fillMaxWidth()
@@ -1601,11 +1710,30 @@ private fun MediaPlaceholderCard(
 }
 
 @Composable
+private fun SellingStatusChip(text: String, color: Color) {
+    Surface(
+        shape = RoundedCornerShape(12.dp),
+        color = color.copy(alpha = 0.12f)
+    ) {
+        Text(
+            text = text,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Bold,
+            color = color,
+            maxLines = 1,
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 11.dp)
+        )
+    }
+}
+
+@Composable
 private fun StickyContactBottomBar(
     apt: JSONValue,
+    sellingAction: SalesPolicy.SellingAction,
     onCallClick: () -> Unit,
     onChatClick: () -> Unit,
-    onHoldClick: () -> Unit
+    onHoldClick: () -> Unit,
+    onRegisterClick: () -> Unit
 ) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
@@ -1641,23 +1769,45 @@ private fun StickyContactBottomBar(
 
             Spacer(Modifier.width(8.dp))
 
-            // Action Buttons: Giữ chỗ + Gọi + Chat
+            // Action Buttons: selling action + Gọi + Chat. Holding is limited to
+            // advisors whose "đăng ký bán" was approved by an admin.
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                // Giữ chỗ cọc căn hộ
-                Surface(
-                    shape = RoundedCornerShape(12.dp),
-                    color = Color(0xFF0E7643),
-                    shadowElevation = 2.dp,
-                    modifier = Modifier.clickable(onClick = onHoldClick)
-                ) {
-                    Text(
-                        text = "Giữ chỗ ngay",
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White,
-                        maxLines = 1,
-                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)
-                    )
+                when (sellingAction) {
+                    SalesPolicy.SellingAction.HOLD -> Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = Color(0xFF0E7643),
+                        shadowElevation = 2.dp,
+                        modifier = Modifier.clickable(onClick = onHoldClick)
+                    ) {
+                        Text(
+                            text = "Giữ chỗ ngay",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White,
+                            maxLines = 1,
+                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)
+                        )
+                    }
+
+                    SalesPolicy.SellingAction.REGISTER -> Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = Color(0xFFF97316),
+                        shadowElevation = 2.dp,
+                        modifier = Modifier.clickable(onClick = onRegisterClick)
+                    ) {
+                        Text(
+                            text = "Đăng ký bán",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White,
+                            maxLines = 1,
+                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)
+                        )
+                    }
+
+                    SalesPolicy.SellingAction.AWAITING_APPROVAL -> SellingStatusChip("Chờ duyệt", Color(0xFFF97316))
+                    SalesPolicy.SellingAction.OUT_OF_SLOTS -> SellingStatusChip("Đủ TVV", FutaColors.Slate)
+                    SalesPolicy.SellingAction.UNAVAILABLE -> Unit
                 }
 
                 // Quick phone icon

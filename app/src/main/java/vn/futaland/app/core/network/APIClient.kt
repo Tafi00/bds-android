@@ -14,9 +14,10 @@ import java.io.IOException
 import java.util.concurrent.TimeUnit
 
 class APIError(val statusCode: Int, override val message: String) : Exception(message) {
+    /** No usable credentials for the request; the message stays whatever the
+     * server said so a wrong password is reported as a wrong password. */
     val isUnauthorized: Boolean
-        get() = statusCode == 401 || message.contains("token", ignoreCase = true) ||
-                message.contains("unauthorized", ignoreCase = true) || message.contains("hết hạn", ignoreCase = true)
+        get() = statusCode == 401
 }
 
 class APIClient private constructor(context: Context) {
@@ -71,6 +72,7 @@ class APIClient private constructor(context: Context) {
         val requestBody = bodyJson?.toRequestBody("application/json; charset=utf-8".toMediaType())
         requestBuilder.method(method, requestBody)
 
+        val wasAuthenticated = effectiveToken != null
         var response = okHttpClient.newCall(requestBuilder.build()).execute()
 
         // Handle 401 and attempt refresh token
@@ -90,13 +92,23 @@ class APIClient private constructor(context: Context) {
         val respBody = response.body?.string().orEmpty()
         if (!response.isSuccessful) {
             val code = response.code
-            if (code == 401) {
+            // A 401 on a request we sent without credentials (e.g. a rejected
+            // sign-in) is not an expired session.
+            if (code == 401 && wasAuthenticated) {
                 onSessionExpired?.invoke()
             }
-            throw APIError(code, if (respBody.isNotEmpty()) respBody else "Lỗi HTTP $code")
+            throw APIError(code, errorMessage(respBody, code))
         }
 
         JSONValue.parse(respBody)
+    }
+
+    /** Server errors are `{success:false,error:{message}}`; never surface raw JSON. */
+    private fun errorMessage(respBody: String, code: Int): String {
+        val parsed = runCatching { JSONValue.parse(respBody) }.getOrNull()
+        val message = parsed?.get("error")?.get("message")?.string?.takeIf { it.isNotBlank() }
+            ?: parsed?.get("message")?.string?.takeIf { it.isNotBlank() }
+        return message ?: "Lỗi HTTP $code"
     }
 
     suspend fun upload(
@@ -124,7 +136,7 @@ class APIClient private constructor(context: Context) {
         val response = okHttpClient.newCall(requestBuilder.build()).execute()
         val respBody = response.body?.string().orEmpty()
         if (!response.isSuccessful) {
-            throw APIError(response.code, respBody)
+            throw APIError(response.code, errorMessage(respBody, response.code))
         }
         JSONValue.parse(respBody)
     }

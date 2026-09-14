@@ -98,6 +98,25 @@ fun PricingScreen(
         )
     }
     var displayPlans by remember { mutableStateOf(plans) }
+    // Bank/QR details come from CMS Site Settings so customers never transfer
+    // to an account staff cannot collect from.
+    var bankName by remember { mutableStateOf("") }
+    var bankCode by remember { mutableStateOf("") }
+    var bankAccountNumber by remember { mutableStateOf("") }
+    var bankAccountHolder by remember { mutableStateOf("") }
+
+    LaunchedEffect(Unit) {
+        try {
+            val res = APIClient.get().request("/cms/settings")
+            val banking = res["data"].valueAt("systemConfig.banking")
+            bankName = banking["bankName"].string
+            bankCode = banking["bankCode"].string
+            bankAccountNumber = banking["accountNumber"].string
+            bankAccountHolder = banking["accountHolder"].string
+        } catch (_: Exception) {
+            // Leave the transfer block hidden instead of inventing account data.
+        }
+    }
 
     LaunchedEffect(Unit) {
         scope.launch {
@@ -395,17 +414,23 @@ fun PricingScreen(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text("Ngân hàng:", fontSize = 12.5.sp, color = FutaColors.Slate)
-                            Text("VietinBank (ICB)", fontSize = 12.5.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
+                        if (bankName.isNotEmpty()) {
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text("Ngân hàng:", fontSize = 12.5.sp, color = FutaColors.Slate)
+                                Text(bankName, fontSize = 12.5.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
+                            }
                         }
-                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text("Số tài khoản:", fontSize = 12.5.sp, color = FutaColors.Slate)
-                            Text("0858606168", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = FutaColors.BrandGreen)
+                        if (bankAccountNumber.isNotEmpty()) {
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text("Số tài khoản:", fontSize = 12.5.sp, color = FutaColors.Slate)
+                                Text(bankAccountNumber, fontSize = 13.sp, fontWeight = FontWeight.Bold, color = FutaColors.BrandGreen)
+                            }
                         }
-                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text("Chủ tài khoản:", fontSize = 12.5.sp, color = FutaColors.Slate)
-                            Text("CTCP BAT DONG SAN FUTA LAND", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
+                        if (bankAccountHolder.isNotEmpty()) {
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text("Chủ tài khoản:", fontSize = 12.5.sp, color = FutaColors.Slate)
+                                Text(bankAccountHolder, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
+                            }
                         }
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                             Text("Nội dung CK:", fontSize = 12.5.sp, color = FutaColors.Slate)
@@ -417,12 +442,22 @@ fun PricingScreen(
                 // VietQR Code Image
                 val userPhone = AppSession.shared.user?.get("phone")?.string.orEmpty()
                 val transferDesc = "FUTA ${plan.id.uppercase()} $userPhone".trim()
-                val qrUrl = "https://img.vietqr.io/image/ICB-0858606168-compact2.png?amount=$totalAmount&addInfo=${java.net.URLEncoder.encode(transferDesc, "UTF-8")}"
+                val qrUrl = if (bankCode.isNotEmpty() && bankAccountNumber.isNotEmpty()) {
+                    "https://img.vietqr.io/image/$bankCode-$bankAccountNumber-compact2.png?amount=$totalAmount&addInfo=${java.net.URLEncoder.encode(transferDesc, "UTF-8")}"
+                } else null
 
                 Column(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
+                    if (qrUrl == null) {
+                        Text(
+                            "Thông tin chuyển khoản đang được cập nhật. Vui lòng liên hệ hotline FUTA Land.",
+                            fontSize = 12.sp,
+                            color = FutaColors.Slate
+                        )
+                        Spacer(Modifier.height(8.dp))
+                    } else {
                     Text("Quét mã VietQR chuyển khoản tự động:", fontSize = 12.sp, color = FutaColors.Slate)
                     Spacer(Modifier.height(8.dp))
                     AsyncImage(
@@ -433,6 +468,7 @@ fun PricingScreen(
                             .clip(RoundedCornerShape(12.dp))
                             .border(1.dp, Color(0xFFCBD5E1), RoundedCornerShape(12.dp))
                     )
+                    }
                 }
 
                 FutaButton(
@@ -448,8 +484,7 @@ fun PricingScreen(
                                 planToCheckout = null
                                 ToastCenter.show("Tạo đơn hàng thành công! Gói dịch vụ sẽ kích hoạt sau khi đối soát.")
                             } catch (e: Exception) {
-                                planToCheckout = null
-                                ToastCenter.show("Đã tiếp nhận yêu cầu nâng cấp gói dịch vụ!")
+                                ToastCenter.show(e.message ?: "Không tạo được đơn hàng, vui lòng thử lại", isError = true)
                             } finally {
                                 isCreatingOrder = false
                             }

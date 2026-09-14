@@ -29,6 +29,7 @@ import coil3.compose.AsyncImage
 import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
 import vn.futaland.app.core.network.APIClient
+import vn.futaland.app.core.sales.SalesPolicy
 import vn.futaland.app.designsystem.*
 import vn.futaland.app.navigation.FutaDestinations
 
@@ -77,6 +78,7 @@ fun MyListingsScreen(
     var items by remember { mutableStateOf<List<SellingItem>>(emptyList()) }
     var loading by remember { mutableStateOf(true) }
     var registeringApartment by remember { mutableStateOf<SellingItem?>(null) }
+    var isRegistering by remember { mutableStateOf(false) }
 
     val activeFilterCount = listOf(
         projectFilter,
@@ -759,104 +761,25 @@ fun MyListingsScreen(
 
     // Sales Policy Confirmation Dialog
     registeringApartment?.let { apt ->
-        var agreed by remember { mutableStateOf(false) }
-        var isSubmitting by remember { mutableStateOf(false) }
-
-        AlertDialog(
-            onDismissRequest = {
-                if (!isSubmitting) registeringApartment = null
-            },
-            icon = {
-                Icon(
-                    Icons.Default.VerifiedUser,
-                    contentDescription = null,
-                    tint = FutaColors.BrandOrange,
-                    modifier = Modifier.size(40.dp)
-                )
-            },
-            title = {
-                Text("Xác nhận đăng ký bán", fontWeight = FontWeight.Bold, fontSize = 18.sp)
-            },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text(
-                        text = "Trước khi đăng ký bán căn ${apt.unitCode} thuộc ${apt.projectName}, bạn cần đọc và đồng ý với chính sách bán hàng và quy định của FUTA Land.",
-                        fontSize = 13.5.sp,
-                        color = FutaColors.Slate
-                    )
-
-                    Surface(
-                        color = Color(0xFFFFFBEB),
-                        shape = RoundedCornerShape(8.dp),
-                        border = BorderStroke(1.dp, Color(0xFFFDE68A)),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Column(modifier = Modifier.padding(10.dp)) {
-                            Text(
-                                text = "Nguyên tắc ưu tiên khi có tranh chấp",
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 12.sp,
-                                color = Color(0xFF92400E)
-                            )
-                            Text(
-                                text = "Trùng khách và thứ tự giữ chỗ được đối soát theo hồ sơ hợp lệ được hệ thống ghi nhận trước, không theo thỏa thuận miệng.",
-                                fontSize = 11.5.sp,
-                                color = Color(0xFFB45309)
-                            )
-                        }
+        SalesPolicyConfirmDialog(
+            unitCode = apt.unitCode,
+            projectName = apt.projectName,
+            isSubmitting = isRegistering,
+            onDismiss = { if (!isRegistering) registeringApartment = null },
+            onConfirm = {
+                scope.launch {
+                    isRegistering = true
+                    try {
+                        val body = """{"apartmentId":"${apt.aptId}","customerName":"Tư vấn viên FUTA Land","notes":"Đăng ký bán từ ứng dụng Android","salesPolicyAccepted":true,"salesPolicyVersion":"${SalesPolicy.VERSION}"}"""
+                        APIClient.get().request("/sales/registrations", method = "POST", bodyJson = body)
+                        ToastCenter.show("Đã gửi yêu cầu đăng ký bán căn ${apt.unitCode}! Đang chờ Admin duyệt.")
+                        registeringApartment = null
+                        loadData()
+                    } catch (e: Exception) {
+                        ToastCenter.show("Lỗi: ${e.message}", isError = true)
+                    } finally {
+                        isRegistering = false
                     }
-
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.clickable { agreed = !agreed }
-                    ) {
-                        Checkbox(
-                            checked = agreed,
-                            onCheckedChange = { agreed = it },
-                            colors = CheckboxDefaults.colors(checkedColor = FutaColors.BrandGreen)
-                        )
-                        Text(
-                            text = "Tôi đồng ý với chính sách bán hàng và quy chế phân phối (Phiên bản 1.0)",
-                            fontSize = 12.sp,
-                            color = FutaColors.Navy
-                        )
-                    }
-                }
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        scope.launch {
-                            isSubmitting = true
-                            try {
-                                val body = """{"apartmentId":"${apt.aptId}","customerName":"Tư vấn viên FUTA Land","notes":"Đăng ký bán từ ứng dụng Android","salesPolicyAccepted":true,"salesPolicyVersion":"1.0"}"""
-                                APIClient.get().request("/sales/registrations", method = "POST", bodyJson = body)
-                                ToastCenter.show("Đã gửi yêu cầu đăng ký bán căn ${apt.unitCode}! Đang chờ Admin duyệt.")
-                                registeringApartment = null
-                                loadData()
-                            } catch (e: Exception) {
-                                ToastCenter.show("Lỗi: ${e.message}", isError = true)
-                            } finally {
-                                isSubmitting = false
-                            }
-                        }
-                    },
-                    enabled = agreed && !isSubmitting,
-                    colors = ButtonDefaults.buttonColors(containerColor = FutaColors.BrandGreen)
-                ) {
-                    if (isSubmitting) {
-                        CircularProgressIndicator(color = Color.White, modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
-                    } else {
-                        Text("Xác nhận đăng ký")
-                    }
-                }
-            },
-            dismissButton = {
-                TextButton(
-                    onClick = { registeringApartment = null },
-                    enabled = !isSubmitting
-                ) {
-                    Text("Hủy bỏ", color = FutaColors.Slate)
                 }
             }
         )

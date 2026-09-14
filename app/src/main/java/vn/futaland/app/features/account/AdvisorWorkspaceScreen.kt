@@ -445,6 +445,27 @@ private fun AdvisorPackageSheet(
     val scope = rememberCoroutineScope()
     var selectedPlan by remember { mutableStateOf("starter") }
     var isSubmitting by remember { mutableStateOf(false) }
+    // Package pricing is configured in CMS Site Settings, never hardcoded.
+    var yearlyPackagePrice by remember { mutableStateOf(0) }
+    var monthlyPackagePrice by remember { mutableStateOf(0) }
+
+    LaunchedEffect(Unit) {
+        try {
+            val res = APIClient.get().request("/cms/settings")
+            val banking = res["data"].valueAt("systemConfig.banking")
+            yearlyPackagePrice = banking["yearlyPackagePrice"].int
+            monthlyPackagePrice = banking["monthlyPackagePrice"].int
+        } catch (_: Exception) {
+            // Keep the price unknown rather than quoting an invented amount.
+        }
+    }
+
+    fun formatPrice(value: Int): String = String.format("%,d", value).replace(',', '.')
+    val proPriceLabel = when {
+        monthlyPackagePrice > 0 -> "${formatPrice(monthlyPackagePrice)} đ/tháng"
+        yearlyPackagePrice > 0 -> "${formatPrice(yearlyPackagePrice)} đ/năm"
+        else -> "Liên hệ để biết giá"
+    }
 
     FutaBottomSheet(
         visible = true,
@@ -467,7 +488,7 @@ private fun AdvisorPackageSheet(
 
             listOf(
                 Triple("starter", "Gói Chuyên viên Tiêu chuẩn", "Miễn phí · Giữ chỗ tối đa 2 căn · Hoa hồng 1.5%"),
-                Triple("pro", "Gói Chuyên viên Cao cấp", "500.000 đ/tháng · Giữ chỗ 5 căn · Ưu tiên giỏ VIP · Hoa hồng 2.0%")
+                Triple("pro", "Gói Chuyên viên Cao cấp", "$proPriceLabel · Giữ chỗ 5 căn · Ưu tiên giỏ VIP · Hoa hồng 2.0%")
             ).forEach { (key, name, desc) ->
                 val isSelected = selectedPlan == key
                 Surface(
@@ -512,8 +533,7 @@ private fun AdvisorPackageSheet(
                             ToastCenter.show("Đăng ký gói tư vấn viên thành công!")
                             onSuccess()
                         } catch (e: Exception) {
-                            ToastCenter.show("Đã lưu gói TVV thành công!")
-                            onSuccess()
+                            ToastCenter.show(e.message ?: "Không đăng ký được gói tư vấn viên", isError = true)
                         } finally {
                             isSubmitting = false
                         }

@@ -39,6 +39,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 import vn.futaland.app.R
 import vn.futaland.app.core.auth.AppSession
 import vn.futaland.app.core.network.APIClient
@@ -50,6 +52,8 @@ enum class AuthStep {
     PASSWORD,
     OTP,
     CREATE_PASSWORD,
+    RESET_PASSWORD,
+    CHANGE_PASSWORD,
     PROFILE
 }
 
@@ -82,6 +86,11 @@ fun AuthenticationScreen(
     var showPassword by remember { mutableStateOf(false) }
     var showConfirmPassword by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
+    // OTP verified inside the "quên mật khẩu" flow replaces the password
+    // instead of completing a signup.
+    var isResetFlow by remember { mutableStateOf(false) }
+    // Password just used to sign in, kept only to authorise a forced change.
+    var currentPassword by remember { mutableStateOf("") }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var resendSeconds by remember { mutableIntStateOf(0) }
 
@@ -168,8 +177,16 @@ fun AuthenticationScreen(
 
                 if (access.isNotEmpty()) {
                     AppSession.shared.login(access, refresh, user)
-                    ToastCenter.show("Đăng nhập thành công!")
-                    onSuccess()
+                    // A password handed out by an admin must be replaced first.
+                    if (user["mustChangePassword"].bool) {
+                        currentPassword = password
+                        password = ""
+                        confirmPassword = ""
+                        step = AuthStep.CHANGE_PASSWORD
+                    } else {
+                        ToastCenter.show("Đăng nhập thành công!")
+                        onSuccess()
+                    }
                 } else {
                     errorMessage = "Phản hồi đăng nhập không hợp lệ"
                 }
@@ -202,6 +219,95 @@ fun AuthenticationScreen(
         }
     }
 
+    // Forgot password: OTP proves phone ownership, then a new password is set.
+    fun startPasswordReset() {
+        busy = true
+        errorMessage = null
+        scope.launch {
+            try {
+                val body = buildJsonObject { put("phone", resolvedPhone) }.toString()
+                APIClient.get().request("/auth/send-otp", method = "POST", bodyJson = body)
+                isResetFlow = true
+                otp = ""
+                signupToken = ""
+                startCountdown()
+                step = AuthStep.OTP
+            } catch (e: Exception) {
+                errorMessage = e.message ?: "Không thể gửi mã OTP"
+            } finally {
+                busy = false
+            }
+        }
+    }
+
+    fun handleResetPassword() {
+        if (password.length < 8) {
+            errorMessage = "Mật khẩu phải có ít nhất 8 ký tự"
+            return
+        }
+        if (password != confirmPassword) {
+            errorMessage = "Mật khẩu xác nhận không khớp"
+            return
+        }
+
+        busy = true
+        errorMessage = null
+        scope.launch {
+            try {
+                val body = buildJsonObject {
+                    put("phone", resolvedPhone)
+                    put("newPassword", password)
+                    if (signupToken.isNotEmpty()) put("signupToken", signupToken) else put("otp", otp)
+                }.toString()
+                val res = APIClient.get().request("/auth/reset-password", method = "POST", bodyJson = body)
+                val data = res["data"]
+                AppSession.shared.login(data["accessToken"].string, data["refreshToken"].string, data["user"])
+                isResetFlow = false
+                ToastCenter.show("Đã đặt lại mật khẩu. Bạn đã được đăng nhập.")
+                onSuccess()
+            } catch (e: Exception) {
+                errorMessage = e.message ?: "Không đặt lại được mật khẩu"
+            } finally {
+                busy = false
+            }
+        }
+    }
+
+    fun handleForcedPasswordChange() {
+        if (password.length < 8) {
+            errorMessage = "Mật khẩu phải có ít nhất 8 ký tự"
+            return
+        }
+        if (password != confirmPassword) {
+            errorMessage = "Mật khẩu xác nhận không khớp"
+            return
+        }
+
+        busy = true
+        errorMessage = null
+        scope.launch {
+            try {
+                val body = buildJsonObject {
+                    put("currentPassword", currentPassword)
+                    put("newPassword", password)
+                }.toString()
+                val res = APIClient.get().request("/auth/change-password", method = "POST", bodyJson = body)
+                AppSession.shared.login(
+                    APIClient.get().tokenStorage.accessToken.orEmpty(),
+                    APIClient.get().tokenStorage.refreshToken.orEmpty(),
+                    res["data"]
+                )
+                currentPassword = ""
+                ToastCenter.show("Đã đổi mật khẩu thành công")
+                onSuccess()
+            } catch (e: Exception) {
+                errorMessage = e.message ?: "Không đổi được mật khẩu"
+            } finally {
+                busy = false
+            }
+        }
+    }
+
     // STEP 3: OTP Verify
     fun handleOtpSubmit() {
         val cleanedOtp = otp.trim()
@@ -220,7 +326,9 @@ fun AuthenticationScreen(
                     bodyJson = "{\"phone\":\"$resolvedPhone\",\"otp\":\"$cleanedOtp\"}"
                 )
                 signupToken = res["data"]["signupToken"].string
-                step = AuthStep.CREATE_PASSWORD
+                password = ""
+                confirmPassword = ""
+                step = if (isResetFlow) AuthStep.RESET_PASSWORD else AuthStep.CREATE_PASSWORD
             } catch (e: Exception) {
                 errorMessage = e.message ?: "Mã OTP không chính xác hoặc đã hết hạn"
             } finally {
@@ -326,6 +434,8 @@ fun AuthenticationScreen(
         AuthStep.PASSWORD -> "Nhập mật khẩu"
         AuthStep.OTP -> "Xác thực số điện thoại"
         AuthStep.CREATE_PASSWORD -> "Tạo mật khẩu mới"
+        AuthStep.RESET_PASSWORD -> "Đặt lại mật khẩu"
+        AuthStep.CHANGE_PASSWORD -> "Đổi mật khẩu"
         AuthStep.PROFILE -> "Hoàn tất thông tin"
     }
 
@@ -335,6 +445,8 @@ fun AuthenticationScreen(
         AuthStep.PASSWORD -> "Nhập mật khẩu tài khoản của bạn để tiếp tục."
         AuthStep.OTP -> "Mã xác thực gồm 6 chữ số đã được gửi tới số điện thoại của bạn."
         AuthStep.CREATE_PASSWORD -> "Mật khẩu cần tối thiểu 8 ký tự để bảo vệ tài khoản."
+        AuthStep.RESET_PASSWORD -> "Xác thực OTP thành công. Hãy đặt mật khẩu mới cho tài khoản."
+        AuthStep.CHANGE_PASSWORD -> "Mật khẩu đã được quản trị viên đặt lại. Hãy tạo mật khẩu mới."
         AuthStep.PROFILE -> "Cung cấp họ tên và email để nhận thông báo giao dịch."
     }
 
@@ -697,6 +809,25 @@ fun AuthenticationScreen(
                             }
                         }
 
+                        // Forgot password: reset via OTP
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable(enabled = !busy) { startPasswordReset() }
+                                .padding(top = 8.dp),
+                            horizontalArrangement = Arrangement.Center,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(Icons.Default.Lock, null, tint = FutaColors.BrandGreen, modifier = Modifier.size(16.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text(
+                                text = "Quên mật khẩu? Đặt lại bằng OTP",
+                                fontSize = 13.5.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = FutaColors.BrandGreen
+                            )
+                        }
+
                         // Switch to OTP link
                         Row(
                             modifier = Modifier
@@ -881,6 +1012,72 @@ fun AuthenticationScreen(
                                 CircularProgressIndicator(color = Color.White, modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
                             } else {
                                 Text("Hoàn tất đăng ký", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
+                            }
+                        }
+                    }
+                }
+
+                AuthStep.RESET_PASSWORD, AuthStep.CHANGE_PASSWORD -> {
+                    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                        Text(
+                            text = if (step == AuthStep.RESET_PASSWORD) {
+                                "Đặt mật khẩu mới cho ${displayIdentifier.ifEmpty { resolvedPhone }}. Sau khi lưu, bạn sẽ được đăng nhập ngay."
+                            } else {
+                                "Vui lòng nhập mật khẩu mới để tiếp tục sử dụng tài khoản."
+                            },
+                            fontSize = 13.sp,
+                            color = FutaColors.Slate,
+                            lineHeight = 18.sp
+                        )
+
+                        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Text("MẬT KHẨU MỚI (*)", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = FutaColors.Slate)
+                            FutaPasswordField(
+                                value = password,
+                                onValueChange = { password = it },
+                                placeholder = "Tối thiểu 8 ký tự",
+                                showPassword = showPassword,
+                                onToggle = { showPassword = !showPassword },
+                                enabled = !busy
+                            )
+                        }
+
+                        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Text("XÁC NHẬN MẬT KHẨU MỚI (*)", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = FutaColors.Slate)
+                            FutaPasswordField(
+                                value = confirmPassword,
+                                onValueChange = { confirmPassword = it },
+                                placeholder = "Nhập lại mật khẩu mới",
+                                showPassword = showConfirmPassword,
+                                onToggle = { showConfirmPassword = !showConfirmPassword },
+                                enabled = !busy
+                            )
+                        }
+
+                        val canSubmit = password.length >= 8 && password == confirmPassword
+                        Button(
+                            onClick = {
+                                if (step == AuthStep.RESET_PASSWORD) handleResetPassword() else handleForcedPasswordChange()
+                            },
+                            enabled = canSubmit && !busy,
+                            shape = RoundedCornerShape(14.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = if (canSubmit) FutaColors.BrandGreen else FutaColors.BrandGreen.copy(alpha = 0.4f),
+                                disabledContainerColor = FutaColors.BrandGreen.copy(alpha = 0.4f)
+                            ),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(50.dp)
+                        ) {
+                            if (busy) {
+                                CircularProgressIndicator(color = Color.White, modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                            } else {
+                                Text(
+                                    text = if (step == AuthStep.RESET_PASSWORD) "Đặt lại mật khẩu" else "Đổi mật khẩu",
+                                    fontSize = 16.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = Color.White
+                                )
                             }
                         }
                     }
