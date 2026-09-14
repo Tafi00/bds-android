@@ -143,7 +143,7 @@ fun ChatScreen(
                 }
                 val badge = if (isStaff && mode == "advisor") "" else (if (isAi) "" else "Sale phụ trách")
                 val lastMsg = c["lastMessageContent"].string.ifEmpty { "Bắt đầu cuộc trò chuyện..." }
-                val time = c["lastMessageAt"].string.take(16).replace("T", " ")
+                val time = formatChatDateTime(c["lastMessageAt"].string.ifEmpty { c["updatedAt"].string })
                 val unread = unreadMap[c.id] ?: c["unreadCount"].int
                 val zone = c["apartment"]["zone"].string.ifEmpty { c["apartment"]["projectName"].string }
                 val code = c["apartment"]["propertyCode"].string.ifEmpty { c["apartment"]["unitCode"].string }
@@ -624,7 +624,8 @@ fun ChatScreen(
                         if (msgList.isNotEmpty()) {
                             messages.clear()
                             val currentUserId = AppSession.shared.user?.id.orEmpty()
-                            for (m in msgList.reversed()) {
+                            val sorted = msgList.sortedBy { it["createdAt"].string }
+                            for (m in sorted) {
                                 val sType = m["senderType"].string
                                 val senderId = m["senderId"].string
                                 val isMe = if (currentUserId.isNotEmpty() && senderId.isNotEmpty()) {
@@ -632,7 +633,7 @@ fun ChatScreen(
                                 } else {
                                     sType == "customer"
                                 }
-                                val timeStr = m["createdAt"].string.take(16).replace("T", " ")
+                                val timeStr = formatChatTime(m["createdAt"].string)
                                 val card = m["metadata"]["apartmentCard"]
                                 val hasCard = !card.isNull && (card["propertyCode"].string.isNotEmpty() || card["title"].string.isNotEmpty() || card["recordId"].string.isNotEmpty())
                                 messages.add(
@@ -1236,3 +1237,39 @@ private fun MessageBubble(msg: ChatMessage) {
         Text(msg.time, fontSize = 10.sp, color = FutaColors.Slate)
     }
 }
+
+private fun formatChatTime(dateStr: String): String {
+    if (dateStr.isEmpty()) return ""
+    return try {
+        val instant = java.time.Instant.parse(dateStr)
+        val zone = java.time.ZoneId.of("Asia/Ho_Chi_Minh")
+        val zonedDateTime = instant.atZone(zone)
+        val formatter = java.time.format.DateTimeFormatter.ofPattern("HH:mm")
+        zonedDateTime.format(formatter)
+    } catch (_: Exception) {
+        try {
+            val sdf = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", java.util.Locale.getDefault())
+            sdf.timeZone = java.util.TimeZone.getTimeZone("UTC")
+            val date = sdf.parse(dateStr)
+            val outSdf = java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault())
+            outSdf.timeZone = java.util.TimeZone.getTimeZone("Asia/Ho_Chi_Minh")
+            if (date != null) outSdf.format(date) else if (dateStr.length >= 16) dateStr.substring(11, 16) else dateStr
+        } catch (_: Exception) {
+            if (dateStr.length >= 16) dateStr.substring(11, 16) else dateStr
+        }
+    }
+}
+
+private fun formatChatDateTime(dateStr: String): String {
+    if (dateStr.isEmpty()) return ""
+    return try {
+        val instant = java.time.Instant.parse(dateStr)
+        val zone = java.time.ZoneId.of("Asia/Ho_Chi_Minh")
+        val zonedDateTime = instant.atZone(zone)
+        val formatter = java.time.format.DateTimeFormatter.ofPattern("HH:mm dd/MM/yyyy")
+        zonedDateTime.format(formatter)
+    } catch (_: Exception) {
+        dateStr.take(16).replace("T", " ")
+    }
+}
+
