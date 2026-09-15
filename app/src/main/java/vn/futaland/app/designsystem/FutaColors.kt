@@ -10,7 +10,7 @@ object FutaColors {
     val PageBg = Color(0xFFFFFFFF)          // #FFFFFF pure white canvas background
     val CardBg = Color(0xFFFFFFFF)          // #FFFFFF pure white card background
     val CardBorder = Color(0xFFE9E2D5)      // #E9E2D5 sandy beige card border
-    val CardBorderWeb = Color(0xFFE1D9CB)   // #E1D9CB web apartment card border
+    val CardBorderWeb = Color(0xFFE1D9CB)   // #E1D9CB web property card border
     val PeachBorder = Color(0xFFFED7AA)     // #FED7AA peach border for primary summary cards
     val LightBlueBorder = Color(0xFFDFE6ED) // #DFE6ED cool card border
     val RowDivider = Color(0xFFEEE9DF)      // #EEE9DF row divider

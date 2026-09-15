@@ -28,11 +28,11 @@ import vn.futaland.app.core.network.JSONValue
 import java.util.Locale
 
 /**
- * Standard Apartment / Product Card matching `bds-clone/product-card.tsx` 100%.
+ * Standard Property / Product Card matching `bds-clone/product-card.tsx` 100%.
  */
 @Composable
 fun FutaPropertyCard(
-    apartment: JSONValue,
+    property: JSONValue,
     isFavorited: Boolean = false,
     onFavoriteClick: () -> Unit = {},
     onShareClick: () -> Unit = {},
@@ -41,46 +41,46 @@ fun FutaPropertyCard(
     onClick: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
-    val primaryImage = PropertyFormatters.resolveImage(apartment)
+    val primaryImage = PropertyFormatters.resolveImage(property)
 
-    val hasTour = apartment["virtualTourUrl"].string.isNotEmpty() ||
-        apartment["projectVirtualTourUrl"].string.isNotEmpty() ||
-        apartment["virtualTourEmbedUrl"].string.isNotEmpty() ||
-        apartment["virtualTourIframe"].string.isNotEmpty() ||
-        apartment["tour360Url"].string.isNotEmpty() ||
-        apartment["tour360EmbedUrl"].string.isNotEmpty() ||
-        apartment["tour360Iframe"].string.isNotEmpty() ||
-        apartment["view360Url"].string.isNotEmpty() ||
-        apartment["view360EmbedUrl"].string.isNotEmpty() ||
-        apartment["matterportUrl"].string.isNotEmpty() ||
-        apartment["kuulaUrl"].string.isNotEmpty() ||
-        (apartment["virtualTourEnabled"].bool && (apartment["virtualTourUrl"].string.isNotEmpty() || apartment["tour360Url"].string.isNotEmpty()))
+    val hasTour = property["virtualTourUrl"].string.isNotEmpty() ||
+        property["projectVirtualTourUrl"].string.isNotEmpty() ||
+        property["virtualTourEmbedUrl"].string.isNotEmpty() ||
+        property["virtualTourIframe"].string.isNotEmpty() ||
+        property["tour360Url"].string.isNotEmpty() ||
+        property["tour360EmbedUrl"].string.isNotEmpty() ||
+        property["tour360Iframe"].string.isNotEmpty() ||
+        property["view360Url"].string.isNotEmpty() ||
+        property["view360EmbedUrl"].string.isNotEmpty() ||
+        property["matterportUrl"].string.isNotEmpty() ||
+        property["kuulaUrl"].string.isNotEmpty() ||
+        (property["virtualTourEnabled"].bool && (property["virtualTourUrl"].string.isNotEmpty() || property["tour360Url"].string.isNotEmpty()))
 
-    val hasVideo = apartment["videoUrl"].string.isNotEmpty() ||
-        apartment["youtubeUrl"].string.isNotEmpty() ||
-        apartment["youtubeUrl2"].string.isNotEmpty() ||
-        apartment["hasVideo"].bool ||
-        apartment["videos"].array.isNotEmpty()
+    val hasVideo = property["videoUrl"].string.isNotEmpty() ||
+        property["youtubeUrl"].string.isNotEmpty() ||
+        property["youtubeUrl2"].string.isNotEmpty() ||
+        property["hasVideo"].bool ||
+        property["videos"].array.isNotEmpty()
 
-    val rawNote = apartment["note"].string
+    val rawNote = property["note"].string
     val noteProjectMatch = Regex("""(?:^|\n)cardProjectName=([^\n]+)""").find(rawNote)?.groupValues?.get(1)?.trim()
     val projectName = when {
         !noteProjectMatch.isNullOrEmpty() -> noteProjectMatch
-        apartment["projectName"].string.trim().isNotEmpty() -> apartment["projectName"].string.trim()
-        apartment["zone"].string.trim().isNotEmpty() -> apartment["zone"].string.trim()
+        property["projectName"].string.trim().isNotEmpty() -> property["projectName"].string.trim()
+        property["zone"].string.trim().isNotEmpty() -> property["zone"].string.trim()
         else -> "Dự án FUTA Land"
     }
 
     val code = when {
-        apartment["propertyCode"].string.trim().isNotEmpty() -> apartment["propertyCode"].string.trim()
-        apartment["recordId"].string.trim().isNotEmpty() -> apartment["recordId"].string.trim()
-        else -> PropertyFormatters.propertyTitle(apartment)
+        property["propertyCode"].string.trim().isNotEmpty() -> property["propertyCode"].string.trim()
+        property["recordId"].string.trim().isNotEmpty() -> property["recordId"].string.trim()
+        else -> PropertyFormatters.propertyTitle(property)
     }
 
-    val sizeStr = apartment["size_m2"].string.trim()
-    val sizeDouble = apartment["size_m2"].double.takeIf { it > 0 }
-        ?: apartment["areaM2"].double.takeIf { it > 0 }
-        ?: apartment["area"].double.takeIf { it > 0 }
+    val sizeStr = property["size_m2"].string.trim()
+    val sizeDouble = property["size_m2"].double.takeIf { it > 0 }
+        ?: property["areaM2"].double.takeIf { it > 0 }
+        ?: property["area"].double.takeIf { it > 0 }
     val sizeText = when {
         sizeStr.isNotEmpty() -> if (sizeStr.endsWith("m²")) sizeStr else "$sizeStr m²"
         sizeDouble != null && sizeDouble > 0 -> {
@@ -90,16 +90,16 @@ fun FutaPropertyCard(
         else -> ""
     }
 
-    val aptType = apartment["apartmentType"].string.lowercase()
-    val beds = apartment["bedrooms"].double
+    val unitType = property["apartmentType"].string.lowercase()
+    val beds = property["bedrooms"].double
     val bedroomLabel: String? = when {
-        aptType.contains("studio") || (beds == 0.0 && aptType.isNotEmpty()) -> "Studio"
+        unitType.contains("studio") || (beds == 0.0 && unitType.isNotEmpty()) -> "Studio"
         beds > 0 -> "${beds.toInt()} PN"
         else -> null
     }
 
-    val bDir = apartment["balconyDirection"].string.trim()
-    val dir = apartment["direction"].string.trim()
+    val bDir = property["balconyDirection"].string.trim()
+    val dir = property["direction"].string.trim()
     val balconyDirectionText = when {
         bDir.isNotEmpty() -> translateDirection(bDir)
         dir.isNotEmpty() -> translateDirection(dir)
@@ -109,8 +109,8 @@ fun FutaPropertyCard(
     val translatedMainDir = if (dir.isNotEmpty()) translateDirection(dir) else ""
     val mainDirectionText = "Hướng cửa chính: ${translatedMainDir.ifEmpty { "Đang cập nhật" }}"
 
-    val sellPrice = apartment["sellPrice"].double
-    val price = apartment["price"].double
+    val sellPrice = property["sellPrice"].double
+    val price = property["price"].double
     val rawVal = if (sellPrice > 0) sellPrice else price
     val formattedPrice = if (rawVal <= 0) {
         "Liên hệ"

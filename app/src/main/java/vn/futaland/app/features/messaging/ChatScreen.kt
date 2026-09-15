@@ -49,7 +49,7 @@ data class ConversationItem(
     val isOnline: Boolean = true,
     val isAi: Boolean = false,
     val badge: String = "",
-    val contextZone: String = "",
+    val contextProjectName: String = "",
     val contextCode: String = ""
 )
 
@@ -60,7 +60,7 @@ data class ChatMessage(
     val content: String,
     val isMe: Boolean,
     val time: String,
-    val apartmentCard: JSONValue? = null
+    val propertyCard: JSONValue? = null
 )
 
 @Composable
@@ -68,7 +68,7 @@ fun ChatScreen(
     initialConversationId: String? = null,
     targetAdvisorId: String? = null,
     targetAdvisorName: String? = null,
-    targetApartmentId: String? = null,
+    targetPropertyId: String? = null,
     isAiChat: Boolean = false,
     staffContext: Boolean = false,
     onBack: (() -> Unit)? = null
@@ -145,8 +145,8 @@ fun ChatScreen(
                 val lastMsg = c["lastMessageContent"].string.ifEmpty { "Bắt đầu cuộc trò chuyện..." }
                 val time = formatChatDateTime(c["lastMessageAt"].string.ifEmpty { c["updatedAt"].string })
                 val unread = unreadMap[c.id] ?: c["unreadCount"].int
-                val zone = c["apartment"]["zone"].string.ifEmpty { c["apartment"]["projectName"].string }
-                val code = c["apartment"]["propertyCode"].string.ifEmpty { c["apartment"]["unitCode"].string }
+                val projectName = c["property"]["projectName"].string
+                val code = c["property"]["propertyCode"].string.ifEmpty { c["property"]["unitCode"].string }
                 conversations.add(
                     ConversationItem(
                         id = c.id,
@@ -157,7 +157,7 @@ fun ChatScreen(
                         isOnline = true,
                         isAi = isAi,
                         badge = badge,
-                        contextZone = zone,
+                        contextProjectName = projectName,
                         contextCode = code
                     )
                 )
@@ -190,7 +190,7 @@ fun ChatScreen(
                 } else {
                     val body = conversationBody(
                         "advisorId" to targetAdvisorId,
-                        "apartmentId" to (targetApartmentId ?: "")
+                        "propertyId" to (targetPropertyId ?: "")
                     )
                     val createRes = APIClient.get().request("/chat/conversations", method = "POST", bodyJson = body)
                     val newConv = createRes["data"]
@@ -529,10 +529,10 @@ fun ChatScreen(
                     items(availableAdvisors.size) { idx ->
                         val item = availableAdvisors[idx]
                         val adv = item["advisor"]
-                        val apt = item["apartment"]
+                        val property = item["property"]
                         val advName = adv["name"].string.ifEmpty { "Tư vấn viên FUTA" }
-                        val propCode = apt["propertyCode"].string
-                        val zone = apt["zone"].string
+                        val propCode = property["propertyCode"].string
+                        val projectName = property["projectName"].string
 
                         FutaCard(
                             modifier = Modifier.fillMaxWidth(),
@@ -541,7 +541,7 @@ fun ChatScreen(
                                     try {
                                         val body = conversationBody(
                                             "advisorId" to adv["id"].string,
-                                            "apartmentId" to apt["recordId"].string
+                                            "propertyId" to property.id
                                         )
                                         val res = APIClient.get().request("/chat/conversations", method = "POST", bodyJson = body)
                                         val newConv = res["data"]
@@ -570,7 +570,7 @@ fun ChatScreen(
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text(text = advName, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
                                     if (propCode.isNotEmpty()) {
-                                        Text(text = "$propCode • $zone", fontSize = 11.5.sp, color = FutaColors.BrandGreen)
+                                        Text(text = "$propCode • $projectName", fontSize = 11.5.sp, color = FutaColors.BrandGreen)
                                     }
                                 }
                                 Surface(
@@ -634,8 +634,8 @@ fun ChatScreen(
                                     sType == "customer"
                                 }
                                 val timeStr = formatChatTime(m["createdAt"].string)
-                                val card = m["metadata"]["apartmentCard"]
-                                val hasCard = !card.isNull && (card["propertyCode"].string.isNotEmpty() || card["title"].string.isNotEmpty() || card["recordId"].string.isNotEmpty())
+                                val card = m["metadata"]["propertyCard"].let { if (it.isNull) m["metadata"]["apartmentCard"] else it }
+                                val hasCard = !card.isNull && (card["propertyCode"].string.isNotEmpty() || card["title"].string.isNotEmpty() || card.id.isNotEmpty())
                                 messages.add(
                                     ChatMessage(
                                         id = m.id,
@@ -644,7 +644,7 @@ fun ChatScreen(
                                         content = m["content"].string,
                                         isMe = isMe,
                                         time = timeStr,
-                                        apartmentCard = if (hasCard) card else null
+                                        propertyCard = if (hasCard) card else null
                                     )
                                 )
                             }
@@ -659,8 +659,8 @@ fun ChatScreen(
             ChatWebSocketManager.shared.onNewMessage = { jsonMsg ->
                 val convId = jsonMsg["conversationId"].string
                 if (convId == activeConversationId || activeConversationId == null || activeConversationId == "ai_agent") {
-                    val card = jsonMsg["metadata"]["apartmentCard"]
-                    val hasCard = !card.isNull && (card["propertyCode"].string.isNotEmpty() || card["title"].string.isNotEmpty() || card["recordId"].string.isNotEmpty())
+                    val card = jsonMsg["metadata"]["propertyCard"].let { if (it.isNull) jsonMsg["metadata"]["apartmentCard"] else it }
+                    val hasCard = !card.isNull && (card["propertyCode"].string.isNotEmpty() || card["title"].string.isNotEmpty() || card.id.isNotEmpty())
                     val newMsg = ChatMessage(
                         id = jsonMsg["id"].string.ifEmpty { System.currentTimeMillis().toString() },
                         senderId = jsonMsg["senderId"].string,
@@ -668,7 +668,7 @@ fun ChatScreen(
                         content = jsonMsg["content"].string,
                         isMe = false,
                         time = "Vừa xong",
-                        apartmentCard = if (hasCard) card else null
+                        propertyCard = if (hasCard) card else null
                     )
                     messages.add(newMsg)
                     scope.launch {
@@ -944,14 +944,14 @@ fun ChatScreen(
             ) {
                 if (messages.isEmpty() && !isStaff) {
                     val activeConv = conversations.find { it.id == activeConversationId }
-                    val contextZone = activeConv?.contextZone.orEmpty()
+                    val contextProjectName = activeConv?.contextProjectName.orEmpty()
                     val contextCode = activeConv?.contextCode.orEmpty()
                     val suggestions = buildList {
-                        if (contextZone.isNotEmpty()) {
+                        if (contextProjectName.isNotEmpty()) {
                             if (contextCode.isNotEmpty()) {
-                                add("Căn $contextCode thuộc $contextZone còn chính sách ưu đãi nào?")
+                                add("Căn $contextCode thuộc $contextProjectName còn chính sách ưu đãi nào?")
                             }
-                            add("$contextZone còn những căn nào đang mở bán?")
+                            add("$contextProjectName còn những căn nào đang mở bán?")
                         } else {
                             add("Những dự án nào đang mở bán tại Đà Nẵng?")
                         }
@@ -980,7 +980,7 @@ fun ChatScreen(
                                 Text(
                                     text = when {
                                         contextCode.isNotEmpty() -> "Trợ lý AI FUTA Land đang hỗ trợ căn $contextCode"
-                                        contextZone.isNotEmpty() -> "Trợ lý AI FUTA Land đang hỗ trợ dự án $contextZone"
+                                        contextProjectName.isNotEmpty() -> "Trợ lý AI FUTA Land đang hỗ trợ dự án $contextProjectName"
                                         else -> "Bạn đang trò chuyện với Trợ lý AI FUTA Land"
                                     },
                                     fontSize = 14.sp,
@@ -990,8 +990,8 @@ fun ChatScreen(
                                 )
                                 Spacer(Modifier.height(4.dp))
                                 Text(
-                                    text = if (contextZone.isNotEmpty()) {
-                                        "Trợ lý AI sẵn sàng giải đáp 24/7 về $contextZone: bảng hàng, tiến độ mở bán, chính sách ưu đãi và dòng tiền."
+                                    text = if (contextProjectName.isNotEmpty()) {
+                                        "Trợ lý AI sẵn sàng giải đáp 24/7 về $contextProjectName: bảng hàng, tiến độ mở bán, chính sách ưu đãi và dòng tiền."
                                     } else {
                                         "Trợ lý AI sẵn sàng giải đáp 24/7 về thông tin dự án, tiến độ mở bán và chính sách căn hộ."
                                     },
@@ -1169,10 +1169,10 @@ private fun MessageBubble(msg: ChatMessage) {
                     Text(msg.senderName, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = FutaColors.BrandGreen)
                     Spacer(Modifier.height(3.dp))
                 }
-                if (msg.apartmentCard != null) {
-                    val card = msg.apartmentCard
+                if (msg.propertyCard != null) {
+                    val card = msg.propertyCard
                     val title = card["title"].string.ifEmpty { "Căn hộ ${card["propertyCode"].string}" }
-                    val zone = card["zone"].string
+                    val projectName = card["zone"].string
                     val price = card["price"].double
                     val imgUrl = card["imageUrl"].string
                     Surface(
@@ -1204,9 +1204,9 @@ private fun MessageBubble(msg: ChatMessage) {
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
                             )
-                            if (zone.isNotEmpty()) {
+                            if (projectName.isNotEmpty()) {
                                 Text(
-                                    text = zone,
+                                    text = projectName,
                                     fontSize = 10.5.sp,
                                     color = if (msg.isMe) Color.White.copy(alpha = 0.8f) else Color(0xFF64748B),
                                     maxLines = 1,

@@ -117,7 +117,7 @@ fun PropertySearchScreen(
                     }
                 }
                 val brList = res["data"]["bedrooms"].array.mapNotNull { it.int.takeIf { v -> v > 0 } }
-                val ptList = (res["data"]["propertyTypes"].array + res["data"]["apartmentTypes"].array).map { it.string }.filter { it.isNotEmpty() }.distinct()
+                val ptList = (res["data"]["propertyTypes"].array + res["data"]["unitTypes"].array + res["data"]["apartmentTypes"].array).map { it.string }.filter { it.isNotEmpty() }.distinct()
 
                 if (zList.isNotEmpty()) {
                     availableZones = zList
@@ -429,15 +429,15 @@ fun PropertySearchScreen(
                     contentPadding = PaddingValues(16.dp),
                     verticalArrangement = Arrangement.spacedBy(14.dp)
                 ) {
-                    itemsIndexed(results, key = { idx, apt -> (apt.id.ifEmpty { "search" }) + "-$idx" }) { _, apt ->
+                    itemsIndexed(results, key = { idx, property -> (property.id.ifEmpty { "search" }) + "-$idx" }) { _, property ->
                         FutaPropertyCard(
-                            apartment = apt,
+                            property = property,
                             isFavorited = false,
                             onFavoriteClick = {
                                 if (AppSession.shared.isAuthenticated) {
                                     scope.launch {
                                         try {
-                                            APIClient.get().request("/favorites/${apt.id}", method = "POST")
+                                            APIClient.get().request("/favorites/${property.id}", method = "POST")
                                             ToastCenter.show("Đã cập nhật yêu thích")
                                         } catch (_: Exception) {}
                                     }
@@ -446,11 +446,11 @@ fun PropertySearchScreen(
                                 }
                             },
                             onShareClick = {
-                                val shareUrl = PropertyFormatters.shareUrl(apt)
+                                val shareUrl = PropertyFormatters.shareUrl(property)
                                 val sendIntent = Intent().apply {
                                     action = Intent.ACTION_SEND
                                     putExtra(Intent.EXTRA_TEXT, shareUrl)
-                                    putExtra(Intent.EXTRA_SUBJECT, PropertyFormatters.propertyTitle(apt))
+                                    putExtra(Intent.EXTRA_SUBJECT, PropertyFormatters.propertyTitle(property))
                                     type = "text/plain"
                                 }
                                 context.startActivity(Intent.createChooser(sendIntent, "Chia sẻ sản phẩm"))
@@ -460,7 +460,7 @@ fun PropertySearchScreen(
                                 context.startActivity(intent)
                             },
                             onChatClick = { onNavigate(FutaDestinations.INBOX) },
-                            onClick = { onNavigate(FutaDestinations.propertyDetail(apt.id)) }
+                            onClick = { onNavigate(FutaDestinations.propertyDetail(property.id)) }
                         )
                     }
 

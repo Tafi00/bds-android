@@ -63,7 +63,7 @@ fun PropertyDetailScreen(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var property by remember { mutableStateOf<JSONValue?>(null) }
-    var similarApartments by remember { mutableStateOf<List<JSONValue>>(emptyList()) }
+    var similarProperties by remember { mutableStateOf<List<JSONValue>>(emptyList()) }
     var loading by remember { mutableStateOf(true) }
     var isFavorite by remember { mutableStateOf(false) }
     var isDescriptionExpanded by remember { mutableStateOf(false) }
@@ -121,10 +121,10 @@ fun PropertyDetailScreen(
                 val res = APIClient.get().request("/apartments/$propertyId")
                 property = res["data"]
                 loadRegistrationInfo()
-                val zone = property?.get("zone")?.string.orEmpty()
-                if (zone.isNotEmpty()) {
-                    val simRes = APIClient.get().request("/apartments", query = mapOf("zone" to zone, "limit" to "6"))
-                    similarApartments = simRes["data"].array.filter { it.id != propertyId }
+                val projectName = property?.get("projectName")?.string.orEmpty().ifEmpty { property?.get("zone")?.string.orEmpty() }
+                if (projectName.isNotEmpty()) {
+                    val simRes = APIClient.get().request("/apartments", query = mapOf("zone" to projectName, "limit" to "6"))
+                    similarProperties = simRes["data"].array.filter { it.id != propertyId }
                 }
             } catch (_: Exception) {
             } finally {
@@ -186,9 +186,9 @@ fun PropertyDetailScreen(
             }
         },
         bottomBar = {
-            property?.let { apt ->
+            property?.let { property ->
                 StickyContactBottomBar(
-                    apt = apt,
+                    property = property,
                     sellingAction = sellingAction,
                     onCallClick = { showAdvisorContactSheet = true },
                     onChatClick = { showAdvisorContactSheet = true },
@@ -211,11 +211,11 @@ fun PropertyDetailScreen(
                 FutaSkeletonBlock(height = 120.dp, radius = 14.dp)
             }
         } else {
-            val apt = property!!
-            val price = apt["price"].double
-            val area = apt["areaM2"].double.takeIf { it > 0 }
-                ?: apt["size_m2"].double.takeIf { it > 0 }
-                ?: apt["area"].double.takeIf { it > 0 } ?: 107.5
+            val property = property!!
+            val price = property["price"].double
+            val area = property["areaM2"].double.takeIf { it > 0 }
+                ?: property["size_m2"].double.takeIf { it > 0 }
+                ?: property["area"].double.takeIf { it > 0 } ?: 107.5
 
             val rawImagesList = mutableListOf<String>()
             fun cleanImgUrl(raw: String): String {
@@ -225,20 +225,20 @@ fun PropertyDetailScreen(
                 val c = if (t.startsWith("/")) t else "/$t"
                 return "https://bds.futaland.vn$c"
             }
-            val mainImg = cleanImgUrl(apt["image"].string)
+            val mainImg = cleanImgUrl(property["image"].string)
             if (mainImg.isNotEmpty()) rawImagesList.add(mainImg)
-            val bannerImg = cleanImgUrl(apt["bannerImage"].string)
+            val bannerImg = cleanImgUrl(property["bannerImage"].string)
             if (bannerImg.isNotEmpty()) rawImagesList.add(bannerImg)
-            apt["images"].array.forEach { imgItem ->
+            property["images"].array.forEach { imgItem ->
                 val orig = cleanImgUrl(imgItem["original"].string.ifEmpty { imgItem["url"].string.ifEmpty { imgItem.string } })
                 if (orig.isNotEmpty()) rawImagesList.add(orig)
             }
-            val images = if (rawImagesList.isEmpty()) listOf(PropertyFormatters.resolveImage(apt)) else rawImagesList.distinct()
+            val images = if (rawImagesList.isEmpty()) listOf(PropertyFormatters.resolveImage(property)) else rawImagesList.distinct()
             val pagerState = rememberPagerState(pageCount = { images.size })
 
-            val videoUrl = apt["videoUrl"].string.ifEmpty { apt["youtubeUrl"].string }
-            val tour360Url = apt["virtualTourUrl"].string.ifEmpty { apt["tour360Url"].string }
-            val flycamUrl = apt["flycamUrl"].string.ifEmpty { apt["projectFlycamVideoUrl"].string }
+            val videoUrl = property["videoUrl"].string.ifEmpty { property["youtubeUrl"].string }
+            val tour360Url = property["virtualTourUrl"].string.ifEmpty { property["tour360Url"].string }
+            val flycamUrl = property["flycamUrl"].string.ifEmpty { property["projectFlycamVideoUrl"].string }
 
             LazyColumn(
                 modifier = Modifier
@@ -422,7 +422,7 @@ fun PropertyDetailScreen(
                             ) {
                                 Column(modifier = Modifier.weight(1f)) {
                                     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                        val isSell = apt["listingType"].string.lowercase() != "rent"
+                                        val isSell = property["listingType"].string.lowercase() != "rent"
                                         Surface(
                                             shape = CircleShape,
                                             color = FutaColors.MintBg
@@ -435,14 +435,14 @@ fun PropertyDetailScreen(
                                                 modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.5.dp)
                                             )
                                         }
-                                        val zone = apt["zone"].string
-                                        if (zone.isNotEmpty()) {
+                                        val projectName = property["projectName"].string.ifEmpty { property["zone"].string }
+                                        if (projectName.isNotEmpty()) {
                                             Surface(
                                                 shape = CircleShape,
                                                 color = FutaColors.CreamBg
                                             ) {
                                                 Text(
-                                                    text = zone,
+                                                    text = projectName,
                                                     fontSize = 10.sp,
                                                     fontWeight = FontWeight.Bold,
                                                     color = Color(0xFFF97316),
@@ -454,15 +454,15 @@ fun PropertyDetailScreen(
 
                                     Spacer(Modifier.height(8.dp))
 
-                                    val codeText = apt["propertyCode"].string.ifEmpty { apt["recordId"].string }
+                                    val codeText = property["propertyCode"].string.ifEmpty { property.id }
                                     Text(
-                                        text = if (codeText.isNotEmpty()) "Mã căn: $codeText" else PropertyFormatters.propertyTitle(apt),
+                                        text = if (codeText.isNotEmpty()) "Mã căn: $codeText" else PropertyFormatters.propertyTitle(property),
                                         fontSize = 20.sp,
                                         fontWeight = FontWeight.Bold,
                                         color = FutaColors.Navy
                                     )
 
-                                    val titleText = apt["title"].string
+                                    val titleText = property["title"].string
                                     if (titleText.isNotEmpty() && titleText.length > 8) {
                                         Spacer(Modifier.height(4.dp))
                                         Text(
@@ -504,11 +504,11 @@ fun PropertyDetailScreen(
                                             .background(Color(0xFFF8FAFC))
                                             .border(1.dp, Color(0xFFE2E8F0), RoundedCornerShape(10.dp))
                                             .clickable {
-                                                val shareUrl = PropertyFormatters.shareUrl(apt, propertyId)
+                                                val shareUrl = PropertyFormatters.shareUrl(property, propertyId)
                                                 val sendIntent = Intent().apply {
                                                     action = Intent.ACTION_SEND
                                                     putExtra(Intent.EXTRA_TEXT, shareUrl)
-                                                    putExtra(Intent.EXTRA_SUBJECT, PropertyFormatters.propertyTitle(apt))
+                                                    putExtra(Intent.EXTRA_SUBJECT, PropertyFormatters.propertyTitle(property))
                                                     type = "text/plain"
                                                 }
                                                 context.startActivity(Intent.createChooser(sendIntent, "Chia sẻ sản phẩm"))
@@ -527,14 +527,14 @@ fun PropertyDetailScreen(
 
                             // Info Rows (Dự án, Block, Tầng)
                             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                val zoneVal = apt["zone"].string
-                                if (zoneVal.isNotEmpty()) {
-                                    SummaryInfoRow(iconRes = R.drawable.sf_mappin_circle_green, label = "Dự án / Phân khu", value = zoneVal)
+                                val projectName = property["projectName"].string.ifEmpty { property["zone"].string }
+                                if (projectName.isNotEmpty()) {
+                                    SummaryInfoRow(iconRes = R.drawable.sf_mappin_circle_green, label = "Dự án / Phân khu", value = projectName)
                                     HorizontalDivider(color = Color(0xFFF1F5F9), thickness = 0.8.dp)
                                 }
-                                SummaryInfoRow(iconRes = R.drawable.sf_quick_projects, label = "Tòa / Block", value = apt["building"].string.ifEmpty { "Đang cập nhật" })
+                                SummaryInfoRow(iconRes = R.drawable.sf_quick_projects, label = "Tòa / Block", value = property["block"].string.ifEmpty { property["building"].string }.ifEmpty { "Đang cập nhật" })
                                 HorizontalDivider(color = Color(0xFFF1F5F9), thickness = 0.8.dp)
-                                SummaryInfoRow(iconRes = R.drawable.sf_spec_area, label = "Tầng", value = apt["floor"].string.ifEmpty { "Đang cập nhật" })
+                                SummaryInfoRow(iconRes = R.drawable.sf_spec_area, label = "Tầng", value = property["floor"].string.ifEmpty { "Đang cập nhật" })
                             }
 
                             // Highlighted Price Card (Matching iOS)
@@ -550,7 +550,7 @@ fun PropertyDetailScreen(
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     Column {
-                                        val isSell = apt["listingType"].string.lowercase() != "rent"
+                                        val isSell = property["listingType"].string.lowercase() != "rent"
                                         Text(
                                             text = if (isSell) "Giá bán dự kiến" else "Giá thuê",
                                             fontSize = 11.5.sp,
@@ -558,7 +558,7 @@ fun PropertyDetailScreen(
                                         )
                                         Spacer(Modifier.height(2.dp))
                                         Text(
-                                            text = PropertyFormatters.listingPrice(apt),
+                                            text = PropertyFormatters.listingPrice(property),
                                             fontSize = 22.sp,
                                             fontWeight = FontWeight.Black,
                                             color = Color(0xFFF97316)
@@ -601,16 +601,16 @@ fun PropertyDetailScreen(
 
                             val specsList = mutableListOf(
                                 Triple(R.drawable.sf_spec_area, "Diện tích sử dụng", "${area} m²"),
-                                Triple(R.drawable.sf_spec_bed, "Phòng ngủ", "${apt["bedrooms"].int.coerceAtLeast(1)} PN"),
-                                Triple(R.drawable.sf_spec_bath, "Phòng tắm / WC", "${apt["bathrooms"].int.coerceAtLeast(1)} WC")
+                                Triple(R.drawable.sf_spec_bed, "Phòng ngủ", "${property["bedrooms"].int.coerceAtLeast(1)} PN"),
+                                Triple(R.drawable.sf_spec_bath, "Phòng tắm / WC", "${property["bathrooms"].int.coerceAtLeast(1)} WC")
                             )
-                            val dir = apt["direction"].string
+                            val dir = property["direction"].string
                             if (dir.isNotEmpty()) specsList.add(Triple(R.drawable.sf_spec_compass, "Hướng cửa chính", dir))
-                            val balcony = apt["balconyDirection"].string
+                            val balcony = property["balconyDirection"].string
                             if (balcony.isNotEmpty()) specsList.add(Triple(R.drawable.sf_spec_compass, "Hướng ban công", balcony))
-                            val legalText = apt["legalStatus"].string.ifEmpty { apt["legal"].string }.ifEmpty { "Sổ hồng" }
+                            val legalText = property["legalStatus"].string.ifEmpty { property["legal"].string }.ifEmpty { "Sổ hồng" }
                             specsList.add(Triple(R.drawable.sf_acc_policies, "Pháp lý", legalText))
-                            specsList.add(Triple(R.drawable.sf_quick_house, "Nội thất", apt["furniture"].string.ifEmpty { "Cơ bản cao cấp" }))
+                            specsList.add(Triple(R.drawable.sf_quick_house, "Nội thất", property["furniture"].string.ifEmpty { "Cơ bản cao cấp" }))
 
                             // 2-column grid rows
                             for (i in specsList.indices step 2) {
@@ -742,15 +742,15 @@ fun PropertyDetailScreen(
                 }
                 // 4B. Townhouse Floor Breakdown (Matching Web & iOS)
                 val isTownhouse = run {
-                    val type = apt["propertyType"].string.lowercase()
-                    val code = apt["propertyCode"].string.lowercase()
+                    val type = property["propertyType"].string.lowercase()
+                    val code = property["propertyCode"].string.lowercase()
                     type.contains("nha-pho") || type.contains("biet-thu") || type.contains("townhouse") ||
                             type.contains("villa") || code.startsWith("np") || code.startsWith("bt") ||
-                            apt["floorAreas"].array.isNotEmpty() || !apt["townhouseSpecs"].isNull
+                            property["floorAreas"].array.isNotEmpty() || !property["townhouseSpecs"].isNull
                 }
                 if (isTownhouse) {
                     item {
-                        TownhouseFloorsCard(apt = apt)
+                        TownhouseFloorsCard(property = property)
                     }
                 }
 
@@ -831,11 +831,11 @@ fun PropertyDetailScreen(
                             )
                             Spacer(Modifier.height(12.dp))
 
-                            val aptAmenities = apt["amenities"].array.map { it.string }.filter { it.isNotEmpty() }
-                            val projAmenities = apt["projectProfile"]["amenities"].array.map { it.string }.filter { it.isNotEmpty() }
-                                .ifEmpty { apt["project"]["amenities"].array.map { it.string }.filter { it.isNotEmpty() } }
-                                .ifEmpty { apt["projectAmenities"].array.map { it.string }.filter { it.isNotEmpty() } }
-                            val amenities = if (aptAmenities.isNotEmpty()) aptAmenities else if (projAmenities.isNotEmpty()) projAmenities else listOf("Hồ bơi tràn bờ", "Công viên cây xanh", "Phòng Gym & Yoga", "Bảo vệ 24/7", "Chỗ đỗ xe ô tô", "Khu BBQ ngoài trời")
+                            val propertyAmenities = property["amenities"].array.map { it.string }.filter { it.isNotEmpty() }
+                            val projAmenities = property["projectProfile"]["amenities"].array.map { it.string }.filter { it.isNotEmpty() }
+                                .ifEmpty { property["project"]["amenities"].array.map { it.string }.filter { it.isNotEmpty() } }
+                                .ifEmpty { property["projectAmenities"].array.map { it.string }.filter { it.isNotEmpty() } }
+                            val amenities = if (propertyAmenities.isNotEmpty()) propertyAmenities else if (projAmenities.isNotEmpty()) projAmenities else listOf("Hồ bơi tràn bờ", "Công viên cây xanh", "Phòng Gym & Yoga", "Bảo vệ 24/7", "Chỗ đỗ xe ô tô", "Khu BBQ ngoài trời")
                             for (i in amenities.indices step 2) {
                                 Row(
                                     modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
@@ -854,7 +854,7 @@ fun PropertyDetailScreen(
                 }
 
                 // 6. Detailed Description
-                val desc = apt["description"].string
+                val desc = property["description"].string
                 if (desc.isNotEmpty()) {
                     item {
                         FutaCard(modifier = Modifier.fillMaxWidth()) {
@@ -904,8 +904,8 @@ fun PropertyDetailScreen(
                 }
 
                 // 7. Project Info Panel (Matching Web & iOS)
-                val zoneName = apt["zone"].string
-                if (zoneName.isNotEmpty()) {
+                val projectName = property["projectName"].string.ifEmpty { property["zone"].string }
+                if (projectName.isNotEmpty()) {
                     item {
                         FutaCard(modifier = Modifier.fillMaxWidth()) {
                             Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -917,12 +917,12 @@ fun PropertyDetailScreen(
                                     letterSpacing = 0.5.sp
                                 )
                                 Text(
-                                    text = zoneName,
+                                    text = projectName,
                                     fontSize = 18.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = FutaColors.Navy
                                 )
-                                val addr = apt["address"].string
+                                val addr = property["address"].string
                                 if (addr.isNotEmpty()) {
                                     Row(
                                         horizontalArrangement = Arrangement.spacedBy(6.dp),
@@ -947,7 +947,7 @@ fun PropertyDetailScreen(
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .clickable {
-                                            val query = Uri.encode(addr.ifEmpty { zoneName })
+                                            val query = Uri.encode(addr.ifEmpty { projectName })
                                             val mapIntent = Intent(Intent.ACTION_VIEW, Uri.parse("geo:0,0?q=$query"))
                                             context.startActivity(mapIntent)
                                         }
@@ -1003,9 +1003,9 @@ fun PropertyDetailScreen(
                                 border = BorderStroke(1.dp, Color(0xFFD7DCE2)),
                                 modifier = Modifier
                                     .clickable {
-                                        val legalDocs = apt["legalDocuments"].array
+                                        val legalDocs = property["legalDocuments"].array
                                         val docUrl = legalDocs.firstOrNull()?.get("url")?.string.orEmpty()
-                                            .ifEmpty { apt["documentUrl"].string }
+                                            .ifEmpty { property["documentUrl"].string }
                                         if (docUrl.isNotEmpty()) {
                                             try {
                                                 val browserIntent = Intent(Intent.ACTION_VIEW, Uri.parse(docUrl))
@@ -1040,7 +1040,7 @@ fun PropertyDetailScreen(
                                     Spacer(Modifier.width(12.dp))
                                     Column(modifier = Modifier.weight(1f)) {
                                         Text(
-                                            text = apt["legal"].string.ifEmpty { "Sổ hồng sở hữu lâu dài" },
+                                            text = property["legal"].string.ifEmpty { "Sổ hồng sở hữu lâu dài" },
                                             fontSize = 13.5.sp,
                                             fontWeight = FontWeight.Bold,
                                             color = FutaColors.Navy
@@ -1056,14 +1056,14 @@ fun PropertyDetailScreen(
 
                 // 8. Advisor Contact Panel (Matching iOS & Web)
                 item {
-                    val availableList = apt["availableAdvisors"].array
+                    val availableList = property["availableAdvisors"].array
                     val advisors = if (availableList.isNotEmpty()) {
                         availableList.distinctBy { it["id"].string.ifEmpty { it["advisorId"].string } }
                     } else {
-                        val advId = apt["advisorId"].string.ifEmpty { apt["advisor"]["id"].string.ifEmpty { apt["createdBy"]["id"].string } }
-                        val advName = apt["advisor"]["name"].string.ifEmpty { apt["createdBy"]["name"].string }.ifEmpty { apt["ownerName"].string.ifEmpty { "Chuyên viên tư vấn FUTA Land" } }
-                        val advPhone = apt["advisor"]["phone"].string.ifEmpty { apt["createdBy"]["phone"].string }.ifEmpty { apt["ownerPhone"].string.ifEmpty { "02363575757" } }
-                        val advAvatar = apt["advisor"]["avatar"].string.ifEmpty { apt["createdBy"]["avatar"].string }
+                        val advId = property["advisorId"].string.ifEmpty { property["advisor"]["id"].string.ifEmpty { property["createdBy"]["id"].string } }
+                        val advName = property["advisor"]["name"].string.ifEmpty { property["createdBy"]["name"].string }.ifEmpty { property["ownerName"].string.ifEmpty { "Chuyên viên tư vấn FUTA Land" } }
+                        val advPhone = property["advisor"]["phone"].string.ifEmpty { property["createdBy"]["phone"].string }.ifEmpty { property["ownerPhone"].string.ifEmpty { "02363575757" } }
+                        val advAvatar = property["advisor"]["avatar"].string.ifEmpty { property["createdBy"]["avatar"].string }
                         listOf(
                             JSONValue.parse("""{"id":"$advId","name":"$advName","phone":"$advPhone","avatar":"$advAvatar"}""")
                         )
@@ -1204,7 +1204,7 @@ fun PropertyDetailScreen(
                                                             FutaDestinations.chat(
                                                                 advisorId = advId,
                                                                 advisorName = advName,
-                                                                apartmentId = apt.id.ifEmpty { propertyId }
+                                                                propertyId = property.id.ifEmpty { propertyId }
                                                             )
                                                         )
                                                     }
@@ -1233,7 +1233,7 @@ fun PropertyDetailScreen(
                                     .clickable {
                                         onNavigate(
                                             FutaDestinations.chat(
-                                                apartmentId = apt.id.ifEmpty { propertyId },
+                                                propertyId = property.id.ifEmpty { propertyId },
                                                 isAi = true
                                             )
                                         )
@@ -1264,7 +1264,7 @@ fun PropertyDetailScreen(
                 }
 
                 // 9. Similar Properties Section
-                if (similarApartments.isNotEmpty()) {
+                if (similarProperties.isNotEmpty()) {
                     item {
                         Column {
                             Text(
@@ -1278,10 +1278,10 @@ fun PropertyDetailScreen(
                             LazyRow(
                                 horizontalArrangement = Arrangement.spacedBy(14.dp)
                             ) {
-                                itemsIndexed(similarApartments, key = { idx, sim -> (sim.id.ifEmpty { "sim" }) + "-$idx" }) { _, sim ->
+                                itemsIndexed(similarProperties, key = { idx, sim -> (sim.id.ifEmpty { "sim" }) + "-$idx" }) { _, sim ->
                                     Box(modifier = Modifier.width(260.dp)) {
                                         FutaPropertyCard(
-                                            apartment = sim,
+                                            property = sim,
                                             onClick = { onNavigate(FutaDestinations.propertyDetail(sim.id)) }
                                         )
                                     }
@@ -1301,20 +1301,20 @@ fun PropertyDetailScreen(
         // 0. ADVISOR CONTACT BOTTOM SHEET (Matching Web & iOS)
         // =========================================================================
         if (showAdvisorContactSheet) {
-            property?.let { apt ->
+            property?.let { property ->
                 AdvisorContactBottomSheet(
-                    apt = apt,
+                    property = property,
                     onDismiss = { showAdvisorContactSheet = false },
                     onCallAdvisor = { phone ->
                         context.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:$phone")))
                     },
                     onChatAdvisor = { advId, advName ->
                         showAdvisorContactSheet = false
-                        onNavigate(FutaDestinations.chat(advisorId = advId, advisorName = advName, apartmentId = apt.id.ifEmpty { propertyId }))
+                        onNavigate(FutaDestinations.chat(advisorId = advId, advisorName = advName, propertyId = property.id.ifEmpty { propertyId }))
                     },
                     onChatAi = {
                         showAdvisorContactSheet = false
-                        onNavigate(FutaDestinations.chat(apartmentId = apt.id.ifEmpty { propertyId }, isAi = true))
+                        onNavigate(FutaDestinations.chat(propertyId = property.id.ifEmpty { propertyId }, isAi = true))
                     }
                 )
             }
@@ -1324,7 +1324,7 @@ fun PropertyDetailScreen(
         // 1. VISIT BOOKING BOTTOM SHEET (Matching iOS)
         // =========================================================================
         if (showBookingSheet) {
-            property?.let { apt ->
+            property?.let { property ->
                 FutaBottomSheet(
                     visible = true,
                     onDismiss = { showBookingSheet = false },
@@ -1343,8 +1343,8 @@ fun PropertyDetailScreen(
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Column(modifier = Modifier.padding(12.dp)) {
-                                Text(apt["title"].string, fontSize = 13.5.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
-                                Text("Mã căn: ${apt["code"].string.ifEmpty { apt["propertyCode"].string }}", fontSize = 11.5.sp, color = FutaColors.BrandGreen)
+                                Text(property["title"].string, fontSize = 13.5.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
+                                Text("Mã căn: ${property["code"].string.ifEmpty { property["propertyCode"].string }}", fontSize = 11.5.sp, color = FutaColors.BrandGreen)
                             }
                         }
 
@@ -1414,10 +1414,10 @@ fun PropertyDetailScreen(
         // 1b. SALES REGISTRATION POLICY DIALOG
         // =========================================================================
         if (showRegistrationDialog) {
-            property?.let { apt ->
+            property?.let { property ->
                 SalesPolicyConfirmDialog(
-                    unitCode = apt["propertyCode"].string.ifEmpty { apt["unitCode"].string },
-                    projectName = apt["projectName"].string.ifEmpty { apt["zone"].string },
+                    unitCode = property["propertyCode"].string.ifEmpty { property["unitCode"].string },
+                    projectName = property["projectName"].string.ifEmpty { property["zone"].string },
                     isSubmitting = isRegistering,
                     onDismiss = { if (!isRegistering) showRegistrationDialog = false },
                     onConfirm = {
@@ -1425,7 +1425,7 @@ fun PropertyDetailScreen(
                             isRegistering = true
                             try {
                                 val body = buildJsonObject {
-                                    put("apartmentId", apt["recordId"].string.ifEmpty { apt.id })
+                                    put("propertyId", property.id)
                                     put("customerName", AppSession.shared.user?.get("name")?.string ?: "Tư vấn viên FUTA Land")
                                     put("customerPhone", AppSession.shared.user?.get("phone")?.string.orEmpty())
                                     put("notes", "Đăng ký bán từ chi tiết sản phẩm (Android)")
@@ -1451,7 +1451,7 @@ fun PropertyDetailScreen(
         // 2. HOLDING DEPOSIT BOTTOM SHEET (Matching iOS)
         // =========================================================================
         if (showHoldingSheet) {
-            property?.let { apt ->
+            property?.let { property ->
                 FutaBottomSheet(
                     visible = true,
                     onDismiss = { showHoldingSheet = false },
@@ -1533,7 +1533,7 @@ fun PropertyDetailScreen(
                                             ToastCenter.show("Đã giữ chỗ căn thành công! Chuyên viên FUTA sẽ liên hệ đối soát.")
                                         } else {
                                             val body = buildJsonObject {
-                                                put("apartmentId", apt["recordId"].string.ifEmpty { apt.id })
+                                                put("propertyId", property.id)
                                                 put("customerName", holdingName)
                                                 put("customerPhone", holdingPhone)
                                                 put("customerEmail", holdingEmail)
@@ -1728,7 +1728,7 @@ private fun SellingStatusChip(text: String, color: Color) {
 
 @Composable
 private fun StickyContactBottomBar(
-    apt: JSONValue,
+    property: JSONValue,
     sellingAction: SalesPolicy.SellingAction,
     onCallClick: () -> Unit,
     onChatClick: () -> Unit,
@@ -1751,14 +1751,14 @@ private fun StickyContactBottomBar(
         ) {
             // Price & Details on the LEFT
             Column(modifier = Modifier.weight(1f)) {
-                val isSell = apt["listingType"].string.lowercase() != "rent"
+                val isSell = property["listingType"].string.lowercase() != "rent"
                 Text(
                     text = if (isSell) "Giá bán dự kiến" else "Giá thuê",
                     fontSize = 10.5.sp,
                     color = FutaColors.Slate
                 )
                 Text(
-                    text = PropertyFormatters.listingPrice(apt),
+                    text = PropertyFormatters.listingPrice(property),
                     fontSize = 17.sp,
                     fontWeight = FontWeight.Black,
                     color = Color(0xFFF97316),
@@ -1847,18 +1847,18 @@ private fun StickyContactBottomBar(
 }
 
 @Composable
-private fun TownhouseFloorsCard(apt: JSONValue) {
-    val landArea = apt["landArea"].string.ifEmpty { apt["townhouseSpecs"]["landArea"].string }
-    val totalFloor = apt["totalFloorArea"].string.ifEmpty { apt["townhouseSpecs"]["totalFloorArea"].string }
-    val block = apt["building"].string.ifEmpty { apt["townhouseSpecs"]["block"].string }.ifEmpty { "Chưa cập nhật" }
+private fun TownhouseFloorsCard(property: JSONValue) {
+    val landArea = property["landArea"].string.ifEmpty { property["townhouseSpecs"]["landArea"].string }
+    val totalFloor = property["totalFloorArea"].string.ifEmpty { property["townhouseSpecs"]["totalFloorArea"].string }
+    val block = property["block"].string.ifEmpty { property["building"].string }.ifEmpty { property["townhouseSpecs"]["block"].string }.ifEmpty { "Chưa cập nhật" }
     val totalFloorsVal = when {
-        apt["totalFloors"].int > 0 -> "${apt["totalFloors"].int}"
-        apt["totalFloors"].string.isNotEmpty() -> apt["totalFloors"].string
-        apt["townhouseSpecs"]["totalFloors"].int > 0 -> "${apt["townhouseSpecs"]["totalFloors"].int}"
-        apt["townhouseSpecs"]["totalFloors"].string.isNotEmpty() -> apt["townhouseSpecs"]["totalFloors"].string
+        property["totalFloors"].int > 0 -> "${property["totalFloors"].int}"
+        property["totalFloors"].string.isNotEmpty() -> property["totalFloors"].string
+        property["townhouseSpecs"]["totalFloors"].int > 0 -> "${property["townhouseSpecs"]["totalFloors"].int}"
+        property["townhouseSpecs"]["totalFloors"].string.isNotEmpty() -> property["townhouseSpecs"]["totalFloors"].string
         else -> ""
     }
-    val rawFloors = if (apt["floorAreas"].array.isNotEmpty()) apt["floorAreas"].array else apt["townhouseSpecs"]["floorAreas"].array
+    val rawFloors = if (property["floorAreas"].array.isNotEmpty()) property["floorAreas"].array else property["townhouseSpecs"]["floorAreas"].array
 
     FutaCard(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -1924,20 +1924,20 @@ private fun TownhouseInfoRow(label: String, value: String) {
 // =========================================================================
 @Composable
 private fun AdvisorContactBottomSheet(
-    apt: JSONValue,
+    property: JSONValue,
     onDismiss: () -> Unit,
     onCallAdvisor: (String) -> Unit,
     onChatAdvisor: (String, String) -> Unit,
     onChatAi: () -> Unit
 ) {
-    val availableList = apt["availableAdvisors"].array
+    val availableList = property["availableAdvisors"].array
     val advisors = if (availableList.isNotEmpty()) {
         availableList.distinctBy { it["id"].string.ifEmpty { it["advisorId"].string } }
     } else {
-        val advId = apt["advisorId"].string.ifEmpty { apt["advisor"]["id"].string.ifEmpty { apt["createdBy"]["id"].string } }
-        val advName = apt["advisor"]["name"].string.ifEmpty { apt["createdBy"]["name"].string }.ifEmpty { apt["ownerName"].string.ifEmpty { "Chuyên viên tư vấn FUTA Land" } }
-        val advPhone = apt["advisor"]["phone"].string.ifEmpty { apt["createdBy"]["phone"].string }.ifEmpty { apt["ownerPhone"].string.ifEmpty { "02363575757" } }
-        val advAvatar = apt["advisor"]["avatar"].string.ifEmpty { apt["createdBy"]["avatar"].string }
+        val advId = property["advisorId"].string.ifEmpty { property["advisor"]["id"].string.ifEmpty { property["createdBy"]["id"].string } }
+        val advName = property["advisor"]["name"].string.ifEmpty { property["createdBy"]["name"].string }.ifEmpty { property["ownerName"].string.ifEmpty { "Chuyên viên tư vấn FUTA Land" } }
+        val advPhone = property["advisor"]["phone"].string.ifEmpty { property["createdBy"]["phone"].string }.ifEmpty { property["ownerPhone"].string.ifEmpty { "02363575757" } }
+        val advAvatar = property["advisor"]["avatar"].string.ifEmpty { property["createdBy"]["avatar"].string }
         listOf(
             JSONValue.parse("""{"id":"$advId","name":"$advName","phone":"$advPhone","avatar":"$advAvatar"}""")
         )
@@ -1954,8 +1954,9 @@ private fun AdvisorContactBottomSheet(
                 .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // Apartment Summary Card
-            val code = apt["propertyCode"].string.ifEmpty { apt["code"].string.ifEmpty { "Căn hộ" } }
+            // Property Summary Card
+            val code = property["propertyCode"].string.ifEmpty { property["code"].string.ifEmpty { "Căn hộ" } }
+            val projectName = property["projectName"].string.ifEmpty { property["zone"].string }
             Surface(
                 shape = RoundedCornerShape(14.dp),
                 color = Color(0xFFF8FAFC),
@@ -1974,9 +1975,9 @@ private fun AdvisorContactBottomSheet(
                             fontWeight = FontWeight.Bold,
                             color = FutaColors.Navy
                         )
-                        if (apt["zone"].string.isNotEmpty()) {
+                        if (projectName.isNotEmpty()) {
                             Text(
-                                text = apt["zone"].string,
+                                text = projectName,
                                 fontSize = 12.sp,
                                 color = FutaColors.BrandGreen,
                                 fontWeight = FontWeight.SemiBold
@@ -1989,12 +1990,12 @@ private fun AdvisorContactBottomSheet(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = PropertyFormatters.listingPrice(apt),
+                            text = PropertyFormatters.listingPrice(property),
                             fontSize = 16.sp,
                             fontWeight = FontWeight.Bold,
                             color = FutaColors.BrandOrange
                         )
-                        val size = apt["size_m2"].string.toDoubleOrNull() ?: 0.0
+                        val size = property["size_m2"].string.toDoubleOrNull() ?: 0.0
                         if (size > 0) {
                             Text(
                                 text = "${String.format(java.util.Locale.US, "%.1f", size)} m²",

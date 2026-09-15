@@ -86,7 +86,7 @@ fun AdminModuleScreen(
         loadData()
     }
 
-    val isApartmentModule = endpoint.contains("apartment")
+    val isPropertyModule = endpoint.contains("apartment")
     val isProjectModule = endpoint.contains("project")
     val isCampaignModule = endpoint.contains("campaign")
     val isUserModule = endpoint.contains("user")
@@ -99,7 +99,7 @@ fun AdminModuleScreen(
         val countSold = records.count { it["status"].string.lowercase() in listOf("sold", "closed", "completed") }
 
         when {
-            isApartmentModule -> listOf(
+            isPropertyModule -> listOf(
                 ModuleMetric("all", "Tổng kho căn", "$total", "Toàn bộ", Icons.Default.GridOn, Color(0xFF0E7643), Color(0xFFE8F5E9)),
                 ModuleMetric("selling", "Đang mở bán", "$countSelling", "Sẵn sàng", Icons.Default.LocalFireDepartment, Color(0xFF2563EB), Color(0xFFEFF6FF)),
                 ModuleMetric("pending", "Đang giữ chỗ / Cọc", "$countPending", "Đang giao dịch", Icons.Default.Lock, Color(0xFFF97316), Color(0xFFFFF7ED)),
@@ -137,7 +137,7 @@ fun AdminModuleScreen(
     val filteredRecords = remember(records, search, selectedStatus, endpoint) {
         records.filter { item ->
             val matchSearch = if (search.trim().isEmpty()) true else {
-                val text = (item["title"].string + " " + item["name"].string + " " + item["displayName"].string + " " + item["code"].string + " " + item["propertyCode"].string + " " + item["description"].string + " " + item["address"].string + " " + item["zone"].string).lowercase()
+                val text = (item["title"].string + " " + item["name"].string + " " + item["displayName"].string + " " + item["code"].string + " " + item["propertyCode"].string + " " + item["description"].string + " " + item["address"].string + " " + item["projectName"].string).lowercase()
                 text.contains(search.trim().lowercase())
             }
             val matchStatus = if (selectedStatus == "all") true else {
@@ -240,7 +240,7 @@ fun AdminModuleScreen(
                 FutaInput(
                     value = search,
                     onValueChange = { search = it },
-                    placeholder = if (isApartmentModule) "Tìm theo mã căn, tòa, tầng, dự án..." else "Tìm kiếm trong $title...",
+                    placeholder = if (isPropertyModule) "Tìm theo mã căn, tòa, tầng, dự án..." else "Tìm kiếm trong $title...",
                     leadingIcon = Icons.Default.Search,
                     trailingIcon = if (search.isNotEmpty()) {
                         {
@@ -351,7 +351,7 @@ fun AdminModuleScreen(
                 }
             } else {
                 itemsIndexed(filteredRecords, key = { idx, item -> (item.id.ifEmpty { "rec" }) + "-$idx" }) { _, item ->
-                    if (isApartmentModule) {
+                    if (isPropertyModule) {
                         // INVENTORY CARD (Exact Match to iOS ios_04_KhoSanPham_Inventory_List.png)
                         InventoryCardRow(
                             item = item,
@@ -535,7 +535,7 @@ fun AdminModuleScreen(
                         }
                     }
                 } else {
-                    // ERP Lock Switch for Apartments & Inventory
+                    // ERP Lock Switch for Properties & Inventory
                     Surface(
                         shape = RoundedCornerShape(12.dp),
                         color = if (isLocked) Color(0xFFFEF3C7) else Color(0xFFF8FAFC),
@@ -1007,7 +1007,7 @@ private fun InventoryCardRow(
 
                 // Breadcrumb
                 Text(
-                    text = "${item["zone"].string.ifEmpty { "Dự án FUTA" }} · Tòa ${item["block"].string.ifEmpty { "CT7" }} · Tầng ${item["floor"].string.ifEmpty { "26" }}",
+                    text = "${item["projectName"].string.ifEmpty { "Dự án FUTA" }} · Tòa ${item["block"].string.ifEmpty { "CT7" }} · Tầng ${item["floor"].string.ifEmpty { "26" }}",
                     fontSize = 11.5.sp,
                     color = FutaColors.Slate,
                     maxLines = 1,
@@ -1065,7 +1065,7 @@ private fun ProjectCardRow(
     val title = item["displayName"].string.trim().ifEmpty { item["name"].string.trim().ifEmpty { "Dự án" } }
     val banner = PropertyFormatters.resolveProjectBanner(item)
     val code = item["code"].string.trim()
-    val zoneName = item["zone"].string.trim()
+    val projectName = item["projectName"].string.trim()
     val developer = item["developer"].string.trim()
     val landArea = item["landArea"].string.trim()
     val projectType = item["projectType"].string.trim()
@@ -1185,11 +1185,11 @@ private fun ProjectCardRow(
                     )
                     Text(address, fontSize = 13.sp, lineHeight = 19.sp, color = FutaColors.Slate, modifier = Modifier.weight(1f))
                 }
-                if (code.isNotEmpty() || zoneName.isNotEmpty()) {
+                if (code.isNotEmpty() || projectName.isNotEmpty()) {
                     val identifier = when {
-                        code.isEmpty() -> "Phân khu: $zoneName"
-                        zoneName.isEmpty() -> "Mã: $code"
-                        else -> "Mã: $code · Phân khu: $zoneName"
+                        code.isEmpty() -> "Phân khu: $projectName"
+                        projectName.isEmpty() -> "Mã: $code"
+                        else -> "Mã: $code · Phân khu: $projectName"
                     }
                     Text(identifier, fontSize = 12.sp, color = FutaColors.Slate)
                 }

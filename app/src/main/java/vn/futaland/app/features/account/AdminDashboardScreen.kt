@@ -100,7 +100,7 @@ fun AdminDashboardScreen(
     val paidOrders = ov?.get("paidOrders")?.int ?: 0
     val totalOrders = ov?.get("totalOrders")?.int ?: orders.size
     val totalUsers = ov?.get("totalUsers")?.int ?: 27
-    val totalApartments = ov?.get("totalApartments")?.int ?: 259
+    val totalProperties = ov?.get("totalApartments")?.int ?: 259
 
     // 8 Overview Metrics (Live from /admin/overview matching iOS & Web)
     val metrics = listOf(
@@ -111,7 +111,7 @@ fun AdminDashboardScreen(
         MetricCardSpec("Đã thanh toán", "$paidOrders", "Đã hoàn thành", Icons.Default.CheckCircle, Color(0xFF0E7643), Color(0xFFE8F5E9)),
         MetricCardSpec("Tất cả đơn", "$totalOrders", "Tổng đơn dịch vụ", Icons.Default.ShoppingCart, Color(0xFF7C3AED), Color(0xFFF5F3FF)),
         MetricCardSpec("Tài khoản hệ thống", "$totalUsers", "Người dùng đăng ký", Icons.Default.People, Color(0xFF0284C7), Color(0xFFF0F9FF)),
-        MetricCardSpec("Kho căn & sản phẩm", "$totalApartments", "Tin đăng BĐS", Icons.Default.Apartment, Color(0xFFB45309), Color(0xFFFEF3C7))
+        MetricCardSpec("Kho căn & sản phẩm", "$totalProperties", "Tin đăng BĐS", Icons.Default.Apartment, Color(0xFFB45309), Color(0xFFFEF3C7))
     )
 
     val plans = if (pricingPlans.isNotEmpty()) {

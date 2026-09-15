@@ -43,14 +43,14 @@ fun SavedPropertiesScreen(
                 if (ids.isEmpty()) {
                     items = emptyList()
                 } else {
-                    val aptsRes = APIClient.get().request(
+                    val propertiesRes = APIClient.get().request(
                         "/apartments",
                         query = mapOf(
-                            "recordIds" to ids.take(50).joinToString(","),
+                            "ids" to ids.take(50).joinToString(","),
                             "limit" to "50"
                         )
                     )
-                    items = aptsRes["data"].array
+                    items = propertiesRes["data"].array
                 }
             } catch (_: Exception) {
                 items = emptyList()
@@ -140,24 +140,24 @@ fun SavedPropertiesScreen(
                 contentPadding = PaddingValues(16.dp),
                 verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
-                itemsIndexed(items, key = { idx, apt -> (apt.id.ifEmpty { "fav" }) + "-$idx" }) { _, apt ->
+                itemsIndexed(items, key = { idx, property -> (property.id.ifEmpty { "fav" }) + "-$idx" }) { _, property ->
                     FutaPropertyCard(
-                        apartment = apt,
+                        property = property,
                         isFavorited = true,
                         onFavoriteClick = {
                             scope.launch {
                                 try {
-                                    APIClient.get().request("/favorites/${apt.id}", method = "POST")
+                                    APIClient.get().request("/favorites/${property.id}", method = "POST")
                                     loadFavorites()
                                 } catch (_: Exception) {}
                             }
                         },
                         onShareClick = {
-                            val shareUrl = PropertyFormatters.shareUrl(apt)
+                            val shareUrl = PropertyFormatters.shareUrl(property)
                             val sendIntent = Intent().apply {
                                 action = Intent.ACTION_SEND
                                 putExtra(Intent.EXTRA_TEXT, shareUrl)
-                                putExtra(Intent.EXTRA_SUBJECT, PropertyFormatters.propertyTitle(apt))
+                                putExtra(Intent.EXTRA_SUBJECT, PropertyFormatters.propertyTitle(property))
                                 type = "text/plain"
                             }
                             context.startActivity(Intent.createChooser(sendIntent, "Chia sẻ sản phẩm"))
@@ -167,7 +167,7 @@ fun SavedPropertiesScreen(
                             context.startActivity(intent)
                         },
                         onChatClick = { onNavigate(FutaDestinations.INBOX) },
-                        onClick = { onNavigate(FutaDestinations.propertyDetail(apt.id)) }
+                        onClick = { onNavigate(FutaDestinations.propertyDetail(property.id)) }
                     )
                 }
             }

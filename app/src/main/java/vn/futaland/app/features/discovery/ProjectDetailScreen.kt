@@ -48,7 +48,7 @@ fun ProjectDetailScreen(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var project by remember { mutableStateOf<JSONValue?>(null) }
-    var apartments by remember { mutableStateOf<List<JSONValue>>(emptyList()) }
+    var properties by remember { mutableStateOf<List<JSONValue>>(emptyList()) }
     var loading by remember { mutableStateOf(true) }
     var selectedSubNav by remember { mutableStateOf("overview") }
     var showZoomPlan by remember { mutableStateOf(false) }
@@ -61,8 +61,8 @@ fun ProjectDetailScreen(
             try {
                 val pRes = APIClient.get().request("/projects/$projectId")
                 project = pRes["data"]
-                val aptRes = APIClient.get().request("/apartments", query = mapOf("projectId" to projectId, "limit" to "50"))
-                apartments = aptRes["data"].array
+                val propertyRes = APIClient.get().request("/apartments", query = mapOf("projectId" to projectId, "limit" to "50"))
+                properties = propertyRes["data"].array
             } catch (_: Exception) {
             } finally {
                 loading = false
@@ -147,9 +147,9 @@ fun ProjectDetailScreen(
             val totalUnits = p["totalUnits"].int
             val desc = p["description"].string.ifEmpty { p["overview"].string }
             val listState = rememberLazyListState()
-            val filteredApartments = remember(apartments, inventoryFilterBed) {
-                if (inventoryFilterBed == "all") apartments
-                else apartments.filter { it["bedrooms"].int.toString() == inventoryFilterBed || it["bedroomCount"].int.toString() == inventoryFilterBed }
+            val filteredProperties = remember(properties, inventoryFilterBed) {
+                if (inventoryFilterBed == "all") properties
+                else properties.filter { it["bedrooms"].int.toString() == inventoryFilterBed || it["bedroomCount"].int.toString() == inventoryFilterBed }
             }
 
             LazyColumn(
@@ -382,8 +382,8 @@ fun ProjectDetailScreen(
                     Spacer(Modifier.height(16.dp))
                 }
 
-                // 6. Linked Apartments Section with Filter
-                if (filteredApartments.isNotEmpty()) {
+                // 6. Linked Properties Section with Filter
+                if (filteredProperties.isNotEmpty()) {
                     item {
                         Column(modifier = Modifier.padding(horizontal = 16.dp)) {
                             Row(
@@ -392,7 +392,7 @@ fun ProjectDetailScreen(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Text(
-                                    text = "BẢNG HÀNG (${filteredApartments.size} CĂN)",
+                                    text = "BẢNG HÀNG (${filteredProperties.size} CĂN)",
                                     fontSize = 12.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = FutaColors.Slate
@@ -420,16 +420,16 @@ fun ProjectDetailScreen(
                         Spacer(Modifier.height(8.dp))
                     }
 
-                    itemsIndexed(filteredApartments, key = { idx, item -> (item.id.ifEmpty { "proj-apt" }) + "-$idx" }) { _, apt ->
+                    itemsIndexed(filteredProperties, key = { idx, item -> (item.id.ifEmpty { "proj-prop" }) + "-$idx" }) { _, property ->
                         Box(modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
                             FutaPropertyCard(
-                                apartment = apt,
+                                property = property,
                                 onCallClick = {
                                     val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:02363575757"))
                                     context.startActivity(intent)
                                 },
                                 onChatClick = { onNavigate(FutaDestinations.INBOX) },
-                                onClick = { onNavigate(FutaDestinations.propertyDetail(apt.id)) }
+                                onClick = { onNavigate(FutaDestinations.propertyDetail(property.id)) }
                             )
                         }
                     }

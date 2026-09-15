@@ -21,16 +21,16 @@ object PropertyFormatters {
         return "${"%,d".format(value.toLong()).replace(",", ".")} đ"
     }
 
-    fun listingPrice(apartment: JSONValue): String {
-        val listingType = apartment["listingType"].string.lowercase()
+    fun listingPrice(property: JSONValue): String {
+        val listingType = property["listingType"].string.lowercase()
         val isSell = listingType == "sell" || listingType == "bán" || listingType == "mua bán"
-        val rawPrice = if (isSell && apartment["sellPrice"].double > 0) {
-            apartment["sellPrice"].double
+        val rawPrice = if (isSell && property["sellPrice"].double > 0) {
+            property["sellPrice"].double
         } else {
-            if (apartment["price"].double > 0) apartment["price"].double else apartment["sellPrice"].double
+            if (property["price"].double > 0) property["price"].double else property["sellPrice"].double
         }
 
-        val formatted = formatPrice(rawPrice, fallback = apartment["price"].string)
+        val formatted = formatPrice(rawPrice, fallback = property["price"].string)
         if (isSell || rawPrice <= 0 || formatted == "Thỏa thuận") {
             return formatted
         }
@@ -44,10 +44,10 @@ object PropertyFormatters {
 
         if (code.isNotEmpty()) {
             if (t.isNotEmpty() && t.length <= 40) return t
-            val aptType = value["apartmentType"].string.trim()
-            val building = value["building"].string.trim()
-            if (aptType.isNotEmpty() && building.isNotEmpty()) {
-                return "$aptType $building • Mã: $code"
+            val unitType = value["unitType"].string.trim().ifEmpty { value["apartmentType"].string.trim() }
+            val block = value["block"].string.trim().ifEmpty { value["building"].string.trim() }
+            if (unitType.isNotEmpty() && block.isNotEmpty()) {
+                return "$unitType $block • Mã: $code"
             }
             return if (t.isNotEmpty()) t else "Mã căn: $code"
         }
@@ -71,19 +71,18 @@ object PropertyFormatters {
             val clean = raw.removePrefix("/")
             return "https://bds.futaland.vn/$clean"
         }
-        val zoneText = (value["zone"].string.ifEmpty {
-            value["projectName"].string.ifEmpty {
-                value["apartment"]["zone"].string.ifEmpty {
-                    value["project"]["displayName"].string
-                }
-            }
-        }).lowercase()
+        val projectName = (
+            value["projectName"].string
+                .ifEmpty { value["zone"].string }
+                .ifEmpty { value["property"]["projectName"].string }
+                .ifEmpty { value["project"]["displayName"].string }
+            ).lowercase()
         return when {
-            zoneText.contains("kim an") || zoneText.contains("c5b") ->
+            projectName.contains("kim an") || projectName.contains("c5b") ->
                 "https://bds.futaland.vn/images/figma-data/projects/exact/futa-kim-an.png"
-            zoneText.contains("kim phát") || zoneText.contains("kim-phat") ->
+            projectName.contains("kim phát") || projectName.contains("kim-phat") ->
                 "https://bds.futaland.vn/images/figma-data/projects/exact/futa-kim-phat.png"
-            zoneText.contains("hampton") || zoneText.contains("võ nguyên giáp") || zoneText.contains("vo-nguyen-giap") ->
+            projectName.contains("hampton") || projectName.contains("võ nguyên giáp") || projectName.contains("vo-nguyen-giap") ->
                 "https://bds.futaland.vn/images/figma-data/projects/exact/hampton-vo-nguyen-giap.png"
             else ->
                 "https://bds.futaland.vn/images/figma-data/projects/exact/times-square.png"
@@ -128,16 +127,16 @@ object PropertyFormatters {
             }
         }
 
-        // 3. Nested apartment object
-        val apt = value["apartment"]
-        if (!apt.isNull) {
-            val aptImg = apt["image"].string.trim()
-            if (aptImg.isNotEmpty() && aptImg != "null") return aptImg
-            val aptBanner = apt["bannerImage"].string.trim()
-            if (aptBanner.isNotEmpty() && aptBanner != "null") return aptBanner
-            val aptImages = apt["images"].array
-            if (aptImages.isNotEmpty()) {
-                for (img in aptImages) {
+        // 3. Nested property object
+        val property = if (value["property"].isNull) value["apartment"] else value["property"]
+        if (!property.isNull) {
+            val propertyImg = property["image"].string.trim()
+            if (propertyImg.isNotEmpty() && propertyImg != "null") return propertyImg
+            val propertyBanner = property["bannerImage"].string.trim()
+            if (propertyBanner.isNotEmpty() && propertyBanner != "null") return propertyBanner
+            val propertyImages = property["images"].array
+            if (propertyImages.isNotEmpty()) {
+                for (img in propertyImages) {
                     val orig = img["original"].string.trim()
                     if (orig.isNotEmpty() && orig != "null") return orig
                     val url = img["url"].string.trim()

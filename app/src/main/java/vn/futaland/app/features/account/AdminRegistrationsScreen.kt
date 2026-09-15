@@ -111,8 +111,8 @@ fun AdminRegistrationsScreen(
 
     val availableProjects = remember(registrations) {
         val set = registrations.map {
-            it["apartment"]["project"]["displayName"].string.ifEmpty {
-                it["apartment"]["zone"].string.ifEmpty { it["apartment"]["projectName"].string }
+            it["property"]["project"]["displayName"].string.ifEmpty {
+                it["property"]["projectName"].string
             }
         }.filter { it.isNotEmpty() }.toSet()
         listOf("all") + set.toList().sorted()
@@ -120,13 +120,13 @@ fun AdminRegistrationsScreen(
 
     val filteredRegistrations = remember(registrations, search, holdingFilter, projectFilter) {
         registrations.filter { r ->
-            val code = r["apartment"]["propertyCode"].string
+            val code = r["property"]["propertyCode"].string
             val regCode = r["code"].string
             val advisorName = r["advisor"]["name"].string
             val customerName = r["customerName"].string
             val customerPhone = r["customerPhone"].string
-            val projName = r["apartment"]["project"]["displayName"].string.ifEmpty {
-                r["apartment"]["zone"].string.ifEmpty { r["apartment"]["projectName"].string }
+            val projName = r["property"]["project"]["displayName"].string.ifEmpty {
+                r["property"]["projectName"].string
             }
 
             val matchSearch = if (search.trim().isEmpty()) true else {
@@ -349,7 +349,7 @@ fun AdminRegistrationsScreen(
 
     // Detail & Action BottomSheet
     selectedRegistration?.let { reg ->
-        val code = reg["apartment"]["propertyCode"].string.ifEmpty { "Căn hộ" }
+        val code = reg["property"]["propertyCode"].string.ifEmpty { "Căn hộ" }
         val bookingSt = reg["bookingStatus"].string
         val rightsSt = reg["status"].string
         FutaBottomSheet(
@@ -532,23 +532,23 @@ private fun RegistrationCardRow(
     isCompeting: Boolean,
     onClick: () -> Unit
 ) {
-    val apt = registration["apartment"]
+    val property = registration["property"]
     val advisor = registration["advisor"]
     val bookingStatus = registration["bookingStatus"].string
     val rightsStatus = registration["status"].string
 
-    val propertyCode = apt["propertyCode"].string.ifEmpty { "Căn hộ" }
-    val projName = apt["project"]["displayName"].string.ifEmpty { apt["zone"].string.ifEmpty { "Dự án FUTA" } }
-    val building = apt["building"].string.ifEmpty { "-" }
-    val floor = apt["floor"].string.ifEmpty { "-" }
-    val subLocation = "$projName · Tòa $building · Tầng $floor"
+    val propertyCode = property["propertyCode"].string.ifEmpty { "Căn hộ" }
+    val projName = property["project"]["displayName"].string.ifEmpty { property["projectName"].string.ifEmpty { "Dự án FUTA" } }
+    val block = property["block"].string.ifEmpty { "-" }
+    val floor = property["floor"].string.ifEmpty { "-" }
+    val subLocation = "$projName · Tòa $block · Tầng $floor"
 
     val advisorName = advisor["name"].string.ifEmpty { "FUTA Land" }
     val advisorPhone = advisor["phone"].string
     val customerName = registration["customerName"].string
     val customerPhone = registration["customerPhone"].string
 
-    val priceVal = if (apt["sellPrice"].double > 0) apt["sellPrice"].double else apt["price"].double
+    val priceVal = if (property["sellPrice"].double > 0) property["sellPrice"].double else property["price"].double
     val priceFormatted = if (priceVal > 0) "%,.0f đ".format(priceVal).replace(',', '.') else "Đang cập nhật"
     val deposit = registration["depositAmount"].double
 
@@ -658,13 +658,13 @@ private fun RegistrationCardRow(
             }
             HorizontalDivider(color = Color(0xFFF1F5F9))
 
-            // Middle Row: Thumbnail Image & Apartment Details
+            // Middle Row: Thumbnail Image & Property Details
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalAlignment = Alignment.Top
             ) {
-                val thumbUrl = PropertyFormatters.resolveImage(if (!apt.isNull && apt["propertyCode"].string.isNotEmpty()) apt else registration)
+                val thumbUrl = PropertyFormatters.resolveImage(if (!property.isNull && property["propertyCode"].string.isNotEmpty()) property else registration)
 
                 AsyncImage(
                     model = thumbUrl,
@@ -705,15 +705,15 @@ private fun RegistrationCardRow(
                             overflow = TextOverflow.Ellipsis
                         )
                     }
-                    val sizeStr = apt["size_m2"].string.ifEmpty {
-                        val d = apt["size_m2"].double.takeIf { it > 0 } ?: apt["areaM2"].double.takeIf { it > 0 } ?: apt["area"].double
+                    val sizeStr = property["size_m2"].string.ifEmpty {
+                        val d = property["size_m2"].double.takeIf { it > 0 } ?: property["areaM2"].double.takeIf { it > 0 } ?: property["area"].double
                         if (d > 0) "%.1f m²".format(d).replace(".0", "") else ""
                     }
-                    val beds = apt["bedrooms"].int
+                    val beds = property["bedrooms"].int
                     val specs = listOfNotNull(
                         sizeStr.takeIf { it.isNotEmpty() },
                         if (beds > 0) "$beds PN" else null,
-                        apt["direction"].string.takeIf { it.isNotEmpty() }
+                        property["direction"].string.takeIf { it.isNotEmpty() }
                     ).joinToString(" · ")
                     if (specs.isNotEmpty()) {
                         Text(

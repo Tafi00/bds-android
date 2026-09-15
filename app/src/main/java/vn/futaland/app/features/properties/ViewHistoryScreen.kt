@@ -98,15 +98,15 @@ fun ViewHistoryScreen(
                 contentPadding = PaddingValues(16.dp),
                 verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
-                itemsIndexed(items, key = { idx, apt -> apt.id.ifEmpty { "hist-$idx" } }) { _, apt ->
+                itemsIndexed(items, key = { idx, property -> property.id.ifEmpty { "hist-$idx" } }) { _, property ->
                     FutaPropertyCard(
-                        apartment = apt,
+                        property = property,
                         onCallClick = {
                             val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:02363575757"))
                             context.startActivity(intent)
                         },
                         onChatClick = { onNavigate(FutaDestinations.INBOX) },
-                        onClick = { onNavigate(FutaDestinations.propertyDetail(apt.id)) }
+                        onClick = { onNavigate(FutaDestinations.propertyDetail(property.id)) }
                     )
                 }
             }

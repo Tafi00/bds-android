@@ -256,20 +256,20 @@ class MainActivity : ComponentActivity() {
                                     navArgument("conversationId") { type = NavType.StringType; nullable = true; defaultValue = null },
                                     navArgument("advisorId") { type = NavType.StringType; nullable = true; defaultValue = null },
                                     navArgument("advisorName") { type = NavType.StringType; nullable = true; defaultValue = null },
-                                    navArgument("apartmentId") { type = NavType.StringType; nullable = true; defaultValue = null },
+                                    navArgument("propertyId") { type = NavType.StringType; nullable = true; defaultValue = null },
                                     navArgument("isAi") { type = NavType.StringType; nullable = true; defaultValue = null }
                                 )
                             ) { backStack ->
                                 val convId = backStack.arguments?.getString("conversationId")
                                 val advId = backStack.arguments?.getString("advisorId")
                                 val advName = backStack.arguments?.getString("advisorName")
-                                val aptId = backStack.arguments?.getString("apartmentId")
+                                val propertyId = backStack.arguments?.getString("propertyId")
                                 val isAi = backStack.arguments?.getString("isAi") == "true"
                                 ChatScreen(
                                     initialConversationId = convId,
                                     targetAdvisorId = advId,
                                     targetAdvisorName = advName,
-                                    targetApartmentId = aptId,
+                                    targetPropertyId = propertyId,
                                     isAiChat = isAi,
                                     onBack = { navController.popBackStack() }
                                 )

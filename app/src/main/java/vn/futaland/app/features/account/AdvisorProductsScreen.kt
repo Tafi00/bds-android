@@ -114,27 +114,27 @@ fun AdvisorProductsScreen(
             when {
                 bStatus == "online_holding" -> counts["online_holding"] = (counts["online_holding"] ?: 0) + 1
                 bStatus == "pending_booking" || bStatus == "cancel_requested" -> counts["pending"] = (counts["pending"] ?: 0) + 1
-                bStatus == "holding_success" -> counts["holding"] = (counts["holding"] ?: 0) + 1
-                listOf("deposited", "commission_pending", "commission_paid", "purchased").contains(bStatus) -> counts["completed"] = (counts["completed"] ?: 0) + 1
+                bStatus == "holding_success" || bStatus == "deposited" -> counts["holding"] = (counts["holding"] ?: 0) + 1
+                listOf("commission_pending", "commission_paid", "purchased").contains(bStatus) -> counts["completed"] = (counts["completed"] ?: 0) + 1
                 else -> counts["registered"] = (counts["registered"] ?: 0) + 1
             }
         }
         counts
     }
 
-    fun getRegProject(reg: JSONValue) = reg["projectName"].string.ifEmpty { reg["apartment"]["zone"].string.ifEmpty { reg["zone"].string } }
-    fun getRegCampaign(reg: JSONValue) = reg["campaignName"].string.ifEmpty { reg["salesCampaignName"].string.ifEmpty { reg["apartment"]["salesCampaignName"].string } }
-    fun getRegBlock(reg: JSONValue) = reg["block"].string.ifEmpty { reg["apartment"]["building"].string.ifEmpty { reg["building"].string } }
-    fun getRegProductType(reg: JSONValue) = reg["apartmentType"].string.ifEmpty { reg["apartment"]["apartmentType"].string }
-    fun getRegPropertyType(reg: JSONValue) = reg["propertyType"].string.ifEmpty { reg["apartment"]["propertyType"].string }
+    fun getRegProject(reg: JSONValue) = reg["projectName"].string.ifEmpty { reg["property"]["projectName"].string }
+    fun getRegCampaign(reg: JSONValue) = reg["campaignName"].string.ifEmpty { reg["salesCampaignName"].string.ifEmpty { reg["property"]["salesCampaignName"].string } }
+    fun getRegBlock(reg: JSONValue) = reg["block"].string.ifEmpty { reg["property"]["block"].string }
+    fun getRegProductType(reg: JSONValue) = reg["unitType"].string.ifEmpty { reg["property"]["unitType"].string }
+    fun getRegPropertyType(reg: JSONValue) = reg["propertyType"].string.ifEmpty { reg["property"]["propertyType"].string }
     fun getRegFloor(reg: JSONValue): String {
         val f = reg["floor"].string
         if (f.isNotEmpty()) return f
-        val fl = reg["apartment"]["floor"].int
+        val fl = reg["property"]["floor"].int
         return if (fl > 0) "$fl" else ""
     }
-    fun getRegDirection(reg: JSONValue) = reg["direction"].string.ifEmpty { reg["apartment"]["direction"].string }
-    fun getRegBalconyDirection(reg: JSONValue) = reg["balconyDirection"].string.ifEmpty { reg["apartment"]["balconyDirection"].string }
+    fun getRegDirection(reg: JSONValue) = reg["direction"].string.ifEmpty { reg["property"]["direction"].string }
+    fun getRegBalconyDirection(reg: JSONValue) = reg["balconyDirection"].string.ifEmpty { reg["property"]["balconyDirection"].string }
 
     fun filterRegistrations(exclude: String): List<JSONValue> {
         return activeRegistrations.filter { reg ->
@@ -219,18 +219,18 @@ fun AdvisorProductsScreen(
         directionFilter, balconyDirectionFilter
     ) {
         activeRegistrations.filter { reg ->
-            val unitCode = reg["unitCode"].string.ifEmpty { reg["apartment"]["propertyCode"].string }
-            val projectName = reg["projectName"].string.ifEmpty { reg["apartment"]["zone"].string.ifEmpty { reg["zone"].string } }
-            val campaign = reg["campaignName"].string.ifEmpty { reg["salesCampaignName"].string.ifEmpty { reg["apartment"]["salesCampaignName"].string } }
-            val block = reg["block"].string.ifEmpty { reg["apartment"]["building"].string.ifEmpty { reg["building"].string } }
-            val productType = reg["apartmentType"].string.ifEmpty { reg["apartment"]["apartmentType"].string }
-            val propertyType = reg["propertyType"].string.ifEmpty { reg["apartment"]["propertyType"].string }
+            val unitCode = reg["unitCode"].string.ifEmpty { reg["property"]["propertyCode"].string }
+            val projectName = reg["projectName"].string.ifEmpty { reg["property"]["projectName"].string }
+            val campaign = reg["campaignName"].string.ifEmpty { reg["salesCampaignName"].string.ifEmpty { reg["property"]["salesCampaignName"].string } }
+            val block = reg["block"].string.ifEmpty { reg["property"]["block"].string }
+            val productType = reg["unitType"].string.ifEmpty { reg["property"]["unitType"].string }
+            val propertyType = reg["propertyType"].string.ifEmpty { reg["property"]["propertyType"].string }
             val floor = reg["floor"].string.ifEmpty {
-                val fl = reg["apartment"]["floor"].int
+                val fl = reg["property"]["floor"].int
                 if (fl > 0) "$fl" else ""
             }
-            val direction = reg["direction"].string.ifEmpty { reg["apartment"]["direction"].string }
-            val balconyDirection = reg["balconyDirection"].string.ifEmpty { reg["apartment"]["balconyDirection"].string }
+            val direction = reg["direction"].string.ifEmpty { reg["property"]["direction"].string }
+            val balconyDirection = reg["balconyDirection"].string.ifEmpty { reg["property"]["balconyDirection"].string }
 
             val q = search.trim().lowercase()
             val matchSearch = q.isEmpty() || unitCode.lowercase().contains(q)
@@ -242,8 +242,8 @@ fun AdvisorProductsScreen(
             val matchTab = when (selectedTab) {
                 "online_holding" -> bStatus == "online_holding"
                 "pending" -> bStatus == "pending_booking" || bStatus == "cancel_requested"
-                "holding" -> bStatus == "holding_success"
-                "completed" -> listOf("deposited", "commission_pending", "commission_paid", "purchased").contains(bStatus)
+                "holding" -> bStatus == "holding_success" || bStatus == "deposited"
+                "completed" -> listOf("commission_pending", "commission_paid", "purchased").contains(bStatus)
                 "registered" -> bStatus.isEmpty() || bStatus == "none" || bStatus == "available"
                 else -> true
             }
@@ -467,7 +467,7 @@ fun AdvisorProductsScreen(
                         AdvisorProductCartCard(
                             reg = reg,
                             onHold = {
-                                val targetId = reg["apartmentId"].string.ifEmpty { reg["apartment"]["recordId"].string.ifEmpty { reg["apartment"]["id"].string.ifEmpty { reg.id } } }
+                                val targetId = reg["propertyId"].string.ifEmpty { reg["property"]["id"].string.ifEmpty { reg.id } }
                                 if (targetId.isNotEmpty()) {
                                     onNavigate(FutaDestinations.propertyDetail(targetId))
                                 }
@@ -646,7 +646,7 @@ fun AdvisorProductsScreen(
         FutaBottomSheet(
             visible = true,
             onDismiss = { detailItem = null },
-            title = item["unitCode"].string.ifEmpty { item["apartment"]["propertyCode"].string.ifEmpty { "Chi tiết sản phẩm" } }
+            title = item["unitCode"].string.ifEmpty { item["property"]["propertyCode"].string.ifEmpty { "Chi tiết sản phẩm" } }
         ) {
             val status = item["status"].string.lowercase()
             val bStatus = item["bookingStatus"].string.lowercase()
@@ -662,12 +662,13 @@ fun AdvisorProductsScreen(
                 "pending_booking" -> "Chờ xác nhận cọc"
                 "cancel_requested" -> "Đang chờ duyệt huỷ giữ chỗ"
                 "holding_success" -> "ERP đã khóa căn"
-                "deposited", "commission_pending", "commission_paid", "purchased" -> "Giao dịch thành công"
+                "deposited" -> "Đã thu cọc"
+                "commission_pending", "commission_paid", "purchased" -> "Giao dịch thành công"
                 "rejected" -> "Bị từ chối giữ chỗ"
                 "cancelled" -> "Đã huỷ giữ chỗ"
                 else -> item["bookingStatus"].string
             }
-            val rejectReason = item["rejectReason"].string.ifEmpty { item["apartment"]["activeHoldingRejectReason"].string }
+            val rejectReason = item["rejectReason"].string.ifEmpty { item["property"]["activeHoldingRejectReason"].string }
             val customerName = item["customerName"].string
             val customerPhone = item["customerPhone"].string
             val customerEmail = item["customerEmail"].string
@@ -679,9 +680,9 @@ fun AdvisorProductsScreen(
                 modifier = Modifier.fillMaxWidth(),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                DetailRow("Dự án / Phân khu", item["projectName"].string.ifEmpty { item["apartment"]["zone"].string.ifEmpty { "-" } })
-                DetailRow("Tòa / Block", item["block"].string.ifEmpty { item["apartment"]["building"].string.ifEmpty { "-" } })
-                val fl = item["floor"].int.let { if (it > 0) it else item["apartment"]["floor"].int }
+                DetailRow("Dự án / Phân khu", item["projectName"].string.ifEmpty { item["property"]["projectName"].string.ifEmpty { "-" } })
+                DetailRow("Tòa / Block", item["block"].string.ifEmpty { item["property"]["block"].string.ifEmpty { "-" } })
+                val fl = item["floor"].int.let { if (it > 0) it else item["property"]["floor"].int }
                 DetailRow("Tầng", if (fl > 0) "$fl" else "-")
                 DetailRow("Quyền bán", sellStatusText)
                 DetailRow("Giữ chỗ", bookingStatusText)
@@ -791,15 +792,15 @@ private fun AdvisorProductCartCard(
     onHold: () -> Unit,
     onClick: () -> Unit = {}
 ) {
-    val unitCode = reg["unitCode"].string.ifEmpty { reg["apartment"]["propertyCode"].string }
-    val projectName = reg["projectName"].string.ifEmpty { reg["apartment"]["zone"].string }
-    val block = reg["block"].string.ifEmpty { reg["apartment"]["building"].string }
+    val unitCode = reg["unitCode"].string.ifEmpty { reg["property"]["propertyCode"].string }
+    val projectName = reg["projectName"].string.ifEmpty { reg["property"]["projectName"].string }
+    val block = reg["block"].string.ifEmpty { reg["property"]["block"].string }
     val floor = reg["floor"].string.ifEmpty {
-        val fl = reg["apartment"]["floor"].int
+        val fl = reg["property"]["floor"].int
         if (fl > 0) "$fl" else ""
     }
-    val rawPrice = if (reg["price"].double > 0) reg["price"].double else (if (reg["apartment"]["sellPrice"].double > 0) reg["apartment"]["sellPrice"].double else reg["apartment"]["price"].double)
-    val area = if (reg["area"].double > 0) reg["area"].double else reg["apartment"]["size_m2"].double
+    val rawPrice = if (reg["price"].double > 0) reg["price"].double else (if (reg["property"]["sellPrice"].double > 0) reg["property"]["sellPrice"].double else reg["property"]["price"].double)
+    val area = if (reg["area"].double > 0) reg["area"].double else reg["property"]["size_m2"].double
     val bStatus = reg["bookingStatus"].string.lowercase()
     val status = reg["status"].string.lowercase()
 
@@ -807,8 +808,8 @@ private fun AdvisorProductCartCard(
 
     val rawImg = reg["image"].string.ifEmpty {
         reg["thumbnail"].string.ifEmpty {
-            reg["apartment"]["thumbnail"].string.ifEmpty {
-                reg["apartment"]["image"].string
+            reg["property"]["thumbnail"].string.ifEmpty {
+                reg["property"]["image"].string
             }
         }
     }
@@ -865,7 +866,8 @@ private fun AdvisorProductCartCard(
                             bStatus == "online_holding" -> StatusBadge("Đang giữ chỗ (15p)", Color(0xFFF97316), Color(0xFFFFF7ED))
                             bStatus == "pending_booking" || bStatus == "cancel_requested" -> StatusBadge("Chờ xác nhận cọc", Color(0xFFD97706), Color(0xFFFEF3C7))
                             bStatus == "holding_success" -> StatusBadge("ERP đã khóa căn", FutaColors.BrandGreen, Color(0xFFECFDF5))
-                            listOf("deposited", "commission_pending", "commission_paid", "purchased").contains(bStatus) -> StatusBadge("GD thành công", Color(0xFF2563EB), Color(0xFFEFF6FF))
+                            bStatus == "deposited" -> StatusBadge("Đã thu cọc", Color(0xFF2563EB), Color(0xFFEFF6FF))
+                            listOf("commission_pending", "commission_paid", "purchased").contains(bStatus) -> StatusBadge("GD thành công", Color(0xFF2563EB), Color(0xFFEFF6FF))
                             status == "active" || status == "approved" -> StatusBadge("Đang mở quyền bán", FutaColors.BrandGreen, Color(0xFFECFDF5))
                             status == "pending" -> StatusBadge("Chờ duyệt quyền bán", Color(0xFFD97706), Color(0xFFFEF3C7))
                             status == "rejected" -> StatusBadge("Từ chối duyệt", Color(0xFFDC2626), Color(0xFFFEF2F2))
@@ -937,7 +939,14 @@ private fun AdvisorProductCartCard(
                         fontWeight = FontWeight.Bold,
                         color = FutaColors.BrandGreen
                     )
-                } else if (listOf("deposited", "commission_pending", "commission_paid", "purchased").contains(bStatus)) {
+                } else if (bStatus == "deposited") {
+                    Text(
+                        text = "Đã thu cọc",
+                        fontSize = 12.5.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF2563EB)
+                    )
+                } else if (listOf("commission_pending", "commission_paid", "purchased").contains(bStatus)) {
                     Text(
                         text = "Giao dịch thành công",
                         fontSize = 12.5.sp,

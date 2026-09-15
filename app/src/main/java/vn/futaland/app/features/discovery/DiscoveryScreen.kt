@@ -61,7 +61,7 @@ fun DiscoveryScreen(
     val loading by viewModel.loading.collectAsState()
     val selectedCity by viewModel.selectedCity.collectAsState()
     val selectedSegment by viewModel.selectedSegment.collectAsState()
-    val featuredApartments by viewModel.featuredApartments.collectAsState()
+    val featuredProperties by viewModel.featuredProperties.collectAsState()
 
     LaunchedEffect(Unit) {
         if (viewModel.projects.value.isEmpty()) {
@@ -126,15 +126,15 @@ fun DiscoveryScreen(
 
         // 4B. Featured Products (Horizontal Scroll - Cố định, độc lập với filter phân khúc bên dưới)
         item {
-            val displayFeatured = if (featuredApartments.isNotEmpty()) featuredApartments.take(8) else viewModel.allApartments.value.take(8)
+            val displayFeatured = if (featuredProperties.isNotEmpty()) featuredProperties.take(8) else viewModel.allProperties.value.take(8)
             if (displayFeatured.isNotEmpty()) {
                 FeaturedProductsHorizontalSection(
-                    apartments = displayFeatured,
-                    onApartmentClick = { onNavigate(FutaDestinations.propertyDetail(it)) },
+                    properties = displayFeatured,
+                    onPropertyClick = { onNavigate(FutaDestinations.propertyDetail(it)) },
                     onViewAllClick = { onNavigate(FutaDestinations.SEARCH) },
-                    onFavoriteToggle = { aptId ->
+                    onFavoriteToggle = { propertyId ->
                         if (AppSession.shared.isAuthenticated) {
-                            viewModel.toggleFavorite(aptId)
+                            viewModel.toggleFavorite(propertyId)
                         } else {
                             onNavigate(FutaDestinations.AUTH)
                         }
@@ -154,9 +154,9 @@ fun DiscoveryScreen(
             Spacer(Modifier.height(24.dp))
         }
 
-        // 7. Segment Pills for Apartments
+        // 7. Segment Pills for Properties
         item {
-            ApartmentSegmentFilter(
+            PropertySegmentFilter(
                 selectedSegment = selectedSegment,
                 onSelect = { viewModel.selectSegment(it) },
                 onViewAll = { onNavigate(FutaDestinations.SEARCH) }
@@ -164,15 +164,15 @@ fun DiscoveryScreen(
             Spacer(Modifier.height(16.dp))
         }
 
-        // 7. Apartments List
-        val apartments = viewModel.filteredApartments.take(8)
-        if (loading && apartments.isEmpty()) {
+        // 7. Properties List
+        val properties = viewModel.filteredProperties.take(8)
+        if (loading && properties.isEmpty()) {
             items(3) {
                 Box(modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
                     FutaPropertyCardSkeleton()
                 }
             }
-        } else if (apartments.isEmpty()) {
+        } else if (properties.isEmpty()) {
             item {
                 FutaEmptyState(
                     title = "Chưa có sản phẩm phù hợp",
@@ -180,24 +180,24 @@ fun DiscoveryScreen(
                 )
             }
         } else {
-            itemsIndexed(apartments, key = { index, it -> (it.id.ifEmpty { "apt" }) + "-$index" }) { _, apt ->
+            itemsIndexed(properties, key = { index, it -> (it.id.ifEmpty { "prop" }) + "-$index" }) { _, property ->
                 Box(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
                     FutaPropertyCard(
-                        apartment = apt,
+                        property = property,
                         isFavorited = false,
                         onFavoriteClick = {
                             if (AppSession.shared.isAuthenticated) {
-                                viewModel.toggleFavorite(apt.id)
+                                viewModel.toggleFavorite(property.id)
                             } else {
                                 onNavigate(FutaDestinations.AUTH)
                             }
                         },
                         onShareClick = {
-                            val shareUrl = PropertyFormatters.shareUrl(apt)
+                            val shareUrl = PropertyFormatters.shareUrl(property)
                             val sendIntent = Intent().apply {
                                 action = Intent.ACTION_SEND
                                 putExtra(Intent.EXTRA_TEXT, shareUrl)
-                                putExtra(Intent.EXTRA_SUBJECT, PropertyFormatters.propertyTitle(apt))
+                                putExtra(Intent.EXTRA_SUBJECT, PropertyFormatters.propertyTitle(property))
                                 type = "text/plain"
                             }
                             context.startActivity(Intent.createChooser(sendIntent, "Chia sẻ sản phẩm"))
@@ -207,7 +207,7 @@ fun DiscoveryScreen(
                             context.startActivity(intent)
                         },
                         onChatClick = { onNavigate(FutaDestinations.INBOX) },
-                        onClick = { onNavigate(FutaDestinations.propertyDetail(apt.id)) }
+                        onClick = { onNavigate(FutaDestinations.propertyDetail(property.id)) }
                     )
                 }
             }
@@ -349,7 +349,7 @@ private fun QuickActionsGrid(
     ) {
         listOf(
             Triple("Dự án FUTA", R.drawable.sf_quick_projects, FutaDestinations.PROJECTS_LIST),
-            Triple("Căn hộ", R.drawable.sf_quick_apartment, FutaDestinations.search("can-ho-chung-cu")),
+            Triple("Căn hộ", R.drawable.sf_quick_property, FutaDestinations.search("can-ho-chung-cu")),
             Triple("Nhà phố", R.drawable.sf_quick_house, FutaDestinations.search("biet-thu-lien-ke")),
             Triple("Tin tức", R.drawable.ic_quick_news, FutaDestinations.NEWS)
         ).forEach { (title, iconRes, dest) ->
@@ -635,8 +635,8 @@ private fun HeroCarouselSection(
 
 @Composable
 private fun FeaturedProductsHorizontalSection(
-    apartments: List<JSONValue>,
-    onApartmentClick: (String) -> Unit,
+    properties: List<JSONValue>,
+    onPropertyClick: (String) -> Unit,
     onViewAllClick: () -> Unit,
     onFavoriteToggle: (String) -> Unit
 ) {
@@ -680,13 +680,13 @@ private fun FeaturedProductsHorizontalSection(
             contentPadding = PaddingValues(horizontal = 16.dp),
             horizontalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            itemsIndexed(apartments, key = { idx, apt -> "feat-apt-${apt.id}-$idx" }) { _, apt ->
+            itemsIndexed(properties, key = { idx, property -> "feat-prop-${property.id}-$idx" }) { _, property ->
                 Box(modifier = Modifier.width(280.dp)) {
                     FutaPropertyCard(
-                        apartment = apt,
+                        property = property,
                         isFavorited = false,
-                        onFavoriteClick = { onFavoriteToggle(apt.id) },
-                        onClick = { onApartmentClick(apt.id) }
+                        onFavoriteClick = { onFavoriteToggle(property.id) },
+                        onClick = { onPropertyClick(property.id) }
                     )
                 }
             }
@@ -837,7 +837,7 @@ private fun FeaturedCitiesSection(
 }
 
 @Composable
-private fun ApartmentSegmentFilter(
+private fun PropertySegmentFilter(
     selectedSegment: HomePropertySegment,
     onSelect: (HomePropertySegment) -> Unit,
     onViewAll: () -> Unit
@@ -885,7 +885,7 @@ private fun ApartmentSegmentFilter(
         ) {
             listOf(
                 Triple(HomePropertySegment.ALL, R.drawable.sf_chip_all_active, R.drawable.sf_chip_all_inactive),
-                Triple(HomePropertySegment.APARTMENT, R.drawable.sf_chip_apt_active, R.drawable.sf_chip_apt_inactive),
+                Triple(HomePropertySegment.PROPERTY, R.drawable.sf_chip_apt_active, R.drawable.sf_chip_apt_inactive),
                 Triple(HomePropertySegment.TOWNHOUSE, R.drawable.sf_chip_house_active, R.drawable.sf_chip_house_inactive),
                 Triple(HomePropertySegment.UNDER_8B, R.drawable.sf_chip_tag_active, R.drawable.sf_chip_tag_inactive),
                 Triple(HomePropertySegment.SELLING, R.drawable.sf_chip_sparkles_active, R.drawable.sf_chip_sparkles_inactive)

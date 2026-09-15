@@ -355,7 +355,7 @@ private fun CustomerCardRowItem(
     val status = customer["customerStatus"].string.ifEmpty { "Khách mới" }
     val segment = customer["customerSegment"].string
     val hasTransaction = customer["hasTransaction"].bool
-    val aptTypes = customer["interestedApartmentTypes"].array.map { it.string }.filter { it.isNotEmpty() }
+    val unitTypes = customer["interestedApartmentTypes"].array.map { it.string }.filter { it.isNotEmpty() }
 
     Surface(
         shape = RoundedCornerShape(16.dp),
@@ -408,7 +408,7 @@ private fun CustomerCardRowItem(
                 }
             }
 
-            if (hasTransaction || segment.isNotEmpty() || aptTypes.isNotEmpty()) {
+            if (hasTransaction || segment.isNotEmpty() || unitTypes.isNotEmpty()) {
                 HorizontalDivider(color = Color(0xFFF1F5F9))
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -425,7 +425,7 @@ private fun CustomerCardRowItem(
                             Text(segment, fontSize = 10.sp, fontWeight = FontWeight.SemiBold, color = Color(0xFF1E40AF), modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp))
                         }
                     }
-                    aptTypes.take(2).forEach { t ->
+                    unitTypes.take(2).forEach { t ->
                         Surface(shape = RoundedCornerShape(6.dp), color = Color(0xFFFAF5FF)) {
                             Text(t, fontSize = 10.sp, fontWeight = FontWeight.SemiBold, color = Color(0xFF7E22CE), modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp))
                         }
@@ -526,16 +526,16 @@ private fun CustomerDetailSheet(
             // Tab 1: Info (Demand & Assignment)
             if (selectedTab == "info") {
                 val segment = detail["customerSegment"].string
-                val aptTypes = detail["interestedApartmentTypes"].array.map { it.string }.filter { it.isNotEmpty() }
+                val unitTypes = detail["interestedApartmentTypes"].array.map { it.string }.filter { it.isNotEmpty() }
                 val furnitures = detail["interestedFurniture"].array.map { it.string }.filter { it.isNotEmpty() }
 
                 Surface(shape = RoundedCornerShape(12.dp), color = Color.White, border = BorderStroke(1.dp, Color(0xFFE2E8F0)), modifier = Modifier.fillMaxWidth()) {
                     Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         Text("Nhu cầu tìm kiếm", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
                         if (segment.isNotEmpty()) Text("• Phân khúc: $segment", fontSize = 12.5.sp, color = FutaColors.Slate)
-                        if (aptTypes.isNotEmpty()) Text("• Loại căn: ${aptTypes.joinToString(", ")}", fontSize = 12.5.sp, color = FutaColors.Slate)
+                        if (unitTypes.isNotEmpty()) Text("• Loại căn: ${unitTypes.joinToString(", ")}", fontSize = 12.5.sp, color = FutaColors.Slate)
                         if (furnitures.isNotEmpty()) Text("• Nội thất: ${furnitures.joinToString(", ")}", fontSize = 12.5.sp, color = FutaColors.Slate)
-                        if (segment.isEmpty() && aptTypes.isEmpty() && furnitures.isEmpty()) {
+                        if (segment.isEmpty() && unitTypes.isEmpty() && furnitures.isEmpty()) {
                             Text("Chưa ghi nhận nhu cầu cụ thể", fontSize = 12.sp, color = FutaColors.Slate)
                         }
                     }

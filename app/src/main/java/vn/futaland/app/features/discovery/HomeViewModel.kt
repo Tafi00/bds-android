@@ -11,7 +11,7 @@ import vn.futaland.app.core.network.JSONValue
 
 enum class HomePropertySegment(val id: String, val title: String) {
     ALL("all", "Tất cả"),
-    APARTMENT("apartment", "Căn hộ"),
+    PROPERTY("apartment", "Căn hộ"),
     TOWNHOUSE("townhouse", "Nhà phố"),
     UNDER_8B("under8B", "Dưới 8 tỷ"),
     SELLING("selling", "Đang mở bán")
@@ -31,11 +31,11 @@ class HomeViewModel : ViewModel() {
     private val _projects = MutableStateFlow<List<JSONValue>>(emptyList())
     val projects = _projects.asStateFlow()
 
-    private val _allApartments = MutableStateFlow<List<JSONValue>>(emptyList())
-    val allApartments = _allApartments.asStateFlow()
+    private val _allProperties = MutableStateFlow<List<JSONValue>>(emptyList())
+    val allProperties = _allProperties.asStateFlow()
 
-    private val _featuredApartments = MutableStateFlow<List<JSONValue>>(emptyList())
-    val featuredApartments = _featuredApartments.asStateFlow()
+    private val _featuredProperties = MutableStateFlow<List<JSONValue>>(emptyList())
+    val featuredProperties = _featuredProperties.asStateFlow()
 
     private val _cmsSettings = MutableStateFlow(JSONValue.EmptyObject)
     val cmsSettings = _cmsSettings.asStateFlow()
@@ -132,9 +132,9 @@ class HomeViewModel : ViewModel() {
         }
         return maxOf(c, 3)
     }
-    val filteredApartments: List<JSONValue>
+    val filteredProperties: List<JSONValue>
         get() {
-            var res = _allApartments.value
+            var res = _allProperties.value
             if (_selectedCity.value != "Tất cả") {
                 val cityMatches = res.filter {
                     (it["address"].string + " " + it["zone"].string).contains(_selectedCity.value, ignoreCase = true)
@@ -144,7 +144,7 @@ class HomeViewModel : ViewModel() {
 
             return when (_selectedSegment.value) {
                 HomePropertySegment.ALL -> res
-                HomePropertySegment.APARTMENT -> res.filter {
+                HomePropertySegment.PROPERTY -> res.filter {
                     val text = (it["propertyType"].string + " " + it["title"].string).lowercase()
                     text.contains("can-ho") || text.contains("chung-cu") || text.contains("căn hộ")
                 }
@@ -194,17 +194,22 @@ class HomeViewModel : ViewModel() {
 
                 _cmsSettings.value = sRes["data"]
                 val allNonHidden = pRes["data"].array.filter { !it["hidden"].bool }
-                val homeOnly = allNonHidden.filter { it["showOnHome"].bool }
+                // visibleOnHome = ẩn/hiện dự án ngoài trang chủ; fallback showOnHome
+                // cho backend cũ chưa trả trường mới.
+                val homeOnly = allNonHidden.filter {
+                    val visible = it["visibleOnHome"]
+                    if (visible.isNull) it["showOnHome"].bool else visible.bool
+                }
                 val rawProjects = if (homeOnly.size >= 4) homeOnly else allNonHidden
                 _projects.value = rawProjects.sortedBy { it["homeOrder"].int }
-                val apartmentsList = aRes["data"].array
-                _allApartments.value = apartmentsList
+                val propertiesList = aRes["data"].array
+                _allProperties.value = propertiesList
                 val featList = fRes["data"].array
-                _featuredApartments.value = if (featList.isNotEmpty()) {
+                _featuredProperties.value = if (featList.isNotEmpty()) {
                     featList
                 } else {
-                    val favs = apartmentsList.filter { it["isFavorite"].bool }
-                    if (favs.isNotEmpty()) favs else apartmentsList.take(8)
+                    val favs = propertiesList.filter { it["isFavorite"].bool }
+                    if (favs.isNotEmpty()) favs else propertiesList.take(8)
                 }
             } catch (_: Exception) {
             } finally {
@@ -212,10 +217,10 @@ class HomeViewModel : ViewModel() {
             }
         }
     }
-    fun toggleFavorite(apartmentId: String) {
+    fun toggleFavorite(propertyId: String) {
         viewModelScope.launch {
             try {
-                APIClient.get().request("/favorites/$apartmentId", method = "POST")
+                APIClient.get().request("/favorites/$propertyId", method = "POST")
             } catch (_: Exception) {}
         }
     }

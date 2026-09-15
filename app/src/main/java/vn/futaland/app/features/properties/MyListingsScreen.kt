@@ -35,7 +35,7 @@ import vn.futaland.app.navigation.FutaDestinations
 
 data class SellingItem(
     val id: String,
-    val aptId: String,
+    val propertyId: String,
     val unitCode: String,
     val projectName: String,
     val campaignName: String = "",
@@ -77,7 +77,7 @@ fun MyListingsScreen(
 
     var items by remember { mutableStateOf<List<SellingItem>>(emptyList()) }
     var loading by remember { mutableStateOf(true) }
-    var registeringApartment by remember { mutableStateOf<SellingItem?>(null) }
+    var registeringProperty by remember { mutableStateOf<SellingItem?>(null) }
     var isRegistering by remember { mutableStateOf(false) }
 
     val activeFilterCount = listOf(
@@ -113,9 +113,9 @@ fun MyListingsScreen(
                     else invRes.array
                 } catch (_: Exception) {
                     try {
-                        val aptRes = APIClient.get().request("/apartments?limit=50")
-                        val dataVal = aptRes["data"]
-                        if (dataVal.array.isNotEmpty()) dataVal.array else aptRes.array
+                        val propertyRes = APIClient.get().request("/apartments?limit=50")
+                        val dataVal = propertyRes["data"]
+                        if (dataVal.array.isNotEmpty()) dataVal.array else propertyRes.array
                     } catch (_: Exception) {
                         emptyList()
                     }
@@ -147,38 +147,38 @@ fun MyListingsScreen(
                 val registeredIds = mutableSetOf<String>()
 
                 for (reg in regList) {
-                    val aptId = reg["apartment"]["recordId"].string.ifEmpty {
-                        reg["apartmentId"].string.ifEmpty {
-                            reg["apartment"]["id"].string.ifEmpty { reg["apartment"]["propertyCode"].string }
+                    val propertyId = reg["property"]["id"].string.ifEmpty {
+                        reg["propertyId"].string.ifEmpty {
+                            reg["property"]["propertyCode"].string
                         }
                     }
-                    if (aptId.isNotEmpty()) registeredIds.add(aptId)
-                    val unitCode = reg["unitCode"].string.ifEmpty { reg["apartment"]["propertyCode"].string }
+                    if (propertyId.isNotEmpty()) registeredIds.add(propertyId)
+                    val unitCode = reg["unitCode"].string.ifEmpty { reg["property"]["propertyCode"].string }
                     if (unitCode.isNotEmpty()) registeredIds.add(unitCode)
 
-                    val projectName = reg["projectName"].string.ifEmpty { reg["apartment"]["zone"].string }
-                    val block = reg["block"].string.ifEmpty { reg["apartment"]["building"].string }
-                    val cId = reg["salesCampaignId"].string.ifEmpty { reg["apartment"]["salesCampaignId"].string }
+                    val projectName = reg["projectName"].string.ifEmpty { reg["property"]["projectName"].string }
+                    val block = reg["block"].string.ifEmpty { reg["property"]["block"].string }
+                    val cId = reg["salesCampaignId"].string.ifEmpty { reg["property"]["salesCampaignId"].string }
                     val campaignName = reg["campaignName"].string.ifEmpty {
                         reg["salesCampaignName"].string.ifEmpty { campaignMap[cId] ?: "" }
                     }
-                    val productType = reg["apartmentType"].string.ifEmpty { reg["apartment"]["apartmentType"].string }
-                    val propertyType = reg["propertyType"].string.ifEmpty { reg["apartment"]["propertyType"].string }
-                    val floor = reg["floor"].string.ifEmpty { reg["apartment"]["floor"].string }
-                    val direction = formatDirection(reg["direction"].string.ifEmpty { reg["apartment"]["direction"].string })
-                    val balconyDirection = formatDirection(reg["balconyDirection"].string.ifEmpty { reg["apartment"]["balconyDirection"].string })
+                    val productType = reg["unitType"].string.ifEmpty { reg["property"]["unitType"].string }
+                    val propertyType = reg["propertyType"].string.ifEmpty { reg["property"]["propertyType"].string }
+                    val floor = reg["floor"].string.ifEmpty { reg["property"]["floor"].string }
+                    val direction = formatDirection(reg["direction"].string.ifEmpty { reg["property"]["direction"].string })
+                    val balconyDirection = formatDirection(reg["balconyDirection"].string.ifEmpty { reg["property"]["balconyDirection"].string })
 
                     val rawPrice = if (reg["price"].double > 0) reg["price"].double
-                    else if (reg["apartment"]["sellPrice"].double > 0) reg["apartment"]["sellPrice"].double
-                    else reg["apartment"]["price"].double
-                    val area = if (reg["area"].double > 0) reg["area"].double else reg["apartment"]["size_m2"].double
+                    else if (reg["property"]["sellPrice"].double > 0) reg["property"]["sellPrice"].double
+                    else reg["property"]["price"].double
+                    val area = if (reg["area"].double > 0) reg["area"].double else reg["property"]["size_m2"].double
                     val imgUrl = PropertyFormatters.resolveImage(reg)
                     val status = reg["status"].string.lowercase()
 
                     merged.add(
                         SellingItem(
-                            id = reg.id.ifEmpty { "reg-$aptId" },
-                            aptId = aptId,
+                            id = reg.id.ifEmpty { "reg-$propertyId" },
+                            propertyId = propertyId,
                             unitCode = unitCode,
                             projectName = projectName,
                             campaignName = campaignName,
@@ -198,31 +198,31 @@ fun MyListingsScreen(
                     )
                 }
 
-                for (apt in invList) {
-                    val recId = apt["recordId"].string.ifEmpty { apt["id"].string }
-                    val pCode = apt["propertyCode"].string
+                for (property in invList) {
+                    val recId = property["id"].string
+                    val pCode = property["propertyCode"].string
                     if (!registeredIds.contains(recId) && !registeredIds.contains(pCode)) {
-                        val rawPrice = if (apt["sellPrice"].double > 0) apt["sellPrice"].double else apt["price"].double
-                        val area = apt["size_m2"].double
-                        val imgUrl = PropertyFormatters.resolveImage(apt)
-                        val cId = apt["salesCampaignId"].string
-                        val campaignName = apt["salesCampaignName"].string.ifEmpty {
-                            apt["campaignName"].string.ifEmpty { campaignMap[cId] ?: "" }
+                        val rawPrice = if (property["sellPrice"].double > 0) property["sellPrice"].double else property["price"].double
+                        val area = property["size_m2"].double
+                        val imgUrl = PropertyFormatters.resolveImage(property)
+                        val cId = property["salesCampaignId"].string
+                        val campaignName = property["salesCampaignName"].string.ifEmpty {
+                            property["campaignName"].string.ifEmpty { campaignMap[cId] ?: "" }
                         }
-                        val productType = apt["apartmentType"].string.ifEmpty { "Căn hộ" }
-                        val propertyType = apt["propertyType"].string
-                        val floor = apt["floor"].string
-                        val direction = formatDirection(apt["direction"].string)
-                        val balconyDirection = formatDirection(apt["balconyDirection"].string)
+                        val productType = property["unitType"].string.ifEmpty { "Căn hộ" }
+                        val propertyType = property["propertyType"].string
+                        val floor = property["floor"].string
+                        val direction = formatDirection(property["direction"].string)
+                        val balconyDirection = formatDirection(property["balconyDirection"].string)
 
                         merged.add(
                             SellingItem(
                                 id = "avail-$recId",
-                                aptId = recId,
+                                propertyId = recId,
                                 unitCode = pCode,
-                                projectName = apt["zone"].string,
+                                projectName = property["projectName"].string,
                                 campaignName = campaignName,
-                                block = apt["building"].string,
+                                block = property["block"].string,
                                 productType = productType,
                                 propertyType = propertyType,
                                 floor = floor,
@@ -499,8 +499,8 @@ fun MyListingsScreen(
                         shadowElevation = 1.dp,
                         border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
                         modifier = Modifier.fillMaxWidth().clickable {
-                            if (item.aptId.isNotEmpty()) {
-                                onNavigate(FutaDestinations.propertyDetail(item.aptId))
+                            if (item.propertyId.isNotEmpty()) {
+                                onNavigate(FutaDestinations.propertyDetail(item.propertyId))
                             }
                         }
                     ) {
@@ -627,7 +627,7 @@ fun MyListingsScreen(
                                         // Available or Expired: allow Registering to sell!
                                         Spacer(Modifier.weight(1f))
                                         Button(
-                                            onClick = { registeringApartment = item },
+                                            onClick = { registeringProperty = item },
                                             colors = ButtonDefaults.buttonColors(containerColor = FutaColors.BrandGreen),
                                             shape = CircleShape,
                                             contentPadding = PaddingValues(horizontal = 16.dp, vertical = 7.dp)
@@ -760,20 +760,20 @@ fun MyListingsScreen(
     }
 
     // Sales Policy Confirmation Dialog
-    registeringApartment?.let { apt ->
+    registeringProperty?.let { property ->
         SalesPolicyConfirmDialog(
-            unitCode = apt.unitCode,
-            projectName = apt.projectName,
+            unitCode = property.unitCode,
+            projectName = property.projectName,
             isSubmitting = isRegistering,
-            onDismiss = { if (!isRegistering) registeringApartment = null },
+            onDismiss = { if (!isRegistering) registeringProperty = null },
             onConfirm = {
                 scope.launch {
                     isRegistering = true
                     try {
-                        val body = """{"apartmentId":"${apt.aptId}","customerName":"Tư vấn viên FUTA Land","notes":"Đăng ký bán từ ứng dụng Android","salesPolicyAccepted":true,"salesPolicyVersion":"${SalesPolicy.VERSION}"}"""
+                        val body = """{"propertyId":"${property.propertyId}","customerName":"Tư vấn viên FUTA Land","notes":"Đăng ký bán từ ứng dụng Android","salesPolicyAccepted":true,"salesPolicyVersion":"${SalesPolicy.VERSION}"}"""
                         APIClient.get().request("/sales/registrations", method = "POST", bodyJson = body)
-                        ToastCenter.show("Đã gửi yêu cầu đăng ký bán căn ${apt.unitCode}! Đang chờ Admin duyệt.")
-                        registeringApartment = null
+                        ToastCenter.show("Đã gửi yêu cầu đăng ký bán căn ${property.unitCode}! Đang chờ Admin duyệt.")
+                        registeringProperty = null
                         loadData()
                     } catch (e: Exception) {
                         ToastCenter.show("Lỗi: ${e.message}", isError = true)
