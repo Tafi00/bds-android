@@ -871,10 +871,10 @@ fun PoliciesScreen(
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            itemsIndexed(policies) { _, (title, desc, _) ->
+            itemsIndexed(policies) { _, (title, desc, url) ->
                 FutaCard(
                     modifier = Modifier.fillMaxWidth(),
-                    onClick = { selectedPolicy = (title to desc) }
+                    onClick = { selectedPolicy = Triple(title, desc, url) }
                 ) {
                     Row(
                         modifier = Modifier.padding(14.dp),
