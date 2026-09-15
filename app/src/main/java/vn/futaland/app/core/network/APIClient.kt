@@ -38,6 +38,11 @@ class APIClient private constructor(context: Context) {
 
         val apiBaseUrl = "https://bds.futaland.vn/api"
         val publicWebUrl = "https://bds.futaland.vn"
+
+        // Public legal pages. These must stay reachable: Google Play rejects the
+        // listing when the privacy policy URL does not resolve to a live page.
+        val termsOfServiceUrl = "$publicWebUrl/dieu-khoan-chinh-sach"
+        val privacyPolicyUrl = "$publicWebUrl/chinh-sach-bao-mat"
     }
 
     val tokenStorage = TokenStorage(context)

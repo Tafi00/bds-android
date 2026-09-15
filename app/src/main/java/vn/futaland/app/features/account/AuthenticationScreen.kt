@@ -1160,7 +1160,7 @@ fun AuthenticationScreen(
                         fontWeight = FontWeight.Bold,
                         color = FutaColors.BrandGreen,
                         modifier = Modifier.clickable {
-                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://bds.futaland.vn/policies"))
+                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(APIClient.termsOfServiceUrl))
                             context.startActivity(intent)
                         }
                     )
@@ -1171,7 +1171,7 @@ fun AuthenticationScreen(
                         fontWeight = FontWeight.Bold,
                         color = FutaColors.BrandGreen,
                         modifier = Modifier.clickable {
-                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://bds.futaland.vn/policies"))
+                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(APIClient.privacyPolicyUrl))
                             context.startActivity(intent)
                         }
                     )

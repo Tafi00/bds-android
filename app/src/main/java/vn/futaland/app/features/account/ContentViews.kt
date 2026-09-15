@@ -836,15 +836,19 @@ fun AboutScreen(
 fun PoliciesScreen(
     onBack: () -> Unit
 ) {
-    var selectedPolicy by remember { mutableStateOf<Pair<String, String>?>(null) }
+    val context = LocalContext.current
+    var selectedPolicy by remember { mutableStateOf<Triple<String, String, String?>?>(null) }
 
+    // The third element is the public web page that holds the full, binding text.
+    // Google Play requires the privacy policy to be reachable from inside the app,
+    // so the privacy entry links to the live page rather than only a summary.
     val policies = remember {
         listOf(
-            "Chính sách bán hàng & Quy chế giao dịch" to "Quy định đặt cọc, giữ chỗ 24h và đối soát hợp đồng điện tử.",
-            "Điều khoản dịch vụ FUTA Land" to "Quy định sử dụng nền tảng và trách nhiệm giữa người mua, TVV và sàn.",
-            "Chính sách bảo mật thông tin cá nhân" to "Cam kết bảo vệ dữ liệu khách hàng theo chuẩn an toàn quốc tế.",
-            "Cơ chế giải quyết khiếu nại & tranh chấp" to "Quy trình tiếp nhận và xử lý thỏa đáng trong vòng 48 giờ làm việc.",
-            "Chính sách hoàn tiền giữ chỗ" to "Cam kết hoàn trả 100% tiền giữ chỗ nếu khách hàng không chọn được căn ưng ý."
+            Triple("Chính sách bán hàng & Quy chế giao dịch", "Quy định đặt cọc, giữ chỗ 24h và đối soát hợp đồng điện tử.", APIClient.termsOfServiceUrl),
+            Triple("Điều khoản dịch vụ FUTA Land", "Quy định sử dụng nền tảng và trách nhiệm giữa người mua, TVV và sàn.", APIClient.termsOfServiceUrl),
+            Triple("Chính sách bảo mật thông tin cá nhân", "Cam kết bảo vệ dữ liệu khách hàng theo chuẩn an toàn quốc tế.", APIClient.privacyPolicyUrl),
+            Triple("Cơ chế giải quyết khiếu nại & tranh chấp", "Quy trình tiếp nhận và xử lý thỏa đáng trong vòng 48 giờ làm việc.", null),
+            Triple("Chính sách hoàn tiền giữ chỗ", "Cam kết hoàn trả 100% tiền giữ chỗ nếu khách hàng không chọn được căn ưng ý.", null)
         )
     }
     Scaffold(
@@ -867,7 +871,7 @@ fun PoliciesScreen(
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            itemsIndexed(policies) { _, (title, desc) ->
+            itemsIndexed(policies) { _, (title, desc, _) ->
                 FutaCard(
                     modifier = Modifier.fillMaxWidth(),
                     onClick = { selectedPolicy = (title to desc) }
@@ -893,7 +897,7 @@ fun PoliciesScreen(
     }
 
     // Policy Detail Sheet
-    selectedPolicy?.let { (pTitle, pDesc) ->
+    selectedPolicy?.let { (pTitle, pDesc, pUrl) ->
         FutaBottomSheet(
             visible = true,
             onDismiss = { selectedPolicy = null },
@@ -953,6 +957,16 @@ fun PoliciesScreen(
                 )
 
                 Spacer(Modifier.height(8.dp))
+                if (pUrl != null) {
+                    FutaButton(
+                        text = "Xem bản đầy đủ trên website",
+                        variant = FutaButtonVariant.SECONDARY,
+                        onClick = {
+                            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(pUrl)))
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
                 FutaButton(
                     text = "Tôi đã hiểu & Đồng ý",
                     variant = FutaButtonVariant.PRIMARY,
