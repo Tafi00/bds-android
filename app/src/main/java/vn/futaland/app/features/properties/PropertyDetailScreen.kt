@@ -92,6 +92,11 @@ fun PropertyDetailScreen(
     var isRegistering by remember { mutableStateOf(false) }
     var registrationInfo by remember { mutableStateOf<JSONValue?>(null) }
 
+    // Shared gallery state, hoisted so the full-screen photo viewer survives list recycling.
+    val galleryImages = remember(property) { property?.let { propertyGalleryImages(it) } ?: emptyList() }
+    val galleryPagerState = rememberPagerState(pageCount = { galleryImages.size })
+    var viewerPhotoIndex by remember { mutableStateOf<Int?>(null) }
+
     val isAdvisorViewer = AppSession.shared.isAuthenticated &&
         (AppSession.shared.role == "sale" || AppSession.shared.role == "admin")
     val sellingAction = SalesPolicy.sellingAction(
@@ -217,24 +222,10 @@ fun PropertyDetailScreen(
                 ?: property["size_m2"].double.takeIf { it > 0 }
                 ?: property["area"].double.takeIf { it > 0 } ?: 107.5
 
-            val rawImagesList = mutableListOf<String>()
-            fun cleanImgUrl(raw: String): String {
-                val t = raw.trim()
-                if (t.isEmpty() || t == "null") return ""
-                if (t.startsWith("http://") || t.startsWith("https://")) return t
-                val c = if (t.startsWith("/")) t else "/$t"
-                return "https://bds.futaland.vn$c"
-            }
-            val mainImg = cleanImgUrl(property["image"].string)
-            if (mainImg.isNotEmpty()) rawImagesList.add(mainImg)
-            val bannerImg = cleanImgUrl(property["bannerImage"].string)
-            if (bannerImg.isNotEmpty()) rawImagesList.add(bannerImg)
-            property["images"].array.forEach { imgItem ->
-                val orig = cleanImgUrl(imgItem["original"].string.ifEmpty { imgItem["url"].string.ifEmpty { imgItem.string } })
-                if (orig.isNotEmpty()) rawImagesList.add(orig)
-            }
-            val images = if (rawImagesList.isEmpty()) listOf(PropertyFormatters.resolveImage(property)) else rawImagesList.distinct()
-            val pagerState = rememberPagerState(pageCount = { images.size })
+            // Built once at screen level (see galleryImages) so the hero pager, the thumbnail
+            // strip and the full-screen viewer all page through the exact same photo list.
+            val images = galleryImages
+            val pagerState = galleryPagerState
 
             val videoUrl = property["videoUrl"].string.ifEmpty { property["youtubeUrl"].string }
             val tour360Url = property["virtualTourUrl"].string.ifEmpty { property["tour360Url"].string }
@@ -290,14 +281,17 @@ fun PropertyDetailScreen(
                             }
                         }
 
-                        // Main Viewport (250dp height)
-                        Box(
+                        // Main Viewport (250dp height). BoxWithConstraints so the hero request
+                        // can be decoded for the exact viewport instead of Coil's default slot.
+                        BoxWithConstraints(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(250.dp)
                                 .clip(RoundedCornerShape(16.dp))
                                 .background(Color(0xFF061D3D))
                         ) {
+                            val heroWidth = maxWidth
+                            val heroHeight = maxHeight
                             when (selectedMediaTab) {
                                 "video" -> {
                                     MediaPlaceholderCard(
@@ -336,11 +330,51 @@ fun PropertyDetailScreen(
                                     ) { page ->
                                         val url = if (images.isNotEmpty()) images[page] else ""
                                         AsyncImage(
-                                            model = url,
+                                            // HERO slot: explicit size + its own memory cache key,
+                                            // so the 68dp thumbnails can never satisfy this request.
+                                            model = rememberPropertyImageRequest(
+                                                url = url,
+                                                slot = PropertyImageSlot.HERO,
+                                                width = heroWidth,
+                                                height = heroHeight
+                                            ),
                                             contentDescription = null,
                                             contentScale = ContentScale.Crop,
-                                            modifier = Modifier.fillMaxSize()
+                                            modifier = Modifier
+                                                .fillMaxSize()
+                                                .clickable { viewerPhotoIndex = page }
                                         )
+                                    }
+
+                                    // Tap-to-expand affordance: a bare image gives no hint
+                                    // that the full-screen viewer exists.
+                                    if (images.isNotEmpty()) {
+                                        Surface(
+                                            shape = CircleShape,
+                                            color = Color.Black.copy(alpha = 0.55f),
+                                            modifier = Modifier
+                                                .align(Alignment.TopEnd)
+                                                .padding(12.dp)
+                                        ) {
+                                            Row(
+                                                modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp),
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Default.ZoomOutMap,
+                                                    contentDescription = null,
+                                                    tint = Color.White,
+                                                    modifier = Modifier.size(12.dp)
+                                                )
+                                                Spacer(Modifier.width(4.dp))
+                                                Text(
+                                                    text = "Xem ảnh lớn",
+                                                    color = Color.White,
+                                                    fontSize = 11.sp,
+                                                    fontWeight = FontWeight.SemiBold
+                                                )
+                                            }
+                                        }
                                     }
 
                                     // Counter badge at bottom right
@@ -398,7 +432,14 @@ fun PropertyDetailScreen(
                                             }
                                     ) {
                                         AsyncImage(
-                                            model = imgUrl,
+                                            // THUMBNAIL slot: a separate memory cache key keeps
+                                            // this small bitmap from ever becoming the hero's source.
+                                            model = rememberPropertyImageRequest(
+                                                url = imgUrl,
+                                                slot = PropertyImageSlot.THUMBNAIL,
+                                                width = 68.dp,
+                                                height = 52.dp
+                                            ),
                                             contentDescription = null,
                                             contentScale = ContentScale.Crop,
                                             modifier = Modifier.fillMaxSize()
@@ -1441,6 +1482,25 @@ fun PropertyDetailScreen(
                             } finally {
                                 isRegistering = false
                             }
+                        }
+                    }
+                )
+            }
+        }
+
+        // =========================================================================
+        // 1c. FULL-SCREEN PHOTO VIEWER (swipe between photos, pinch/double-tap to zoom)
+        // =========================================================================
+        viewerPhotoIndex?.let { startIndex ->
+            if (galleryImages.isNotEmpty()) {
+                PropertyPhotoViewerDialog(
+                    images = galleryImages,
+                    title = property?.let { PropertyFormatters.propertyTitle(it) } ?: "Chi tiết căn hộ",
+                    initialIndex = startIndex,
+                    onDismiss = { viewerPhotoIndex = null },
+                    onIndexChange = { newIndex ->
+                        if (newIndex in galleryImages.indices) {
+                            scope.launch { galleryPagerState.animateScrollToPage(newIndex) }
                         }
                     }
                 )
