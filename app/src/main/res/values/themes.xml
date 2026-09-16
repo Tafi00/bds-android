@@ -4,5 +4,8 @@
         <item name="android:windowLightStatusBar">true</item>
         <item name="android:navigationBarColor">#FFFFFF</item>
         <item name="android:windowLightNavigationBar">true</item>
+        <!-- The app is light-only: never let the system apply "force dark" on top
+             of it when the device is in dark mode. -->
+        <item name="android:forceDarkAllowed">false</item>
     </style>
 </resources>
