@@ -12,7 +12,9 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -25,6 +27,7 @@ import vn.futaland.app.R
 import vn.futaland.app.core.auth.AppSession
 import vn.futaland.app.designsystem.FutaColors
 import vn.futaland.app.designsystem.futaDropShadow
+import vn.futaland.app.features.messaging.ChatUnreadBadge
 
 data class BottomNavItemSpec(
     val route: String,
@@ -55,6 +58,7 @@ fun FutaBottomBar(
     val brandGreen = Color(0xFF0E7643)
     val inactiveDark = Color(0xFF1E293B)
     val activePillBg = Color(0xFFE8F5E9)
+    val unreadChat by ChatUnreadBadge.count.collectAsState()
 
     Box(
         modifier = Modifier
@@ -177,6 +181,24 @@ fun FutaBottomBar(
                         tint = Color.Unspecified,
                         modifier = Modifier.size(28.dp)
                     )
+                    if (unreadChat > 0) {
+                        Surface(
+                            shape = CircleShape,
+                            color = Color(0xFFEF4444),
+                            modifier = Modifier
+                                .align(Alignment.TopEnd)
+                                .offset(x = 4.dp, y = (-4).dp)
+                        ) {
+                            Text(
+                                text = if (unreadChat > 99) "99+" else unreadChat.toString(),
+                                color = Color.White,
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                maxLines = 1,
+                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                            )
+                        }
+                    }
                 }
             }
         }

@@ -1,0 +1,52 @@
+{
+  "project_info": {
+    "project_number": "557112020694",
+    "project_id": "bds-futaland",
+    "storage_bucket": "bds-futaland.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:557112020694:android:b57853e5ef0b121100c377",
+        "android_client_info": {
+          "package_name": "com.futaland.realestate"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "557112020694-jv5pi5ujnu768fcb4vlt8msdvo75157g.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBoY1HQiWUwFVmrLI3uQXki6zA0qzO7DEI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "557112020694-jv5pi5ujnu768fcb4vlt8msdvo75157g.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:557112020694:android:1114ceb94fb9972400c377",
+        "android_client_info": {
+          "package_name": "com.futaland.realestate.debug"
+        }
+      },
+      "api_key": [
+        {
+          "current_key": "AIzaSyBoY1HQiWUwFVmrLI3uQXki6zA0qzO7DEI"
+        }
+      ]
+    }
+  ],
+  "configuration_version": "1"
+}

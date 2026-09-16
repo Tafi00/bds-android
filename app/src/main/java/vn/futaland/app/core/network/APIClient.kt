@@ -46,6 +46,7 @@ class APIClient private constructor(context: Context) {
     }
 
     val tokenStorage = TokenStorage(context)
+    val appContext: Context = context.applicationContext
     private val refreshMutex = Mutex()
 
     var onSessionExpired: (() -> Unit)? = null

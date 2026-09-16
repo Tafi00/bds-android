@@ -1,9 +1,14 @@
 package vn.futaland.app
 
+import android.Manifest
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -71,6 +76,8 @@ import vn.futaland.app.features.properties.MyListingsScreen
 import vn.futaland.app.features.properties.ViewHistoryScreen
 import vn.futaland.app.features.discovery.ProjectDetailScreen
 import vn.futaland.app.features.messaging.NotificationsScreen
+import vn.futaland.app.features.messaging.ChatUnreadBadge
+import vn.futaland.app.features.messaging.FutaMessagingService
 import vn.futaland.app.features.luckywheel.LuckyWheelScreen
 import vn.futaland.app.features.messaging.ChatScreen
 import vn.futaland.app.features.properties.PropertyDetailScreen
@@ -83,6 +90,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
 
         handleIncomingIntent(intent)
+        requestNotificationPermission()
 
         setContent {
             FutaLandTheme {
@@ -101,6 +109,9 @@ class MainActivity : ComponentActivity() {
                 // Restore session on startup
                 LaunchedEffect(Unit) {
                     AppSession.shared.restore()
+                    if (AppSession.shared.isAuthenticated) {
+                        ChatUnreadBadge.refresh()
+                    }
                 }
 
                 // Listen to deep links
@@ -542,7 +553,24 @@ class MainActivity : ComponentActivity() {
         if (!authToken.isNullOrEmpty()) {
             APIClient.get().tokenStorage.accessToken = authToken
         }
+
+        // FCM notification tap → navigate to its target route (e.g. /chat).
+        val fcmRoute = intent?.getStringExtra(FutaMessagingService.EXTRA_ROUTE)
+        if (!fcmRoute.isNullOrEmpty()) {
+            RouteCoordinator.enqueue(fcmRoute)
+            return
+        }
+
         val uri = intent?.data ?: return
         RouteCoordinator.enqueue(uri.toString())
+    }
+
+    private fun requestNotificationPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            val granted = ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
+            if (!granted) {
+                ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.POST_NOTIFICATIONS), 1001)
+            }
+        }
     }
 }

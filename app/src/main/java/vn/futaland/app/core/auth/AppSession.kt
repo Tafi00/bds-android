@@ -4,6 +4,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import vn.futaland.app.core.network.APIClient
 import vn.futaland.app.core.network.JSONValue
+import vn.futaland.app.features.messaging.FcmRegistrar
 
 class AppSession private constructor() {
 
@@ -120,6 +121,7 @@ class AppSession private constructor() {
         APIClient.get().tokenStorage.accessToken = accessToken
         APIClient.get().tokenStorage.refreshToken = refreshToken
         _currentUser.value = userData
+        FcmRegistrar.ensureRegistered(APIClient.get().appContext)
     }
 
     fun logout() {
@@ -138,6 +140,7 @@ class AppSession private constructor() {
             if (token.isNotEmpty()) {
                 APIClient.get().tokenStorage.accessToken = token
                 APIClient.get().tokenStorage.guestToken = token
+                FcmRegistrar.ensureRegistered(APIClient.get().appContext)
                 true
             } else false
         } catch (_: Exception) {

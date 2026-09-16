@@ -243,7 +243,11 @@ fun FutaInput(
                         text = placeholder,
                         color = FutaColors.Muted,
                         fontSize = 13.5.sp,
-                        fontWeight = FontWeight.Normal
+                        fontWeight = FontWeight.Normal,
+                        // The field has a fixed height: keep the hint on a single
+                        // line instead of letting it wrap and overflow the box.
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
                 BasicTextField(

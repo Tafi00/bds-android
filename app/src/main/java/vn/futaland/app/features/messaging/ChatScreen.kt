@@ -63,6 +63,57 @@ data class ChatMessage(
     val propertyCard: JSONValue? = null
 )
 
+/** Ids of bubbles rendered optimistically before the server confirms them. */
+private const val LOCAL_MESSAGE_PREFIX = "local-"
+
+private val localMessageCounter = java.util.concurrent.atomic.AtomicLong()
+
+private fun nextLocalMessageId(): String =
+    "$LOCAL_MESSAGE_PREFIX${System.currentTimeMillis()}-${localMessageCounter.incrementAndGet()}"
+
+/**
+ * Whether a message returned by the API/WebSocket was authored by the signed-in
+ * account. Guests have no profile id on the device, so the side of the
+ * conversation being viewed is used as a fallback.
+ */
+private fun isOwnChatMessage(
+    senderId: String,
+    senderType: String,
+    currentUserId: String,
+    viewerIsCustomer: Boolean
+): Boolean {
+    if (currentUserId.isNotEmpty() && senderId.isNotEmpty()) return senderId == currentUserId
+    return if (viewerIsCustomer) senderType == "customer" else senderType == "staff"
+}
+
+/**
+ * Adds an incoming message to the thread without creating a duplicate bubble.
+ *
+ * The chat gateway echoes the sender's own message back over the socket while the
+ * composer already renders it optimistically, so the echo must replace the local
+ * bubble instead of being appended as a message from the other party.
+ */
+private fun mergeIncomingChatMessage(list: MutableList<ChatMessage>, incoming: ChatMessage) {
+    if (incoming.id.isNotEmpty()) {
+        val sameId = list.indexOfFirst { it.id == incoming.id }
+        if (sameId >= 0) {
+            list[sameId] = incoming
+            return
+        }
+    }
+    if (incoming.isMe) {
+        val localEcho = list.indexOfLast {
+            it.isMe && it.id.startsWith(LOCAL_MESSAGE_PREFIX) && it.content == incoming.content
+        }
+        if (localEcho >= 0) {
+            // Keep the "just sent" label the optimistic bubble was showing.
+            list[localEcho] = incoming.copy(time = list[localEcho].time)
+            return
+        }
+    }
+    list.add(incoming)
+}
+
 @Composable
 fun ChatScreen(
     initialConversationId: String? = null,
@@ -87,7 +138,9 @@ fun ChatScreen(
         return if (parts.isEmpty()) "{}" else "{${parts.joinToString(",")}}"
     }
 
-    var activeConversationId by remember { mutableStateOf(if (!isStaff) (initialConversationId ?: "ai_agent") else initialConversationId) }
+    // A null id shows the conversation list (the entry screen). Deep links and an
+    // explicit advisor/AI target open the thread directly instead.
+    var activeConversationId by remember { mutableStateOf(initialConversationId) }
     var activeConversationName by remember { mutableStateOf(targetAdvisorName ?: (if (isAiChat) "Trợ lý AI FUTA Land" else "Trợ lý AI FUTA Land")) }
 
     val focusRequester = remember { FocusRequester() }
@@ -170,6 +223,24 @@ fun ChatScreen(
                     availableAdvisors.addAll(advRes["data"].array)
                 } catch (_: Exception) {}
             }
+
+            ChatUnreadBadge.set(conversations.sumOf { it.unreadCount })
+        } catch (_: Exception) {}
+    }
+
+    suspend fun refreshUnreadBadge() {
+        try {
+            val res = APIClient.get().request("/chat/unread-counts")
+            val total = res["data"]["total"].int
+            ChatUnreadBadge.set(total)
+            val perConv = res["data"]["perConversation"].element as? kotlinx.serialization.json.JsonObject
+            for (i in conversations.indices) {
+                val conv = conversations[i]
+                val count = (perConv?.get(conv.id) as? kotlinx.serialization.json.JsonPrimitive)?.content?.toIntOrNull() ?: 0
+                if (conv.unreadCount != count) {
+                    conversations[i] = conv.copy(unreadCount = count)
+                }
+            }
         } catch (_: Exception) {}
     }
 
@@ -215,19 +286,24 @@ fun ChatScreen(
                         activeConversationName = "Trợ lý AI FUTA Land"
                     }
                 }
-            } else if (!isStaff && conversations.isEmpty()) {
-                val createRes = APIClient.get().request("/chat/conversations", method = "POST", bodyJson = conversationBody())
-                val newConv = createRes["data"]
-                if (!newConv.id.isEmpty()) {
-                    conversations.add(ConversationItem(newConv.id, "Trợ lý AI FUTA Land", "Bắt đầu cuộc trò chuyện...", "Bây giờ", 0, true, true, ""))
-                    activeConversationId = newConv.id
-                    activeConversationName = "Trợ lý AI FUTA Land"
+            } else if (!isStaff && activeConversationId.isNullOrEmpty()) {
+                // Ensure the AI conversation always exists so it appears in the list.
+                if (conversations.isEmpty()) {
+                    val createRes = APIClient.get().request("/chat/conversations", method = "POST", bodyJson = conversationBody())
+                    val newConv = createRes["data"]
+                    if (!newConv.id.isEmpty()) {
+                        conversations.add(ConversationItem(newConv.id, "Trợ lý AI FUTA Land", "Bắt đầu cuộc trò chuyện...", "Bây giờ", 0, true, true, ""))
+                    }
                 }
-            } else if (!isStaff && (activeConversationId.isNullOrEmpty() || activeConversationId == "ai_agent")) {
-                val aiConv = conversations.find { it.isAi } ?: conversations.firstOrNull()
-                if (aiConv != null) {
-                    activeConversationId = aiConv.id
-                    activeConversationName = aiConv.name
+                // Open the AI thread directly only when there is no advisor chat yet.
+                // Once the customer has several conversations, show the list instead.
+                val hasAdvisorConv = conversations.any { !it.isAi }
+                if (!hasAdvisorConv) {
+                    val aiConv = conversations.find { it.isAi } ?: conversations.firstOrNull()
+                    if (aiConv != null) {
+                        activeConversationId = aiConv.id
+                        activeConversationName = aiConv.name
+                    }
                 }
             }
         } catch (_: Exception) {}
@@ -242,7 +318,7 @@ fun ChatScreen(
     val isConnected by ChatWebSocketManager.shared.isConnected.collectAsState()
     val typingUsers by ChatWebSocketManager.shared.typingUsers.collectAsState()
 
-    if (isStaff && activeConversationId.isNullOrEmpty()) {
+    if (activeConversationId.isNullOrEmpty() && isStaff) {
         // VIEW 1: CONVERSATION LIST (Staff & Advisors only)
         Column(
             modifier = Modifier
@@ -592,6 +668,230 @@ fun ChatScreen(
                 }
             }
         }
+    } else if (activeConversationId.isNullOrEmpty()) {
+        // VIEW 3: CONVERSATION LIST (Customer & guest) — shown instead of the thread
+        // so a customer with many chats can find them again without swiping pills.
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(FutaColors.PageBg)
+        ) {
+            Surface(color = Color.White, shadowElevation = 1.dp) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .statusBarsPadding()
+                        .padding(horizontal = 16.dp, vertical = 12.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        if (onBack != null) {
+                            Surface(
+                                shape = CircleShape,
+                                color = Color.White,
+                                border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .clickable { onBack.invoke() }
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Icon(Icons.AutoMirrored.Filled.ArrowBack, "Quay lại", tint = FutaColors.Navy, modifier = Modifier.size(16.dp))
+                                }
+                            }
+                            Spacer(Modifier.width(12.dp))
+                        }
+
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Trò chuyện",
+                                fontSize = 17.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = FutaColors.Navy
+                            )
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(6.dp)
+                                        .background(if (isConnected) Color(0xFF10B981) else Color(0xFFF59E0B), CircleShape)
+                                )
+                                Text(
+                                    text = if (isConnected) "Đã kết nối trực tiếp" else "Đang kết nối lại...",
+                                    fontSize = 10.5.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    color = if (isConnected) Color(0xFF059669) else Color(0xFFD97706)
+                                )
+                            }
+                        }
+
+                        // Quick start button: open (or create) the AI conversation.
+                        Surface(
+                            shape = CircleShape,
+                            color = FutaColors.BrandGreen,
+                            modifier = Modifier
+                                .size(36.dp)
+                                .clickable {
+                                    val aiConv = conversations.find { it.isAi }
+                                    if (aiConv != null) {
+                                        activeConversationId = aiConv.id
+                                        activeConversationName = aiConv.name
+                                    } else {
+                                        scope.launch {
+                                            try {
+                                                val createRes = APIClient.get().request("/chat/conversations", method = "POST", bodyJson = conversationBody())
+                                                val newConv = createRes["data"]
+                                                if (!newConv.id.isEmpty()) {
+                                                    conversations.add(ConversationItem(newConv.id, "Trợ lý AI FUTA Land", "Bắt đầu cuộc trò chuyện...", "Bây giờ", 0, true, true, ""))
+                                                    activeConversationId = newConv.id
+                                                    activeConversationName = "Trợ lý AI FUTA Land"
+                                                }
+                                            } catch (_: Exception) {}
+                                        }
+                                    }
+                                }
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(painterResource(R.drawable.ic_lucide_bot), "Trợ lý AI", tint = Color.White, modifier = Modifier.size(20.dp))
+                            }
+                        }
+                    }
+
+                    Spacer(Modifier.height(10.dp))
+
+                    FutaInput(
+                        value = search,
+                        onValueChange = { search = it },
+                        placeholder = "Tìm cuộc trò chuyện…",
+                        leadingIcon = Icons.Default.Search
+                    )
+                }
+            }
+
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(16.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                val sorted = conversations.withIndex()
+                    .sortedWith(compareBy({ if (it.value.isAi) 0 else 1 }, { it.index }))
+                    .map { it.value }
+                val filtered = sorted.filter {
+                    search.isEmpty() || it.name.contains(search, ignoreCase = true) || it.lastMessage.contains(search, ignoreCase = true)
+                }
+
+                if (filtered.isEmpty()) {
+                    item {
+                        Column(
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 48.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Icon(Icons.AutoMirrored.Filled.Message, contentDescription = null, tint = Color(0xFFCBD5E1), modifier = Modifier.size(40.dp))
+                            Spacer(Modifier.height(10.dp))
+                            Text("Chưa có cuộc trò chuyện nào", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = FutaColors.Slate)
+                            Text("Bấm vào biểu tượng Trợ lý AI để bắt đầu.", fontSize = 12.sp, color = FutaColors.Muted)
+                        }
+                    }
+                }
+
+                itemsIndexed(filtered, key = { _, conv -> conv.id }) { _, conv ->
+                    FutaCard(
+                        modifier = Modifier.fillMaxWidth(),
+                        onClick = {
+                            activeConversationId = conv.id
+                            activeConversationName = conv.name
+                        }
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(14.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Surface(
+                                shape = CircleShape,
+                                color = if (conv.isAi) FutaColors.BrandGreen else FutaColors.MintBg,
+                                modifier = Modifier.size(46.dp)
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    if (conv.isAi) {
+                                        Icon(painterResource(R.drawable.ic_lucide_bot), null, tint = Color.White, modifier = Modifier.size(22.dp))
+                                    } else {
+                                        Text(
+                                            text = conv.name.take(1).uppercase(),
+                                            fontWeight = FontWeight.Bold,
+                                            color = FutaColors.BrandGreen,
+                                            fontSize = 15.sp
+                                        )
+                                    }
+                                }
+                            }
+
+                            Spacer(Modifier.width(12.dp))
+
+                            Column(modifier = Modifier.weight(1f)) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                        Text(
+                                            text = conv.name,
+                                            fontSize = 14.5.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = FutaColors.Navy,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                        if (conv.badge.isNotEmpty()) {
+                                            Surface(shape = CircleShape, color = Color(0xFFEFF6FF)) {
+                                                Text(
+                                                    text = conv.badge,
+                                                    color = Color(0xFF1D4ED8),
+                                                    fontSize = 10.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                                )
+                                            }
+                                        }
+                                    }
+                                    Text(text = conv.time, fontSize = 11.sp, color = FutaColors.Muted)
+                                }
+
+                                Spacer(Modifier.height(4.dp))
+
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = conv.lastMessage,
+                                        fontSize = 12.5.sp,
+                                        color = if (conv.unreadCount > 0) FutaColors.Navy else FutaColors.Slate,
+                                        fontWeight = if (conv.unreadCount > 0) FontWeight.SemiBold else FontWeight.Normal,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                        modifier = Modifier.weight(1f)
+                                    )
+
+                                    if (conv.unreadCount > 0) {
+                                        Surface(shape = CircleShape, color = Color(0xFFFF8D28), modifier = Modifier.padding(start = 6.dp)) {
+                                            Text(
+                                                text = if (conv.unreadCount > 99) "99+" else conv.unreadCount.toString(),
+                                                color = Color.White,
+                                                fontSize = 10.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                modifier = Modifier.padding(horizontal = 6.5.dp, vertical = 2.dp)
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
     } else {
         // VIEW 2: ACTIVE CONVERSATION THREAD (Default for customer & guest, matching web)
         val listState = rememberLazyListState()
@@ -628,11 +928,7 @@ fun ChatScreen(
                             for (m in sorted) {
                                 val sType = m["senderType"].string
                                 val senderId = m["senderId"].string
-                                val isMe = if (currentUserId.isNotEmpty() && senderId.isNotEmpty()) {
-                                    senderId == currentUserId
-                                } else {
-                                    sType == "customer"
-                                }
+                                val isMe = isOwnChatMessage(senderId, sType, currentUserId, viewerIsCustomer = !isStaff)
                                 val timeStr = formatChatTime(m["createdAt"].string)
                                 val card = m["metadata"]["propertyCard"].let { if (it.isNull) m["metadata"]["apartmentCard"] else it }
                                 val hasCard = !card.isNull && (card["propertyCode"].string.isNotEmpty() || card["title"].string.isNotEmpty() || card.id.isNotEmpty())
@@ -652,25 +948,37 @@ fun ChatScreen(
                     } catch (_: Exception) {}
                 }
             }
+            refreshUnreadBadge()
         }
 
         // Handle incoming WebSocket messages
         DisposableEffect(activeConversationId) {
             ChatWebSocketManager.shared.onNewMessage = { jsonMsg ->
                 val convId = jsonMsg["conversationId"].string
-                if (convId == activeConversationId || activeConversationId == null || activeConversationId == "ai_agent") {
+                if (convId.isNotEmpty() && (convId == activeConversationId || activeConversationId == null || activeConversationId == "ai_agent")) {
                     val card = jsonMsg["metadata"]["propertyCard"].let { if (it.isNull) jsonMsg["metadata"]["apartmentCard"] else it }
                     val hasCard = !card.isNull && (card["propertyCode"].string.isNotEmpty() || card["title"].string.isNotEmpty() || card.id.isNotEmpty())
-                    val newMsg = ChatMessage(
-                        id = jsonMsg["id"].string.ifEmpty { System.currentTimeMillis().toString() },
+                    // The gateway echoes our own messages back over the socket, so
+                    // classify them as ours instead of attributing them to the other side.
+                    val isMine = isOwnChatMessage(
                         senderId = jsonMsg["senderId"].string,
-                        senderName = jsonMsg["senderName"].string.ifEmpty { activeConversationName },
+                        senderType = jsonMsg["senderType"].string,
+                        currentUserId = AppSession.shared.user?.id.orEmpty(),
+                        viewerIsCustomer = !isStaff
+                    )
+                    val newMsg = ChatMessage(
+                        id = jsonMsg["id"].string.ifEmpty { nextLocalMessageId() },
+                        senderId = jsonMsg["senderId"].string,
+                        senderName = if (isMine) "Tôi" else jsonMsg["senderName"].string.ifEmpty { activeConversationName },
                         content = jsonMsg["content"].string,
-                        isMe = false,
+                        isMe = isMine,
                         time = "Vừa xong",
                         propertyCard = if (hasCard) card else null
                     )
-                    messages.add(newMsg)
+                    mergeIncomingChatMessage(messages, newMsg)
+                    if (!isMine) {
+                        scope.launch { refreshUnreadBadge() }
+                    }
                     scope.launch {
                         listState.animateScrollToItem(messages.size - 1)
                     }
@@ -686,7 +994,7 @@ fun ChatScreen(
             if (textToSend.isEmpty()) return
             val convId = activeConversationId ?: "ai_agent"
             val newMsg = ChatMessage(
-                id = System.currentTimeMillis().toString(),
+                id = nextLocalMessageId(),
                 senderId = "me",
                 senderName = "Tôi",
                 content = textToSend,
@@ -735,24 +1043,27 @@ fun ChatScreen(
                                 .padding(horizontal = 8.dp, vertical = 8.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            if (isStaff || onBack != null) {
-                                Surface(
-                                    shape = CircleShape,
-                                    color = Color.White,
-                                    border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
-                                    modifier = Modifier
-                                        .size(36.dp)
-                                        .clickable {
+                            // Always show back so a customer can return from the
+                            // thread to the conversation list on the root tab.
+                            Surface(
+                                shape = CircleShape,
+                                color = Color.White,
+                                border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .clickable {
+                                        if (onBack != null) {
+                                            onBack.invoke()
+                                        } else {
                                             activeConversationId = null
-                                            onBack?.invoke()
                                         }
-                                ) {
-                                    Box(contentAlignment = Alignment.Center) {
-                                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Quay lại", tint = FutaColors.Navy, modifier = Modifier.size(16.dp))
                                     }
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Icon(Icons.AutoMirrored.Filled.ArrowBack, "Quay lại", tint = FutaColors.Navy, modifier = Modifier.size(16.dp))
                                 }
-                                Spacer(Modifier.width(10.dp))
                             }
+                            Spacer(Modifier.width(10.dp))
                             Surface(
                                 shape = CircleShape,
                                 color = if (!isStaff && activeConversationName.contains("AI")) FutaColors.BrandGreen else FutaColors.MintBg,
@@ -840,7 +1151,12 @@ fun ChatScreen(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .navigationBarsPadding()
+                        // The app is edge-to-edge on Android 15+, where `adjustResize`
+                        // no longer shrinks the window, so the IME has to be padded
+                        // manually — otherwise the keyboard covers the composer.
+                        // `union` keeps the larger of the keyboard / navigation bar
+                        // insets so the bar is not pushed up twice.
+                        .windowInsetsPadding(WindowInsets.ime.union(WindowInsets.navigationBars))
                         .background(Color.White)
                 ) {
                     // Quick Reply Suggestion Chips (Staff only, hidden for customer)
@@ -908,7 +1224,7 @@ fun ChatScreen(
                                         ChatWebSocketManager.shared.sendTyping(convId)
                                     }
                                 },
-                                placeholder = if (isStaff) "Nhập tin nhắn tư vấn…" else "Nhập câu hỏi hoặc yêu cầu tư vấn căn hộ...",
+                                placeholder = if (isStaff) "Nhập tin nhắn tư vấn…" else "Nhập câu hỏi và nhu cầu",
                                 modifier = Modifier
                                     .weight(1f)
                                     .focusRequester(focusRequester),
