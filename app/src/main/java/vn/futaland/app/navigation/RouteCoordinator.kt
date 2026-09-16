@@ -44,7 +44,7 @@ object RouteCoordinator {
         }
 
         if (path.isEmpty()) path = "/"
-        return path
+        return path + (uri.encodedQuery?.let { "?$it" } ?: "")
     }
 
     fun enqueue(route: String, userId: String? = null) {

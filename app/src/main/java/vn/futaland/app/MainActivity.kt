@@ -81,6 +81,7 @@ import vn.futaland.app.features.messaging.FutaMessagingService
 import vn.futaland.app.features.luckywheel.LuckyWheelScreen
 import vn.futaland.app.features.messaging.ChatScreen
 import vn.futaland.app.features.properties.PropertyDetailScreen
+import vn.futaland.app.core.sales.ProductContext
 import vn.futaland.app.features.properties.PropertySearchScreen
 import vn.futaland.app.navigation.*
 
@@ -119,7 +120,8 @@ class MainActivity : ComponentActivity() {
                 LaunchedEffect(pendingRoute) {
                     pendingRoute?.let { intent ->
                         RouteCoordinator.consume(intent)
-                        val path = intent.route
+                        val routeUri = android.net.Uri.parse(intent.route)
+                        val path = routeUri.path.orEmpty()
                         if (path == "/login-admin" || path == "/admin-login" || path == "/auth" || path == "/login") {
                             safeNavigate(FutaDestinations.AUTH)
                         } else if (path == "/logout") {
@@ -127,7 +129,7 @@ class MainActivity : ComponentActivity() {
                             navController.navigate(FutaDestinations.ACCOUNT)
                         } else if (path.startsWith("/listing/")) {
                             val id = path.removePrefix("/listing/")
-                            navController.navigate(FutaDestinations.propertyDetail(id))
+                            navController.navigate(FutaDestinations.propertyDetail(id, if (routeUri.getQueryParameter("context") == "advisor") ProductContext.ADVISOR else ProductContext.CUSTOMER))
                         } else if (path == "/lucky-wheel") {
                             navController.navigate(FutaDestinations.LUCKY_WHEEL)
                         } else if (path == "/chat") {
@@ -251,6 +253,7 @@ class MainActivity : ComponentActivity() {
                             // 3. Inbox Tab & Direct Chat
                             composable(FutaDestinations.INBOX) {
                                 ChatScreen(
+                                    onNavigate = { route -> safeNavigate(route) },
                                     onBack = if (!isRootTab) ({ navController.popBackStack() }) else null
                                 )
                             }
@@ -258,6 +261,8 @@ class MainActivity : ComponentActivity() {
                             composable(FutaDestinations.CHAT_CENTER) {
                                 ChatScreen(
                                     staffContext = true,
+                                    productContext = ProductContext.ADVISOR,
+                                    onNavigate = { route -> safeNavigate(route) },
                                     onBack = { navController.popBackStack() }
                                 )
                             }
@@ -268,7 +273,8 @@ class MainActivity : ComponentActivity() {
                                     navArgument("advisorId") { type = NavType.StringType; nullable = true; defaultValue = null },
                                     navArgument("advisorName") { type = NavType.StringType; nullable = true; defaultValue = null },
                                     navArgument("propertyId") { type = NavType.StringType; nullable = true; defaultValue = null },
-                                    navArgument("isAi") { type = NavType.StringType; nullable = true; defaultValue = null }
+                                    navArgument("isAi") { type = NavType.StringType; nullable = true; defaultValue = null },
+                                    navArgument("context") { type = NavType.StringType; defaultValue = "customer" }
                                 )
                             ) { backStack ->
                                 val convId = backStack.arguments?.getString("conversationId")
@@ -282,6 +288,8 @@ class MainActivity : ComponentActivity() {
                                     targetAdvisorName = advName,
                                     targetPropertyId = propertyId,
                                     isAiChat = isAi,
+                                    productContext = if (backStack.arguments?.getString("context") == "advisor") ProductContext.ADVISOR else ProductContext.CUSTOMER,
+                                    onNavigate = { route -> safeNavigate(route) },
                                     onBack = { navController.popBackStack() }
                                 )
                             }
@@ -325,11 +333,12 @@ class MainActivity : ComponentActivity() {
                             // Secondary: Property Detail
                             composable(
                                 route = FutaDestinations.PROPERTY_DETAIL,
-                                arguments = listOf(navArgument("id") { type = NavType.StringType })
+                                arguments = listOf(navArgument("id") { type = NavType.StringType }, navArgument("context") { type = NavType.StringType; defaultValue = "customer" })
                             ) { backStack ->
                                 val id = backStack.arguments?.getString("id") ?: ""
                                 PropertyDetailScreen(
                                     propertyId = id,
+                                    productContext = if (backStack.arguments?.getString("context") == "advisor") ProductContext.ADVISOR else ProductContext.CUSTOMER,
                                     onBack = { navController.popBackStack() },
                                     onNavigate = { route -> safeNavigate(route) }
                                 )

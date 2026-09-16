@@ -72,7 +72,7 @@ fun AdminModuleScreen(
         scope.launch {
             loading = true
             try {
-                val res = APIClient.get().request(endpoint)
+                val res = APIClient.get().request(endpoint, query = if (endpoint == "/apartments") mapOf("context" to "admin", "includeUnpublished" to "true") else emptyMap())
                 records = res["data"].array.ifEmpty { res["apartments"].array.ifEmpty { res["projects"].array } }
             } catch (_: Exception) {
                 records = emptyList()

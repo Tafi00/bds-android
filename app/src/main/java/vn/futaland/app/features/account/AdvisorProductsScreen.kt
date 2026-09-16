@@ -469,7 +469,7 @@ fun AdvisorProductsScreen(
                             onHold = {
                                 val targetId = reg["propertyId"].string.ifEmpty { reg["property"]["id"].string.ifEmpty { reg.id } }
                                 if (targetId.isNotEmpty()) {
-                                    onNavigate(FutaDestinations.propertyDetail(targetId))
+                                    onNavigate(FutaDestinations.propertyDetail(targetId, vn.futaland.app.core.sales.ProductContext.ADVISOR))
                                 }
                             },
                             onClick = { detailItem = reg }

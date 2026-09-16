@@ -71,6 +71,24 @@ android {
     }
 }
 
+// Local JVM unit tests cover only the shared pure-Kotlin product policy code.
+// Compile them for the JDK that actually runs the test worker: CI ships JDK 21,
+// while a local machine may only have 17 (a class file version 65 cannot be
+// loaded by a 17 test worker).
+// The app targets Java 21. Gradle runs test workers on its own JVM, so a machine
+// whose JAVA_HOME is still 17 (with Homebrew's keg-only JDK 21 installed beside it)
+// cannot load the app classes. Point the unit-test worker at a local JDK 21 when we
+// can find one; CI already runs on JDK 21 and keeps the default launcher.
+val unitTestJava21 = listOf(
+    "/opt/homebrew/opt/openjdk@21/bin/java",
+    "/usr/local/opt/openjdk@21/bin/java",
+).map { File(it) }.firstOrNull { it.isFile }
+if (unitTestJava21 != null) {
+    tasks.withType<org.gradle.api.tasks.testing.Test>().configureEach {
+        executable = unitTestJava21.absolutePath
+    }
+}
+
 dependencies {
     implementation("androidx.core:core-ktx:1.13.1")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.7")
@@ -111,6 +129,9 @@ dependencies {
 
     // ZXing for QR Code generation
     implementation("com.google.zxing:core:3.5.3")
+
+    // Local JVM unit tests (product access & navigation policy regression)
+    testImplementation("junit:junit:4.13.2")
 
     // Debugging
     debugImplementation("androidx.compose.ui:ui-tooling")

@@ -49,6 +49,13 @@ import vn.futaland.app.R
 import vn.futaland.app.core.auth.AppSession
 import vn.futaland.app.core.network.APIClient
 import vn.futaland.app.core.sales.SalesPolicy
+import vn.futaland.app.core.sales.ProductContext
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.CancellationException
 import vn.futaland.app.core.network.JSONValue
 import vn.futaland.app.designsystem.*
 import vn.futaland.app.navigation.FutaDestinations
@@ -57,85 +64,86 @@ import kotlin.math.pow
 @Composable
 fun PropertyDetailScreen(
     propertyId: String,
+    productContext: ProductContext = ProductContext.CUSTOMER,
     onBack: () -> Unit,
     onNavigate: (String) -> Unit
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    var property by remember { mutableStateOf<JSONValue?>(null) }
-    var similarProperties by remember { mutableStateOf<List<JSONValue>>(emptyList()) }
-    var loading by remember { mutableStateOf(true) }
-    var isFavorite by remember { mutableStateOf(false) }
-    var isDescriptionExpanded by remember { mutableStateOf(false) }
+    val sessionUser by AppSession.shared.currentUser.collectAsState()
+    val permissions by AppSession.shared.permissions.collectAsState()
+    val scopeKey = "$propertyId|${productContext.wire}|${sessionUser?.element}|$permissions"
+    val lifecycleOwner = LocalLifecycleOwner.current
+    var refreshRevision by remember(scopeKey) { mutableIntStateOf(0) }
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) refreshRevision++
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+    var property by remember(scopeKey) { mutableStateOf<JSONValue?>(null) }
+    var similarProperties by remember(scopeKey) { mutableStateOf<List<JSONValue>>(emptyList()) }
+    var loading by remember(scopeKey) { mutableStateOf(true) }
+    var isFavorite by remember(scopeKey) { mutableStateOf(false) }
+    var isDescriptionExpanded by remember(scopeKey) { mutableStateOf(false) }
 
     // Media mode tab: "photos", "video", "flycam", "tour"
-    var selectedMediaTab by remember { mutableStateOf("photos") }
+    var selectedMediaTab by remember(scopeKey) { mutableStateOf("photos") }
 
     // Loan Calculator State
-    var loanPercent by remember { mutableFloatStateOf(70f) }
-    var loanYears by remember { mutableFloatStateOf(20f) }
+    var loanPercent by remember(scopeKey) { mutableFloatStateOf(70f) }
+    var loanYears by remember(scopeKey) { mutableFloatStateOf(20f) }
 
     // Booking & Holding Sheet States
-    var showBookingSheet by remember { mutableStateOf(false) }
-    var showHoldingSheet by remember { mutableStateOf(false) }
-    var showAdvisorContactSheet by remember { mutableStateOf(false) }
-    var bookingDate by remember { mutableStateOf("Ngày mai (09:00)") }
-    var bookingSlot by remember { mutableStateOf("Sáng (09:00 - 11:30)") }
-    var bookingName by remember { mutableStateOf(AppSession.shared.user?.get("name")?.string.orEmpty()) }
-    var bookingPhone by remember { mutableStateOf(AppSession.shared.user?.get("phone")?.string.orEmpty()) }
-    var holdingName by remember { mutableStateOf(AppSession.shared.user?.get("name")?.string.orEmpty()) }
-    var holdingPhone by remember { mutableStateOf(AppSession.shared.user?.get("phone")?.string.orEmpty()) }
-    var holdingCccd by remember { mutableStateOf("") }
-    var holdingEmail by remember { mutableStateOf(AppSession.shared.user?.get("email")?.string.orEmpty()) }
-    var holdingBusy by remember { mutableStateOf(false) }
-    var showRegistrationDialog by remember { mutableStateOf(false) }
-    var isRegistering by remember { mutableStateOf(false) }
-    var registrationInfo by remember { mutableStateOf<JSONValue?>(null) }
+    var showBookingSheet by remember(scopeKey) { mutableStateOf(false) }
+    var showHoldingSheet by remember(scopeKey) { mutableStateOf(false) }
+    var showAdvisorContactSheet by remember(scopeKey) { mutableStateOf(false) }
+    var bookingDate by remember(scopeKey) { mutableStateOf("Ngày mai (09:00)") }
+    var bookingSlot by remember(scopeKey) { mutableStateOf("Sáng (09:00 - 11:30)") }
+    var bookingName by remember(scopeKey) { mutableStateOf(AppSession.shared.user?.get("name")?.string.orEmpty()) }
+    var bookingPhone by remember(scopeKey) { mutableStateOf(AppSession.shared.user?.get("phone")?.string.orEmpty()) }
+    var holdingName by remember(scopeKey) { mutableStateOf(AppSession.shared.user?.get("name")?.string.orEmpty()) }
+    var holdingPhone by remember(scopeKey) { mutableStateOf(AppSession.shared.user?.get("phone")?.string.orEmpty()) }
+    var holdingCccd by remember(scopeKey) { mutableStateOf("") }
+    var holdingEmail by remember(scopeKey) { mutableStateOf(AppSession.shared.user?.get("email")?.string.orEmpty()) }
+    var holdingBusy by remember(scopeKey) { mutableStateOf(false) }
+    var showRegistrationDialog by remember(scopeKey) { mutableStateOf(false) }
+    var isRegistering by remember(scopeKey) { mutableStateOf(false) }
+    var registrationInfo by remember(scopeKey) { mutableStateOf<JSONValue?>(null) }
 
     // Shared gallery state, hoisted so the full-screen photo viewer survives list recycling.
     val galleryImages = remember(property) { property?.let { propertyGalleryImages(it) } ?: emptyList() }
     val galleryPagerState = rememberPagerState(pageCount = { galleryImages.size })
-    var viewerPhotoIndex by remember { mutableStateOf<Int?>(null) }
+    var viewerPhotoIndex by remember(scopeKey) { mutableStateOf<Int?>(null) }
 
-    val isAdvisorViewer = AppSession.shared.isAuthenticated &&
-        (AppSession.shared.role == "sale" || AppSession.shared.role == "admin")
-    val sellingAction = SalesPolicy.sellingAction(
-        isAuthenticated = AppSession.shared.isAuthenticated,
-        isAdvisor = isAdvisorViewer,
-        hasActiveSellingRights = registrationInfo?.get("viewerRegistration")?.get("hasActiveRights")?.bool == true,
-        hasPendingRegistration = registrationInfo?.get("viewerRegistration")?.get("status")?.string == "pending",
-        remainingSlots = registrationInfo?.get("remainingSlots")?.int ?: 0
-    )
+    val access = property?.get("access")
+    val isAdvisorViewer = productContext == ProductContext.ADVISOR && access?.get("canViewCommission")?.bool == true
+    val sellingAction = SalesPolicy.sellingAction(productContext, access)
+    val registrationLabel = SalesPolicy.registrationLabel(access?.get("registrationState")?.string.orEmpty())
+    var loadError by remember(scopeKey) { mutableStateOf<String?>(null) }
 
-    suspend fun loadRegistrationInfo() {
-        if (!AppSession.shared.isAuthenticated) {
-            registrationInfo = null
-            return
-        }
-        try {
-            val res = APIClient.get().request("/sales/registrations/apartment/$propertyId")
-            registrationInfo = res["data"]
-        } catch (_: Exception) {
-            registrationInfo = null
-        }
-    }
-    LaunchedEffect(propertyId) {
-        scope.launch {
+    suspend fun loadRegistrationInfo() { refreshRevision++ }
+    LaunchedEffect(scopeKey, refreshRevision) {
+        do {
             loading = true
+            property = null
+            registrationInfo = null
+            similarProperties = emptyList()
+            loadError = null
             try {
-                val res = APIClient.get().request("/apartments/$propertyId")
+                val res = APIClient.get().request("/apartments/$propertyId", query = mapOf("context" to productContext.wire))
                 property = res["data"]
-                loadRegistrationInfo()
-                val projectName = property?.get("projectName")?.string.orEmpty().ifEmpty { property?.get("zone")?.string.orEmpty() }
-                if (projectName.isNotEmpty()) {
-                    val simRes = APIClient.get().request("/apartments", query = mapOf("zone" to projectName, "limit" to "6"))
-                    similarProperties = simRes["data"].array.filter { it.id != propertyId }
-                }
-            } catch (_: Exception) {
+                registrationInfo = if (productContext == ProductContext.ADVISOR) res["data"]["registrationInfo"] else null
+                similarProperties = res["data"]["suggestions"].array
+            } catch (error: CancellationException) { throw error
+            } catch (error: Exception) {
+                loadError = "Không tải được sản phẩm. Vui lòng thử lại."
             } finally {
                 loading = false
             }
-        }
+            delay(30_000)
+        } while (isActive && lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED))
     }
 
     Scaffold(
@@ -195,6 +203,7 @@ fun PropertyDetailScreen(
                 StickyContactBottomBar(
                     property = property,
                     sellingAction = sellingAction,
+                    registrationLabel = registrationLabel,
                     onCallClick = { showAdvisorContactSheet = true },
                     onChatClick = { showAdvisorContactSheet = true },
                     onHoldClick = { showHoldingSheet = true },
@@ -203,7 +212,12 @@ fun PropertyDetailScreen(
             }
         }
     ) { padding ->
-        if (loading || property == null) {
+        if (loadError != null) {
+            Column(Modifier.padding(padding).padding(24.dp)) {
+                Text(loadError.orEmpty())
+                TextButton(onClick = { refreshRevision++ }) { Text("Thử lại") }
+            }
+        } else if (loading || property == null) {
             Column(
                 modifier = Modifier
                     .fillMaxSize()
@@ -781,6 +795,10 @@ fun PropertyDetailScreen(
                         }
                     }
                 }
+                // 4A. Payment Schedule Simulator (Bảng tính minh họa giá trị thanh toán theo đợt)
+                item {
+                    PaymentSchedulePanel(property = property)
+                }
                 // 4B. Townhouse Floor Breakdown (Matching Web & iOS)
                 val isTownhouse = run {
                     val type = property["propertyType"].string.lowercase()
@@ -797,7 +815,7 @@ fun PropertyDetailScreen(
 
 
                 // 5. Commission Panel (Sale & Admin View Only - Matching iOS)
-                val isSaleView = AppSession.shared.isAuthenticated && AppSession.shared.hasPermission("apartments:view")
+                val isSaleView = isAdvisorViewer
                 if (isSaleView) {
                     item {
                         FutaCard(modifier = Modifier.fillMaxWidth()) {
@@ -817,13 +835,13 @@ fun PropertyDetailScreen(
                                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                                     Column {
                                         Text("Tỷ lệ hoa hồng", fontSize = 11.5.sp, color = FutaColors.Slate)
-                                        Text("2.0%", fontSize = 17.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
+                                        Text(if (property["commission"]["rate"].isNull) "Đang cập nhật" else "${property["commission"]["rate"].double}%", fontSize = 17.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
                                     }
                                     Column(horizontalAlignment = Alignment.End) {
                                         Text("Tiền hoa hồng ước tính", fontSize = 11.5.sp, color = FutaColors.Slate)
-                                        val commAmount = price * 0.02
+                                        val commAmount = property["commission"]["amount"].double
                                         Text(
-                                            text = PropertyFormatters.formatPrice(commAmount),
+                                            text = if (property["commission"]["amount"].isNull) "Đang cập nhật" else PropertyFormatters.formatPrice(commAmount),
                                             fontSize = 17.sp,
                                             fontWeight = FontWeight.Bold,
                                             color = Color(0xFFF97316)
@@ -831,29 +849,12 @@ fun PropertyDetailScreen(
                                     }
                                 }
 
-                                Surface(
-                                    shape = RoundedCornerShape(10.dp),
-                                    color = Color(0xFFF8FAFC),
-                                    border = BorderStroke(1.dp, Color(0xFFEDF1F5)),
-                                    modifier = Modifier.fillMaxWidth()
-                                ) {
-                                    Row(
-                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Text("Thưởng nóng chiến dịch", fontSize = 12.sp, color = FutaColors.Slate)
-                                        Text("+10.000.000 VNĐ / căn", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color(0xFF0E7643))
-                                    }
+                                Text("Đăng ký bán chưa xác lập quyền hưởng hoa hồng. Hoa hồng theo kết quả giao dịch và chính sách áp dụng.", fontSize = 12.sp)
+                                Text(registrationLabel, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                                if (access?.get("canRegister")?.bool == true) {
+                                    FutaButton(text = "Đăng ký bán", onClick = { showRegistrationDialog = true }, modifier = Modifier.fillMaxWidth())
                                 }
 
-                                FutaButton(
-                                    text = "Đăng ký bán căn này (còn 3 suất)",
-                                    variant = FutaButtonVariant.SECONDARY,
-                                    height = 42.dp,
-                                    onClick = { ToastCenter.show("Đã gửi yêu cầu đăng ký bán căn hộ này") },
-                                    modifier = Modifier.fillMaxWidth()
-                                )
                             }
                         }
                     }
@@ -1242,7 +1243,7 @@ fun PropertyDetailScreen(
                                                     .size(40.dp)
                                                     .clickable {
                                                         onNavigate(
-                                                            FutaDestinations.chat(
+                                                            FutaDestinations.chat(context = productContext, 
                                                                 advisorId = advId,
                                                                 advisorName = advName,
                                                                 propertyId = property.id.ifEmpty { propertyId }
@@ -1273,7 +1274,7 @@ fun PropertyDetailScreen(
                                     .fillMaxWidth()
                                     .clickable {
                                         onNavigate(
-                                            FutaDestinations.chat(
+                                            FutaDestinations.chat(context = productContext, 
                                                 propertyId = property.id.ifEmpty { propertyId },
                                                 isAi = true
                                             )
@@ -1323,7 +1324,7 @@ fun PropertyDetailScreen(
                                     Box(modifier = Modifier.width(260.dp)) {
                                         FutaPropertyCard(
                                             property = sim,
-                                            onClick = { onNavigate(FutaDestinations.propertyDetail(sim.id)) }
+                                            onClick = { onNavigate(FutaDestinations.propertyDetail(sim.id, productContext)) }
                                         )
                                     }
                                 }
@@ -1351,11 +1352,11 @@ fun PropertyDetailScreen(
                     },
                     onChatAdvisor = { advId, advName ->
                         showAdvisorContactSheet = false
-                        onNavigate(FutaDestinations.chat(advisorId = advId, advisorName = advName, propertyId = property.id.ifEmpty { propertyId }))
+                        onNavigate(FutaDestinations.chat(context = productContext, advisorId = advId, advisorName = advName, propertyId = property.id.ifEmpty { propertyId }))
                     },
                     onChatAi = {
                         showAdvisorContactSheet = false
-                        onNavigate(FutaDestinations.chat(propertyId = property.id.ifEmpty { propertyId }, isAi = true))
+                        onNavigate(FutaDestinations.chat(context = productContext, propertyId = property.id.ifEmpty { propertyId }, isAi = true))
                     }
                 )
             }
@@ -1454,7 +1455,7 @@ fun PropertyDetailScreen(
         // =========================================================================
         // 1b. SALES REGISTRATION POLICY DIALOG
         // =========================================================================
-        if (showRegistrationDialog) {
+        if (showRegistrationDialog && access?.get("canRegister")?.bool == true) {
             property?.let { property ->
                 SalesPolicyConfirmDialog(
                     unitCode = property["propertyCode"].string.ifEmpty { property["unitCode"].string },
@@ -1510,7 +1511,7 @@ fun PropertyDetailScreen(
         // =========================================================================
         // 2. HOLDING DEPOSIT BOTTOM SHEET (Matching iOS)
         // =========================================================================
-        if (showHoldingSheet) {
+        if (showHoldingSheet && access?.get("canHold")?.bool == true) {
             property?.let { property ->
                 FutaBottomSheet(
                     visible = true,
@@ -1790,6 +1791,7 @@ private fun SellingStatusChip(text: String, color: Color) {
 private fun StickyContactBottomBar(
     property: JSONValue,
     sellingAction: SalesPolicy.SellingAction,
+    registrationLabel: String,
     onCallClick: () -> Unit,
     onChatClick: () -> Unit,
     onHoldClick: () -> Unit,
@@ -1865,8 +1867,7 @@ private fun StickyContactBottomBar(
                         )
                     }
 
-                    SalesPolicy.SellingAction.AWAITING_APPROVAL -> SellingStatusChip("Chờ duyệt", Color(0xFFF97316))
-                    SalesPolicy.SellingAction.OUT_OF_SLOTS -> SellingStatusChip("Đủ TVV", FutaColors.Slate)
+                    SalesPolicy.SellingAction.STATUS -> SellingStatusChip(registrationLabel, FutaColors.Slate)
                     SalesPolicy.SellingAction.UNAVAILABLE -> Unit
                 }
 

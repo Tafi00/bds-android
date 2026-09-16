@@ -37,6 +37,9 @@ jobs:
       - name: Make Gradlew Executable
         run: chmod +x ./gradlew
 
+      - name: Product-flow regression tests
+        run: ./gradlew :app:testDebugUnitTest
+
       - name: Build Release Bundle (AAB)
         env:
           ANDROID_KEYSTORE_PASS: ${{ secrets.PLAY_STORE_KEYSTORE_PASSWORD || 'futaland789' }}

@@ -1,5 +1,7 @@
 package vn.futaland.app.navigation
 
+import vn.futaland.app.core.sales.ProductContext
+
 object FutaDestinations {
     // 5 Main Tabs
     const val DISCOVER = "tab_discover"
@@ -12,7 +14,7 @@ object FutaDestinations {
     const val AUTH = "auth"
 
     // Detail & Secondary Screens
-    const val PROPERTY_DETAIL = "property_detail/{id}"
+    const val PROPERTY_DETAIL = "property_detail/{id}?context={context}"
     const val PROJECT_DETAIL = "project_detail/{id}"
     const val PROJECTS_LIST = "projects_list"
     const val PROJECTS_MAP = "projects_map"
@@ -21,13 +23,14 @@ object FutaDestinations {
     const val WORKSPACE = "workspace"
     const val CHAT_CENTER = "chat_center"
     const val CHAT_CONVERSATION = "chat_conversation/{conversationId}"
-    const val CHAT_ROUTE = "chat?conversationId={conversationId}&advisorId={advisorId}&advisorName={advisorName}&propertyId={propertyId}&isAi={isAi}"
+    const val CHAT_ROUTE = "chat?conversationId={conversationId}&advisorId={advisorId}&advisorName={advisorName}&propertyId={propertyId}&isAi={isAi}&context={context}"
 
     fun chat(
         conversationId: String? = null,
         advisorId: String? = null,
         advisorName: String? = null,
         propertyId: String? = null,
+        context: ProductContext = ProductContext.CUSTOMER,
         isAi: Boolean = false
     ): String {
         val params = mutableListOf<String>()
@@ -36,6 +39,7 @@ object FutaDestinations {
         if (!advisorName.isNullOrEmpty()) params.add("advisorName=${android.net.Uri.encode(advisorName)}")
         if (!propertyId.isNullOrEmpty()) params.add("propertyId=$propertyId")
         if (isAi) params.add("isAi=true")
+        if (context == ProductContext.ADVISOR) params.add("context=advisor")
         return if (params.isEmpty()) INBOX else "chat?${params.joinToString("&")}"
     }
     const val NOTIFICATIONS = "notifications"
@@ -79,7 +83,7 @@ object FutaDestinations {
     const val ADVISOR_REGISTRATIONS = "advisor_registrations"
     const val SEARCH_ROUTE = "tab_search?propertyType={propertyType}"
     fun search(propertyType: String? = null) = if (propertyType != null) "tab_search?propertyType=$propertyType" else "tab_search"
-    fun propertyDetail(id: String) = "property_detail/$id"
+    fun propertyDetail(id: String, context: ProductContext = ProductContext.CUSTOMER) = "property_detail/${android.net.Uri.encode(id)}?context=${context.wire}"
     fun projectDetail(id: String) = "project_detail/$id"
     fun newsDetail(slug: String) = "news_detail/$slug"
     fun chatConversation(conversationId: String) = "chat_conversation/$conversationId"

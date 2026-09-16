@@ -116,6 +116,8 @@ private fun mergeIncomingChatMessage(list: MutableList<ChatMessage>, incoming: C
 
 @Composable
 fun ChatScreen(
+    productContext: vn.futaland.app.core.sales.ProductContext = vn.futaland.app.core.sales.ProductContext.CUSTOMER,
+    onNavigate: (String) -> Unit = {},
     initialConversationId: String? = null,
     targetAdvisorId: String? = null,
     targetAdvisorName: String? = null,
@@ -587,6 +589,14 @@ fun ChatScreen(
                                     }
                                 }
                             }
+                        }
+                    }
+                }
+
+                if (!targetPropertyId.isNullOrEmpty()) {
+                    item {
+                        TextButton(onClick = { onNavigate(vn.futaland.app.navigation.FutaDestinations.propertyDetail(targetPropertyId, productContext)) }) {
+                            Text("Xem căn")
                         }
                     }
                 }
@@ -1360,7 +1370,7 @@ fun ChatScreen(
                     }
                 }
                 itemsIndexed(messages, key = { _, msg -> msg.id }) { _, msg ->
-                    MessageBubble(msg = msg)
+                    MessageBubble(msg = msg, onOpenProperty = { id -> onNavigate(vn.futaland.app.navigation.FutaDestinations.propertyDetail(id, productContext)) })
                 }
 
                 val typingUser = activeConversationId?.let { typingUsers[it] }
@@ -1463,7 +1473,7 @@ fun ChatScreen(
 }
 
 @Composable
-private fun MessageBubble(msg: ChatMessage) {
+private fun MessageBubble(msg: ChatMessage, onOpenProperty: (String) -> Unit) {
     Column(
         modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = if (msg.isMe) Alignment.End else Alignment.Start
@@ -1500,6 +1510,7 @@ private fun MessageBubble(msg: ChatMessage) {
                             .padding(bottom = 8.dp)
                     ) {
                         Column(modifier = Modifier.padding(8.dp)) {
+                            TextButton(onClick = { onOpenProperty(card.id) }, enabled = card.id.isNotEmpty()) { Text("Xem căn") }
                             if (imgUrl.isNotEmpty()) {
                                 AsyncImage(
                                     model = imgUrl,

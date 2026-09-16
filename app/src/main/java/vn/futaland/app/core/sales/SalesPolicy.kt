@@ -1,33 +1,32 @@
 package vn.futaland.app.core.sales
 
-/**
- * Selling rules shared by every screen that can register to sell or hold a unit.
- *
- * [VERSION] must match `SALES_POLICY_VERSION` in the backend
- * (bds-backend/src/constants/sales-policy.ts); the server rejects registrations
- * that quote an outdated policy version.
- */
+import vn.futaland.app.core.network.JSONValue
+
+enum class ProductContext(val wire: String) {
+    CUSTOMER("customer"), ADVISOR("advisor"), ADMIN("admin");
+    companion object {
+        fun parse(value: String?) = entries.firstOrNull { it.wire == value } ?: CUSTOMER
+    }
+}
+
+/** Presentation only: all business decisions are returned by the server. */
 object SalesPolicy {
     const val VERSION = "2026.08.26"
-
-    /** What the UI may offer the current viewer for a given unit. */
-    enum class SellingAction { HOLD, AWAITING_APPROVAL, REGISTER, OUT_OF_SLOTS, UNAVAILABLE }
-
-    /**
-     * Holding is only possible on an approved "đăng ký bán" registration, so an
-     * advisor who has not been approved must register first instead of holding.
-     */
-    fun sellingAction(
-        isAuthenticated: Boolean,
-        isAdvisor: Boolean,
-        hasActiveSellingRights: Boolean,
-        hasPendingRegistration: Boolean,
-        remainingSlots: Int
-    ): SellingAction {
-        if (!isAuthenticated || !isAdvisor) return SellingAction.UNAVAILABLE
-        if (hasActiveSellingRights) return SellingAction.HOLD
-        if (hasPendingRegistration) return SellingAction.AWAITING_APPROVAL
-        if (remainingSlots > 0) return SellingAction.REGISTER
-        return SellingAction.OUT_OF_SLOTS
+    enum class SellingAction { HOLD, REGISTER, STATUS, UNAVAILABLE }
+    fun sellingAction(context: ProductContext, access: JSONValue?): SellingAction {
+        if (context != ProductContext.ADVISOR || access?.get("context")?.string != "advisor") return SellingAction.UNAVAILABLE
+        if (access["canHold"].bool) return SellingAction.HOLD
+        if (access["canRegister"].bool) return SellingAction.REGISTER
+        return SellingAction.STATUS
+    }
+    fun registrationLabel(state: String) = when (state) {
+        "not_registered" -> "Chưa đăng ký"
+        "pending" -> "Chờ duyệt"
+        "active" -> "Đã được cấp quyền bán"
+        "full" -> "Hết suất"
+        "expired" -> "Hết hạn"
+        "revoked" -> "Đã thu hồi"
+        "rejected" -> "Bị từ chối"
+        else -> "Không thể đăng ký"
     }
 }
