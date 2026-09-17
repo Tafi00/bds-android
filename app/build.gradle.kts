@@ -14,8 +14,8 @@ android {
         applicationId = "com.futaland.realestate"
         minSdk = 26
         targetSdk = 36
-        versionCode = 24
-        versionName = "1.0.13"
+        versionCode = 25
+        versionName = "1.0.14"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
