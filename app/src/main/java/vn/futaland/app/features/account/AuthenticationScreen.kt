@@ -242,9 +242,18 @@ fun AuthenticationScreen(
         }
     }
 
+    fun getPasswordValidationError(pass: String): String? {
+        if (pass.length < 8) return "Mật khẩu phải có ít nhất 8 ký tự"
+        if (!pass.any { it.isUpperCase() }) return "Mật khẩu phải có ít nhất 1 chữ in hoa"
+        if (!pass.any { it.isLowerCase() }) return "Mật khẩu phải có ít nhất 1 chữ in thường"
+        if (!pass.any { !it.isLetterOrDigit() }) return "Mật khẩu phải có ít nhất 1 ký tự đặc biệt"
+        return null
+    }
+
     fun handleResetPassword() {
-        if (password.length < 8) {
-            errorMessage = "Mật khẩu phải có ít nhất 8 ký tự"
+        val error = getPasswordValidationError(password)
+        if (error != null) {
+            errorMessage = error
             return
         }
         if (password != confirmPassword) {
@@ -276,8 +285,9 @@ fun AuthenticationScreen(
     }
 
     fun handleForcedPasswordChange() {
-        if (password.length < 8) {
-            errorMessage = "Mật khẩu phải có ít nhất 8 ký tự"
+        val error = getPasswordValidationError(password)
+        if (error != null) {
+            errorMessage = error
             return
         }
         if (password != confirmPassword) {
@@ -392,8 +402,9 @@ fun AuthenticationScreen(
             errorMessage = "Vui lòng nhập họ và tên"
             return
         }
-        if (password.length < 8) {
-            errorMessage = "Mật khẩu phải có ít nhất 8 ký tự"
+        val error = getPasswordValidationError(password)
+        if (error != null) {
+            errorMessage = error
             return
         }
         if (password != confirmPassword) {
@@ -470,9 +481,9 @@ fun AuthenticationScreen(
         AuthStep.PHONE -> ""
         AuthStep.PASSWORD -> "Nhập mật khẩu tài khoản của bạn để tiếp tục."
         AuthStep.OTP -> "Mã xác thực đã được gửi tới số điện thoại của bạn."
-        AuthStep.CREATE_PASSWORD -> "Mật khẩu cần tối thiểu 8 ký tự để bảo vệ tài khoản."
-        AuthStep.RESET_PASSWORD -> "Xác thực OTP thành công. Hãy đặt mật khẩu mới cho tài khoản."
-        AuthStep.CHANGE_PASSWORD -> "Mật khẩu đã được quản trị viên đặt lại. Hãy tạo mật khẩu mới."
+        AuthStep.CREATE_PASSWORD -> "Mật khẩu cần tối thiểu 8 ký tự, bao gồm chữ in hoa, in thường và ký tự đặc biệt."
+        AuthStep.RESET_PASSWORD -> "Mật khẩu cần tối thiểu 8 ký tự, bao gồm chữ in hoa, in thường và ký tự đặc biệt."
+        AuthStep.CHANGE_PASSWORD -> "Mật khẩu cần tối thiểu 8 ký tự, bao gồm chữ in hoa, in thường và ký tự đặc biệt."
         AuthStep.PROFILE -> "Cung cấp họ tên và email để nhận thông báo giao dịch."
     }
 
@@ -1046,7 +1057,7 @@ fun AuthenticationScreen(
                             )
                         }
 
-                        val canCreate = name.trim().isNotEmpty() && password.length >= 8 && password == confirmPassword
+                        val canCreate = name.trim().isNotEmpty() && getPasswordValidationError(password) == null && password == confirmPassword
                         Button(
                             onClick = { handleCreatePassword() },
                             enabled = canCreate && !busy,
@@ -1105,7 +1116,7 @@ fun AuthenticationScreen(
                             )
                         }
 
-                        val canSubmit = password.length >= 8 && password == confirmPassword
+                        val canSubmit = getPasswordValidationError(password) == null && password == confirmPassword
                         Button(
                             onClick = {
                                 if (step == AuthStep.RESET_PASSWORD) handleResetPassword() else handleForcedPasswordChange()
