@@ -14,7 +14,7 @@ android {
         applicationId = "com.futaland.realestate"
         minSdk = 26
         targetSdk = 36
-        versionCode = 25
+        versionCode = 26
         versionName = "1.0.14"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
