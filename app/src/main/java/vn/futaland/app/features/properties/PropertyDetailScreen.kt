@@ -1396,11 +1396,14 @@ fun PropertyDetailScreen(
         // =========================================================================
         // 1b2. PAYMENT SCHEDULE SIMULATOR SHEET (Bảng tính minh họa thanh toán)
         // =========================================================================
-        if (showPaymentScheduleSheet && property != null) {
-            PaymentScheduleSheet(
-                property = property,
-                onDismiss = { showPaymentScheduleSheet = false }
-            )
+        if (showPaymentScheduleSheet) {
+            val currentProp = property
+            if (currentProp != null) {
+                PaymentScheduleSheet(
+                    property = currentProp,
+                    onDismiss = { showPaymentScheduleSheet = false }
+                )
+            }
         }
 
         // =========================================================================
