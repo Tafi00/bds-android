@@ -106,6 +106,7 @@ fun PropertyDetailScreen(
     var holdingEmail by remember(scopeKey) { mutableStateOf(AppSession.shared.user?.get("email")?.string.orEmpty()) }
     var holdingBusy by remember(scopeKey) { mutableStateOf(false) }
     var showRegistrationDialog by remember(scopeKey) { mutableStateOf(false) }
+    var showPaymentScheduleSheet by remember(scopeKey) { mutableStateOf(false) }
     var isRegistering by remember(scopeKey) { mutableStateOf(false) }
     var registrationInfo by remember(scopeKey) { mutableStateOf<JSONValue?>(null) }
 
@@ -694,9 +695,7 @@ fun PropertyDetailScreen(
                         property = property,
                         hasPolicies = policies.isNotEmpty(),
                         onTryCalculationClick = {
-                            scope.launch {
-                                listState.animateScrollToItem(4)
-                            }
+                            showPaymentScheduleSheet = true
                         }
                     )
                 }
@@ -1392,6 +1391,16 @@ fun PropertyDetailScreen(
                     }
                 )
             }
+        }
+
+        // =========================================================================
+        // 1b2. PAYMENT SCHEDULE SIMULATOR SHEET (Bảng tính minh họa thanh toán)
+        // =========================================================================
+        if (showPaymentScheduleSheet && property != null) {
+            PaymentScheduleSheet(
+                property = property,
+                onDismiss = { showPaymentScheduleSheet = false }
+            )
         }
 
         // =========================================================================
