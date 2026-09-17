@@ -113,6 +113,9 @@ dependencies {
     // Firebase Cloud Messaging (push notifications)
     implementation("com.google.firebase:firebase-messaging-ktx:24.1.0")
 
+    // Google Play In-App Updates
+    implementation("com.google.android.play:app-update-ktx:2.1.0")
+
     // Coroutines & Serialization
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
