@@ -93,10 +93,12 @@ fun AuthenticationScreen(
     var currentPassword by remember { mutableStateOf("") }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var resendSeconds by remember { mutableIntStateOf(0) }
+    var countdownJob by remember { mutableStateOf<kotlinx.coroutines.Job?>(null) }
 
-    fun startCountdown() {
-        resendSeconds = 179
-        scope.launch {
+    fun startCountdown(seconds: Int = 60) {
+        countdownJob?.cancel()
+        resendSeconds = seconds
+        countdownJob = scope.launch {
             while (resendSeconds > 0) {
                 delay(1000)
                 resendSeconds--
@@ -310,6 +312,7 @@ fun AuthenticationScreen(
 
     // STEP 3: OTP Verify
     fun handleOtpSubmit() {
+        if (busy) return
         val cleanedOtp = otp.trim()
         if (cleanedOtp.length != 6) {
             errorMessage = "Vui lòng nhập đúng 6 chữ số mã OTP"
@@ -325,7 +328,24 @@ fun AuthenticationScreen(
                     method = "POST",
                     bodyJson = "{\"phone\":\"$resolvedPhone\",\"otp\":\"$cleanedOtp\"}"
                 )
-                signupToken = res["data"]["signupToken"].string
+                val data = res["data"]
+                val access = data["accessToken"].string
+
+                // If existing user and not in password-reset flow: log in immediately
+                if (!isResetFlow && access.isNotEmpty()) {
+                    val refresh = data["refreshToken"].string
+                    val user = data["user"]
+                    AppSession.shared.login(access, refresh, user)
+                    if (user["name"].string.isEmpty()) {
+                        step = AuthStep.PROFILE
+                    } else {
+                        ToastCenter.show("Đăng nhập thành công!")
+                        onSuccess()
+                    }
+                    return@launch
+                }
+
+                signupToken = data["signupToken"].string
                 password = ""
                 confirmPassword = ""
                 step = if (isResetFlow) AuthStep.RESET_PASSWORD else AuthStep.CREATE_PASSWORD
@@ -339,7 +359,7 @@ fun AuthenticationScreen(
 
     // Resend OTP
     fun resendOtp() {
-        if (resendSeconds > 0) return
+        if (resendSeconds > 0 || busy) return
         busy = true
         errorMessage = null
         scope.launch {
@@ -350,12 +370,18 @@ fun AuthenticationScreen(
                     bodyJson = "{\"phone\":\"$resolvedPhone\"}"
                 )
                 startCountdown()
-                ToastCenter.show("Đã gửi lại mã OTP mới")
+                ToastCenter.show("Đã gửi lại mã xác thực mới")
             } catch (e: Exception) {
                 errorMessage = e.message ?: "Không thể gửi lại mã OTP"
             } finally {
                 busy = false
             }
+        }
+    }
+
+    LaunchedEffect(otp) {
+        if (otp.length == 6 && !busy && step == AuthStep.OTP) {
+            handleOtpSubmit()
         }
     }
 
@@ -443,7 +469,7 @@ fun AuthenticationScreen(
     val headerSubtitle = when (step) {
         AuthStep.PHONE -> ""
         AuthStep.PASSWORD -> "Nhập mật khẩu tài khoản của bạn để tiếp tục."
-        AuthStep.OTP -> "Mã xác thực gồm 6 chữ số đã được gửi tới số điện thoại của bạn."
+        AuthStep.OTP -> "Mã xác thực đã được gửi tới số điện thoại của bạn."
         AuthStep.CREATE_PASSWORD -> "Mật khẩu cần tối thiểu 8 ký tự để bảo vệ tài khoản."
         AuthStep.RESET_PASSWORD -> "Xác thực OTP thành công. Hãy đặt mật khẩu mới cho tài khoản."
         AuthStep.CHANGE_PASSWORD -> "Mật khẩu đã được quản trị viên đặt lại. Hãy tạo mật khẩu mới."
@@ -872,45 +898,67 @@ fun AuthenticationScreen(
                                     fontSize = 12.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = FutaColors.BrandGreen,
-                                    modifier = Modifier.clickable { step = AuthStep.PHONE }
+                                    modifier = Modifier.clickable {
+                                        step = AuthStep.PHONE
+                                        otp = ""
+                                        errorMessage = null
+                                    }
                                 )
                             }
                         }
 
-                        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             Text("MÃ XÁC THỰC OTP", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = FutaColors.Slate)
 
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(52.dp)
-                                    .clip(RoundedCornerShape(14.dp))
-                                    .background(Color(0xFFF8F9FA))
-                                    .border(1.dp, Color(0xFFE1D9CB), RoundedCornerShape(14.dp))
-                                    .padding(horizontal = 14.dp),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                if (otp.isEmpty()) {
-                                    Text("Nhập mã 6 chữ số", fontSize = 16.sp, color = FutaColors.Muted)
-                                }
-                                BasicTextField(
-                                    value = otp,
-                                    onValueChange = { if (it.length <= 6) otp = it },
-                                    singleLine = true,
-                                    enabled = !busy,
-                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                                    textStyle = TextStyle(
-                                        fontSize = 22.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        fontFamily = FontFamily.Monospace,
-                                        color = FutaColors.Navy,
-                                        letterSpacing = 8.sp,
-                                        textAlign = TextAlign.Center
-                                    ),
-                                    cursorBrush = SolidColor(FutaColors.BrandGreen),
-                                    modifier = Modifier.fillMaxWidth()
-                                )
-                            }
+                            BasicTextField(
+                                value = otp,
+                                onValueChange = { input ->
+                                    val digits = input.filter { it.isDigit() }
+                                    if (digits.length <= 6) {
+                                        otp = digits
+                                    }
+                                },
+                                singleLine = true,
+                                enabled = !busy,
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+                                decorationBox = {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally)
+                                    ) {
+                                        for (i in 0 until 6) {
+                                            val char = otp.getOrNull(i)?.toString().orEmpty()
+                                            val isCurrent = otp.length == i || (otp.length == 6 && i == 5)
+                                            val isFilled = char.isNotEmpty()
+                                            Box(
+                                                modifier = Modifier
+                                                    .weight(1f)
+                                                    .height(54.dp)
+                                                    .clip(RoundedCornerShape(12.dp))
+                                                    .background(if (isFilled) Color(0xFFF0FDF4) else Color(0xFFF8F9FA))
+                                                    .border(
+                                                        width = if (isCurrent) 1.5.dp else 1.dp,
+                                                        color = when {
+                                                            isCurrent -> FutaColors.BrandGreen
+                                                            isFilled -> FutaColors.BrandGreen.copy(alpha = 0.5f)
+                                                            else -> Color(0xFFE2E8F0)
+                                                        },
+                                                        shape = RoundedCornerShape(12.dp)
+                                                    ),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                Text(
+                                                    text = char,
+                                                    fontSize = 22.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = FutaColors.Navy
+                                                )
+                                            }
+                                        }
+                                    }
+                                },
+                                modifier = Modifier.fillMaxWidth()
+                            )
                         }
 
                         // Button: Xác nhận mã OTP
@@ -926,6 +974,9 @@ fun AuthenticationScreen(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(50.dp)
+                                .then(
+                                    if (canVerify) Modifier.shadow(8.dp, RoundedCornerShape(14.dp), ambientColor = FutaColors.BrandGreen.copy(alpha = 0.25f)) else Modifier
+                                )
                         ) {
                             if (busy) {
                                 CircularProgressIndicator(color = Color.White, modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
@@ -937,8 +988,8 @@ fun AuthenticationScreen(
                         // Resend Countdown or Action
                         if (resendSeconds > 0) {
                             Text(
-                                text = "Có thể gửi lại mã sau ${resendSeconds}s",
-                                fontSize = 12.5.sp,
+                                text = "Gửi lại mã sau ${resendSeconds}s",
+                                fontSize = 13.sp,
                                 color = FutaColors.Slate,
                                 textAlign = TextAlign.Center,
                                 modifier = Modifier.fillMaxWidth()
