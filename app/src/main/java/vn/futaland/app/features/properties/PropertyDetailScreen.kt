@@ -123,22 +123,47 @@ fun PropertyDetailScreen(
 
     suspend fun loadRegistrationInfo() { refreshRevision++ }
     LaunchedEffect(scopeKey, refreshRevision) {
+        var isInitial = (property == null)
         do {
-            loading = true
-            property = null
-            registrationInfo = null
-            similarProperties = emptyList()
-            loadError = null
+            if (isInitial) {
+                loading = true
+                registrationInfo = null
+                similarProperties = emptyList()
+                loadError = null
+            }
             try {
                 val res = APIClient.get().request("/apartments/$propertyId", query = mapOf("context" to productContext.wire))
-                property = res["data"]
+                var loadedProperty = res["data"]
+                if (loadedProperty["paymentPolicies"].array.isEmpty()) {
+                    val projectName = loadedProperty["zone"].string.trim().ifEmpty { loadedProperty["projectName"].string.trim() }
+                    val projectId = loadedProperty["projectId"].string.trim()
+                    if (projectName.isNotEmpty() || projectId.isNotEmpty()) {
+                        try {
+                            val polQuery = mutableMapOf<String, String>()
+                            if (projectName.isNotEmpty()) polQuery["projectName"] = projectName
+                            if (projectId.isNotEmpty()) polQuery["projectId"] = projectId
+                            val polRes = APIClient.get().request("/payment-policies", query = polQuery)
+                            val pols = polRes["data"]
+                            if (pols.array.isNotEmpty()) {
+                                loadedProperty = loadedProperty.with("paymentPolicies", pols)
+                            }
+                        } catch (_: Exception) {}
+                    }
+                }
+                property = loadedProperty
                 registrationInfo = if (productContext == ProductContext.ADVISOR) res["data"]["registrationInfo"] else null
                 similarProperties = res["data"]["suggestions"].array
+                loadError = null
             } catch (error: CancellationException) { throw error
             } catch (error: Exception) {
-                loadError = "Không tải được sản phẩm. Vui lòng thử lại."
+                if (property == null) {
+                    loadError = "Không tải được sản phẩm. Vui lòng thử lại."
+                }
             } finally {
-                loading = false
+                if (isInitial) {
+                    loading = false
+                    isInitial = false
+                }
             }
             delay(30_000)
         } while (isActive && lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED))

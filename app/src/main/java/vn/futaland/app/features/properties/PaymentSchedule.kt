@@ -44,6 +44,10 @@ object PaymentScheduleEngine {
 
     fun formatErpTiming(timing: JSONValue): String {
         if (timing.isNull) return ""
+        val timingStr = timing.string.trim()
+        if (timingStr.isNotEmpty() && timing["anchorLabel"].isNull && timing["anchor"].isNull) {
+            return timingStr
+        }
         val anchor = timing["anchorLabel"].string.trim().ifEmpty { timing["anchor"].string.trim() }
         val days = if (!timing["days"].isNull) timing["days"].int else null
         return when {
@@ -73,9 +77,13 @@ object PaymentScheduleEngine {
         return normalizeToHundred(percents)
     }
 
-    fun parsePolicies(property: JSONValue, allowFallback: Boolean = true): List<PaymentSchedulePolicy> {
-        // Priority 0: property.paymentPolicies (Direct admin configured policies)
-        val directPolicies = property["paymentPolicies"].array
+    fun parsePolicies(
+        property: JSONValue,
+        externalPolicies: List<JSONValue> = emptyList(),
+        allowFallback: Boolean = true
+    ): List<PaymentSchedulePolicy> {
+        // Priority 0: externalPolicies or property.paymentPolicies (Direct admin configured policies)
+        val directPolicies = if (externalPolicies.isNotEmpty()) externalPolicies else property["paymentPolicies"].array
         if (directPolicies.isNotEmpty()) {
             return directPolicies.mapIndexed { index, plan ->
                 val id = plan["id"].string.ifEmpty { plan["policyId"].string.ifEmpty { "policy-$index" } }
@@ -163,9 +171,8 @@ object PaymentScheduleEngine {
         """
         val fastJson = """
         [
-            { "name": "Đặt cọc / Ký thỏa thuận đặt cọc (TTĐC)", "timing": { "days": 7, "anchorLabel": "kể từ ngày ký hợp đồng cọc" }, "percent": 25.0, "note": "Bao gồm 100.000.000 đ tiền đặt cọc (ký TTĐC/HĐC)" },
-            { "name": "Ký HĐMB / Thanh toán sớm 70%", "timing": { "days": 15, "anchorLabel": "kể từ ngày ký TTĐC" }, "percent": 70.0, "note": "Chiết khấu 2% trực tiếp vào giá niêm yết" },
-            { "name": "Nghiệm thu chính chủng QSDĐ (Sổ hồng)", "timing": { "anchorLabel": "Kể từ ngày nhận thông báo bàn giao GCN chính thức" }, "percent": 5.0, "note": "Quyết toán 100% hợp đồng" }
+            { "name": "Đặt cọc / Ký thỏa thuận đặt cọc (TTĐC)", "timing": { "days": 7, "anchorLabel": "kể từ ngày ký hợp đồng cọc" }, "percent": 95.0, "note": "Bao gồm 100.000.000 đ tiền đặt cọc (ký TTĐC/HĐC)" },
+            { "name": "Ký HĐMB / Hoàn thành móng cọc", "timing": { "days": 30, "anchorLabel": "kể từ ngày hoàn tất đợt 1" }, "percent": 5.0, "note": "Chuyển sang Hợp đồng Mua bán chính thức" }
         ]
         """
         val loanJson = """
@@ -191,7 +198,7 @@ object PaymentScheduleEngine {
                 id = "fast-policy",
                 code = "CSTT-NHANH",
                 name = "Chính sách thanh toán nhanh",
-                discountPercent = 2.0,
+                discountPercent = 1.0,
                 depositAmount = 100_000_000L,
                 rawInstallments = JSONValue.parse(fastJson).array,
                 isBalanced = true,
@@ -285,6 +292,16 @@ object PaymentScheduleEngine {
             }
 
             cumulative += amount
+            val baseStr = item["base"].string
+            val rawNote = item["note"].string.trim()
+            val note = if (rawNote.isNotEmpty()) {
+                rawNote
+            } else if (baseStr.isNotEmpty() && baseStr != "contractPrice") {
+                "Gốc: $baseStr"
+            } else {
+                ""
+            }
+
             rows.add(
                 ScheduleRow(
                     id = "row-$index",
@@ -294,7 +311,7 @@ object PaymentScheduleEngine {
                     percent = percent,
                     amount = amount,
                     cumulative = cumulative,
-                    note = item["base"].string.let { if (it.isNotEmpty() && it != "contractPrice") "Gốc: $it" else "" },
+                    note = note,
                     includesDeposit = index == 0 && depositAmount > 0
                 )
             )

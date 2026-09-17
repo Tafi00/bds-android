@@ -161,4 +161,70 @@ class PaymentScheduleTest {
         assertEquals(3, schedule.rows.size)
         assertEquals(1000000000L, schedule.rows[2].cumulative)
     }
+
+    @Test
+    fun `formatErpTiming supports plain string timing`() {
+        val timingStr = json("\"7 ngày kể từ ngày ký hợp đồng cọc\"")
+        assertEquals("7 ngày kể từ ngày ký hợp đồng cọc", PaymentScheduleEngine.formatErpTiming(timingStr))
+    }
+
+    @Test
+    fun `calculates CT7-05 12 fast payment policy accurately matching web screenshot`() {
+        val remoteJson = """
+        [
+            {
+                "id": "9e785216",
+                "code": "CT-003172",
+                "name": "Chính sách thanh toán nhanh",
+                "discountPercent": 1.0,
+                "depositAmount": 100000000,
+                "installments": [
+                    {
+                        "name": "Đặt cọc / Ký thỏa thuận đặt cọc (TTĐC)",
+                        "timing": "7 ngày kể từ ngày ký hợp đồng cọc",
+                        "percent": 95,
+                        "note": "Bao gồm 100.000.000 đ tiền đặt cọc (ký TTĐC/HĐC)"
+                    },
+                    {
+                        "name": "Ký HĐMB / Hoàn thành móng cọc",
+                        "timing": "30 ngày kể từ ngày hoàn tất đợt 1",
+                        "percent": 5,
+                        "note": "Chuyển sang Hợp đồng Mua bán chính thức"
+                    }
+                ]
+            }
+        ]
+        """
+        val externalPolicies = json(remoteJson).array
+        val policies = PaymentScheduleEngine.parsePolicies(json("{}"), externalPolicies = externalPolicies)
+        assertEquals(1, policies.size)
+        val policy = policies[0]
+        assertEquals("Chính sách thanh toán nhanh", policy.name)
+        assertEquals(1.0, policy.discountPercent, 0.0001)
+
+        val basePrice = 6_860_720_282L
+        val result = PaymentScheduleEngine.calculate(policy, basePrice)
+
+        assertEquals(6_860_720_282L, result.basePrice)
+        assertEquals(68_607_203L, result.discountAmount)
+        assertEquals(6_792_113_079L, result.netPrice)
+        assertEquals(100_000_000L, result.depositAmount)
+        assertEquals(2, result.rows.size)
+
+        // Row 1: 95%
+        assertEquals(1, result.rows[0].order)
+        assertEquals(95.0, result.rows[0].percent ?: 0.0, 0.001)
+        assertEquals(6_452_507_425L, result.rows[0].amount)
+        assertEquals(6_452_507_425L, result.rows[0].cumulative)
+        assertEquals("7 ngày kể từ ngày ký hợp đồng cọc", result.rows[0].timing)
+        assertEquals("Bao gồm 100.000.000 đ tiền đặt cọc (ký TTĐC/HĐC)", result.rows[0].note)
+
+        // Row 2: 5%
+        assertEquals(2, result.rows[1].order)
+        assertEquals(5.0, result.rows[1].percent ?: 0.0, 0.001)
+        assertEquals(339_605_654L, result.rows[1].amount)
+        assertEquals(6_792_113_079L, result.rows[1].cumulative)
+        assertEquals("30 ngày kể từ ngày hoàn tất đợt 1", result.rows[1].timing)
+        assertEquals("Chuyển sang Hợp đồng Mua bán chính thức", result.rows[1].note)
+    }
 }

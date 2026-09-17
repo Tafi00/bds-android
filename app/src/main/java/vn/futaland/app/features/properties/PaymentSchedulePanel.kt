@@ -30,6 +30,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -45,6 +46,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import vn.futaland.app.core.network.APIClient
 import vn.futaland.app.core.network.JSONValue
 import vn.futaland.app.designsystem.FutaColors
 
@@ -61,8 +63,30 @@ fun PaymentSchedulePanel(
         unitLabelOverride?.ifEmpty { null } ?: PaymentScheduleEngine.resolveUnitCode(property)
     }
 
-    val policies = remember(property.id) {
-        PaymentScheduleEngine.parsePolicies(property)
+    var remotePolicies by remember(property.id) { mutableStateOf<List<JSONValue>>(emptyList()) }
+
+    LaunchedEffect(property.id) {
+        val directPolicies = property["paymentPolicies"].array
+        if (directPolicies.isEmpty()) {
+            val projectName = property["zone"].string.trim().ifEmpty { property["projectName"].string.trim() }
+            val projectId = property["projectId"].string.trim()
+            if (projectName.isNotEmpty() || projectId.isNotEmpty()) {
+                try {
+                    val query = mutableMapOf<String, String>()
+                    if (projectName.isNotEmpty()) query["projectName"] = projectName
+                    if (projectId.isNotEmpty()) query["projectId"] = projectId
+                    val res = APIClient.get().request("/payment-policies", query = query)
+                    val data = res["data"].array
+                    if (data.isNotEmpty()) {
+                        remotePolicies = data
+                    }
+                } catch (_: Exception) {}
+            }
+        }
+    }
+
+    val policies = remember(property.id, remotePolicies) {
+        PaymentScheduleEngine.parsePolicies(property, externalPolicies = remotePolicies)
     }
 
     if (policies.isEmpty()) return

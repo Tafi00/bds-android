@@ -84,4 +84,10 @@ class JSONValue(val element: JsonElement) {
         }
         return current
     }
+
+    fun with(key: String, value: JSONValue): JSONValue {
+        val map = (element as? JsonObject)?.toMutableMap() ?: mutableMapOf()
+        map[key] = value.element
+        return JSONValue(JsonObject(map))
+    }
 }
