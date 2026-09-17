@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
@@ -90,10 +91,6 @@ fun PropertyDetailScreen(
 
     // Media mode tab: "photos", "video", "flycam", "tour"
     var selectedMediaTab by remember(scopeKey) { mutableStateOf("photos") }
-
-    // Loan Calculator State
-    var loanPercent by remember(scopeKey) { mutableFloatStateOf(70f) }
-    var loanYears by remember(scopeKey) { mutableFloatStateOf(20f) }
 
     // Booking & Holding Sheet States
     var showBookingSheet by remember(scopeKey) { mutableStateOf(false) }
@@ -245,7 +242,10 @@ fun PropertyDetailScreen(
             val tour360Url = property["virtualTourUrl"].string.ifEmpty { property["tour360Url"].string }
             val flycamUrl = property["flycamUrl"].string.ifEmpty { property["projectFlycamVideoUrl"].string }
 
+            val listState = rememberLazyListState()
+
             LazyColumn(
+                state = listState,
                 modifier = Modifier
                     .fillMaxSize()
                     .background(Color(0xFFF7F9FC))
@@ -685,115 +685,20 @@ fun PropertyDetailScreen(
                     }
                 }
 
-                // 4. Financial Loan Calculator (Matching Web Calculator)
+                // 4. Pricing Breakdown Card (BẢNG GIÁ CHI TIẾT - Matching Web & Screenshot)
                 item {
-                    FutaCard(
-                        modifier = Modifier.fillMaxWidth(),
-                        borderColor = FutaColors.PeachBorder
-                    ) {
-                        Column(modifier = Modifier.padding(16.dp)) {
-                            Text(
-                                text = "DỰ TÍNH TÀI CHÍNH & VAY NGÂN HÀNG",
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = FutaColors.Navy,
-                                letterSpacing = 0.5.sp
-                            )
-                            Spacer(Modifier.height(12.dp))
-
-                            Text(
-                                text = "Tỷ lệ vay: ${loanPercent.toInt()}% (${PropertyFormatters.formatPrice(price * loanPercent / 100.0)})",
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = FutaColors.Navy
-                            )
-                            Slider(
-                                value = loanPercent,
-                                onValueChange = { loanPercent = it },
-                                valueRange = 10f..80f,
-                                thumb = {
-                                    Surface(
-                                        shape = CircleShape,
-                                        color = Color.White,
-                                        shadowElevation = 3.dp,
-                                        border = BorderStroke(0.5.dp, Color(0xFFCBD5E1)),
-                                        modifier = Modifier.size(24.dp)
-                                    ) {}
-                                },
-                                track = { sliderState ->
-                                    SliderDefaults.Track(
-                                        sliderState = sliderState,
-                                        thumbTrackGapSize = 0.dp,
-                                        trackInsideCornerSize = 0.dp,
-                                        drawStopIndicator = null,
-                                        colors = SliderDefaults.colors(
-                                            activeTrackColor = Color(0xFF0E7643),
-                                            inactiveTrackColor = Color(0xFFE2E8F0)
-                                        ),
-                                        modifier = Modifier.height(6.dp)
-                                    )
-                                }
-                            )
-
-                            Text(
-                                text = "Thời hạn: ${loanYears.toInt()} năm",
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = FutaColors.Navy
-                            )
-                            Slider(
-                                value = loanYears,
-                                onValueChange = { loanYears = it },
-                                valueRange = 5f..35f,
-                                thumb = {
-                                    Surface(
-                                        shape = CircleShape,
-                                        color = Color.White,
-                                        shadowElevation = 3.dp,
-                                        border = BorderStroke(0.5.dp, Color(0xFFCBD5E1)),
-                                        modifier = Modifier.size(24.dp)
-                                    ) {}
-                                },
-                                track = { sliderState ->
-                                    SliderDefaults.Track(
-                                        sliderState = sliderState,
-                                        thumbTrackGapSize = 0.dp,
-                                        trackInsideCornerSize = 0.dp,
-                                        drawStopIndicator = null,
-                                        colors = SliderDefaults.colors(
-                                            activeTrackColor = Color(0xFF0E7643),
-                                            inactiveTrackColor = Color(0xFFE2E8F0)
-                                        ),
-                                        modifier = Modifier.height(6.dp)
-                                    )
-                                }
-                            )
-
-                            val loanAmount = price * (loanPercent / 100.0)
-                            val monthlyRate = 0.08 / 12.0
-                            val totalMonths = loanYears * 12.0
-                            val monthlyPayment = if (totalMonths > 0 && monthlyRate > 0) {
-                                (loanAmount * monthlyRate * (1 + monthlyRate).pow(totalMonths)) /
-                                        ((1 + monthlyRate).pow(totalMonths) - 1)
-                            } else 0.0
-
-                            Spacer(Modifier.height(14.dp))
-                            Surface(
-                                shape = RoundedCornerShape(10.dp),
-                                color = Color(0xFFE8F5E9),
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Row(
-                                    modifier = Modifier.padding(12.dp),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Text("Ước tính trả hàng tháng:", fontSize = 12.5.sp, color = FutaColors.Navy)
-                                    Text("~${"%,d".format(monthlyPayment.toLong())} đ/tháng", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color(0xFF0E7643))
-                                }
+                    val policies = remember(property.id) {
+                        PaymentScheduleEngine.parsePolicies(property)
+                    }
+                    PricingBreakdownCard(
+                        property = property,
+                        hasPolicies = policies.isNotEmpty(),
+                        onTryCalculationClick = {
+                            scope.launch {
+                                listState.animateScrollToItem(4)
                             }
                         }
-                    }
+                    )
                 }
                 // 4A. Payment Schedule Simulator (Bảng tính minh họa giá trị thanh toán theo đợt)
                 item {
