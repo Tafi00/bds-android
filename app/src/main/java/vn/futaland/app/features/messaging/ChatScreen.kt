@@ -1727,10 +1727,10 @@ private fun MessageBubble(msg: ChatMessage, onOpenProperty: (String) -> Unit) {
                     }
 
                     Text(
-                        text = msg.content,
+                        text = parseMarkdownToAnnotatedString(msg.content),
                         fontSize = 13.5.sp,
                         color = if (msg.isMe) Color.White else FutaColors.Navy,
-                        lineHeight = 19.sp
+                        lineHeight = 20.sp
                     )
                 }
             }
@@ -1750,6 +1750,32 @@ private fun MessageBubble(msg: ChatMessage, onOpenProperty: (String) -> Unit) {
                     )
                 }
             }
+        }
+    }
+}
+
+private fun parseMarkdownToAnnotatedString(text: String): androidx.compose.ui.text.AnnotatedString {
+    return androidx.compose.ui.text.buildAnnotatedString {
+        val pattern = java.util.regex.Pattern.compile("(\\*\\*([^*]+)\\*\\*)|(\\*([^*]+)\\*)")
+        val matcher = pattern.matcher(text)
+        var lastIndex = 0
+        while (matcher.find()) {
+            append(text.substring(lastIndex, matcher.start()))
+            val boldGroup = matcher.group(2)
+            val italicGroup = matcher.group(4)
+            if (boldGroup != null) {
+                pushStyle(androidx.compose.ui.text.SpanStyle(fontWeight = FontWeight.Bold))
+                append(boldGroup)
+                pop()
+            } else if (italicGroup != null) {
+                pushStyle(androidx.compose.ui.text.SpanStyle(fontStyle = androidx.compose.ui.text.font.FontStyle.Italic))
+                append(italicGroup)
+                pop()
+            }
+            lastIndex = matcher.end()
+        }
+        if (lastIndex < text.length) {
+            append(text.substring(lastIndex))
         }
     }
 }
