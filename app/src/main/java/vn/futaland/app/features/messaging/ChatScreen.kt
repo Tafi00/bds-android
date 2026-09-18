@@ -1238,7 +1238,7 @@ fun ChatScreen(
                         .windowInsetsPadding(WindowInsets.ime.union(WindowInsets.navigationBars))
                         .background(Color.White)
                 ) {
-                    // Quick Reply Suggestion Chips (Staff only, hidden for customer)
+                    // Quick Suggestion Chips: Staff templates or Customer AI suggestions
                     if (isStaff) {
                         val quickReplies = listOf(
                             "Tôi muốn xem căn này",
@@ -1265,6 +1265,37 @@ fun ChatScreen(
                                         fontSize = 11.5.sp,
                                         fontWeight = FontWeight.Medium,
                                         color = FutaColors.Navy,
+                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
+                                    )
+                                }
+                            }
+                        }
+                    } else if (isCurrentConversationAi) {
+                        val aiSuggestions = listOf(
+                            "🔍 Tìm căn 2PN giá tốt",
+                            "🏢 Dự án đang mở bán",
+                            "💰 Chính sách thanh toán",
+                            "📋 Thủ tục đặt cọc & pháp lý"
+                        )
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .horizontalScroll(rememberScrollState())
+                                .padding(horizontal = 12.dp, vertical = 6.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            aiSuggestions.forEach { suggestion ->
+                                Surface(
+                                    shape = RoundedCornerShape(16.dp),
+                                    color = Color(0xFFF0FDF4),
+                                    border = BorderStroke(1.dp, Color(0xFFBBF7D0)),
+                                    modifier = Modifier.clickable { sendMessage(suggestion.substringAfter(" ")) }
+                                ) {
+                                    Text(
+                                        text = suggestion,
+                                        fontSize = 11.5.sp,
+                                        fontWeight = FontWeight.Medium,
+                                        color = Color(0xFF166534),
                                         modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
                                     )
                                 }
@@ -1518,173 +1549,350 @@ fun ChatScreen(
 
 @Composable
 private fun MessageBubble(msg: ChatMessage, onOpenProperty: (String) -> Unit) {
-    Column(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalAlignment = if (msg.isMe) Alignment.End else Alignment.Start
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 8.dp, vertical = 4.dp),
+        horizontalArrangement = if (msg.isMe) Arrangement.End else Arrangement.Start,
+        verticalAlignment = Alignment.Bottom
     ) {
-        Surface(
-            shape = RoundedCornerShape(
-                topStart = 14.dp,
-                topEnd = 14.dp,
-                bottomStart = if (msg.isMe) 14.dp else 2.dp,
-                bottomEnd = if (msg.isMe) 2.dp else 14.dp
-            ),
-            color = if (msg.isMe) FutaColors.BrandGreen else Color.White,
-            border = BorderStroke(1.dp, if (msg.isMe) Color.Transparent else FutaColors.LightBlueBorder),
-            shadowElevation = 1.dp,
-            modifier = Modifier.widthIn(max = 280.dp)
-        ) {
-            Column(modifier = Modifier.padding(12.dp)) {
-                if (!msg.isMe) {
-                    Text(msg.senderName, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = FutaColors.BrandGreen)
-                    Spacer(Modifier.height(3.dp))
+        if (!msg.isMe) {
+            Surface(
+                shape = CircleShape,
+                color = Color(0xFFE8F5E9),
+                border = BorderStroke(1.dp, Color(0xFF16A34A).copy(alpha = 0.25f)),
+                modifier = Modifier
+                    .size(30.dp)
+                    .padding(bottom = 2.dp)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    if (msg.senderName.contains("AI")) {
+                        Icon(
+                            painter = painterResource(R.drawable.ic_lucide_bot),
+                            contentDescription = null,
+                            tint = Color(0xFF16A34A),
+                            modifier = Modifier.size(16.dp)
+                        )
+                    } else {
+                        Text(
+                            msg.senderName.take(1).uppercase(),
+                            color = Color(0xFF16A34A),
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 12.sp
+                        )
+                    }
                 }
-                val cards = msg.propertyCards.ifEmpty { listOfNotNull(msg.propertyCard) }
-                for (card in cards) {
-                    val title = card["title"].string.ifEmpty { "Căn hộ ${card["propertyCode"].string}" }
-                    val projectName = card["zone"].string
-                    val price = card["price"].double
-                    val imgUrl = card["imageUrl"].string
-                    Surface(
-                        shape = RoundedCornerShape(10.dp),
-                        color = if (msg.isMe) Color.White.copy(alpha = 0.15f) else Color(0xFFF8FAFC),
-                        border = BorderStroke(1.dp, if (msg.isMe) Color.White.copy(alpha = 0.25f) else Color(0xFFE2E8F0)),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(bottom = 8.dp)
-                    ) {
-                        Column(modifier = Modifier.padding(8.dp)) {
-                            TextButton(onClick = { onOpenProperty(card.id) }, enabled = card.id.isNotEmpty()) { Text("Xem căn") }
-                            if (imgUrl.isNotEmpty()) {
-                                AsyncImage(
-                                    model = imgUrl,
-                                    contentDescription = title,
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .height(110.dp)
-                                        .clip(RoundedCornerShape(6.dp)),
-                                    contentScale = androidx.compose.ui.layout.ContentScale.Crop
-                                )
-                                Spacer(Modifier.height(6.dp))
-                            }
+            }
+            Spacer(Modifier.width(8.dp))
+        }
+
+        Column(
+            horizontalAlignment = if (msg.isMe) Alignment.End else Alignment.Start
+        ) {
+            Surface(
+                shape = RoundedCornerShape(
+                    topStart = 16.dp,
+                    topEnd = 16.dp,
+                    bottomStart = if (msg.isMe) 16.dp else 3.dp,
+                    bottomEnd = if (msg.isMe) 3.dp else 16.dp
+                ),
+                color = if (msg.isMe) FutaColors.BrandGreen else Color.White,
+                border = BorderStroke(1.dp, if (msg.isMe) Color.Transparent else Color(0xFFE2E8F0)),
+                shadowElevation = 1.dp,
+                modifier = Modifier.widthIn(min = 40.dp, max = 310.dp)
+            ) {
+                Column(modifier = Modifier.padding(horizontal = 13.dp, vertical = 10.dp)) {
+                    if (!msg.isMe) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(5.dp)
+                        ) {
                             Text(
-                                text = title,
-                                fontSize = 12.sp,
+                                text = msg.senderName,
+                                fontSize = 11.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = if (msg.isMe) Color.White else FutaColors.Navy,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
+                                color = Color(0xFF166534)
                             )
-                            if (projectName.isNotEmpty()) {
+                            if (msg.senderName.contains("AI")) {
+                                Surface(
+                                    shape = RoundedCornerShape(4.dp),
+                                    color = Color(0xFFDCFCE7)
+                                ) {
+                                    Text(
+                                        text = "AI",
+                                        fontSize = 9.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color(0xFF15803D),
+                                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                                    )
+                                }
+                            }
+                        }
+                        Spacer(Modifier.height(5.dp))
+                    }
+
+                    val cards = msg.propertyCards.ifEmpty { listOfNotNull(msg.propertyCard) }
+                    for (card in cards) {
+                        val title = card["title"].string.ifEmpty { "Căn hộ ${card["propertyCode"].string}" }
+                        val projectName = card["zone"].string
+                        val price = card["price"].double
+                        val imgUrl = card["imageUrl"].string
+
+                        Surface(
+                            shape = RoundedCornerShape(12.dp),
+                            color = if (msg.isMe) Color.White.copy(alpha = 0.15f) else Color(0xFFF8FAFC),
+                            border = BorderStroke(1.dp, if (msg.isMe) Color.White.copy(alpha = 0.25f) else Color(0xFFE2E8F0)),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(bottom = 8.dp)
+                        ) {
+                            Column(modifier = Modifier.padding(9.dp)) {
+                                if (imgUrl.isNotEmpty()) {
+                                    AsyncImage(
+                                        model = imgUrl,
+                                        contentDescription = title,
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(120.dp)
+                                            .clip(RoundedCornerShape(8.dp)),
+                                        contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                                    )
+                                    Spacer(Modifier.height(7.dp))
+                                }
                                 Text(
-                                    text = projectName,
-                                    fontSize = 10.5.sp,
-                                    color = if (msg.isMe) Color.White.copy(alpha = 0.8f) else Color(0xFF64748B),
+                                    text = title,
+                                    fontSize = 12.5.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (msg.isMe) Color.White else FutaColors.Navy,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis
                                 )
-                            }
-                            if (price > 0) {
-                                val priceFormatted = "%,.0f đ".format(price).replace(",", ".")
-                                Text(
-                                    text = priceFormatted,
-                                    fontSize = 11.5.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = if (msg.isMe) Color(0xFFFEF08A) else FutaColors.BrandGreen
-                                )
+                                if (projectName.isNotEmpty()) {
+                                    Spacer(Modifier.height(2.dp))
+                                    Text(
+                                        text = projectName,
+                                        fontSize = 11.sp,
+                                        color = if (msg.isMe) Color.White.copy(alpha = 0.8f) else Color(0xFF64748B),
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+                                if (price > 0) {
+                                    val priceFormatted = "%,.0f đ".format(price).replace(",", ".")
+                                    Spacer(Modifier.height(3.dp))
+                                    Text(
+                                        text = priceFormatted,
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = if (msg.isMe) Color(0xFFFEF08A) else FutaColors.BrandGreen
+                                    )
+                                }
+                                Spacer(Modifier.height(6.dp))
+                                Surface(
+                                    shape = RoundedCornerShape(8.dp),
+                                    color = if (msg.isMe) Color.White.copy(alpha = 0.2f) else Color(0xFFE8F5E9),
+                                    border = BorderStroke(1.dp, if (msg.isMe) Color.White.copy(alpha = 0.4f) else Color(0xFFA5D6A7)),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable(enabled = card.id.isNotEmpty()) { onOpenProperty(card.id) }
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(vertical = 6.dp, horizontal = 10.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.Center
+                                    ) {
+                                        Text(
+                                            text = "Xem chi tiết căn",
+                                            fontSize = 11.5.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = if (msg.isMe) Color.White else Color(0xFF166534)
+                                        )
+                                        Spacer(Modifier.width(4.dp))
+                                        Icon(
+                                            Icons.AutoMirrored.Filled.ArrowForward,
+                                            contentDescription = null,
+                                            tint = if (msg.isMe) Color.White else Color(0xFF166534),
+                                            modifier = Modifier.size(12.dp)
+                                        )
+                                    }
+                                }
                             }
                         }
                     }
+
+                    Text(
+                        text = msg.content,
+                        fontSize = 13.5.sp,
+                        color = if (msg.isMe) Color.White else FutaColors.Navy,
+                        lineHeight = 19.sp
+                    )
                 }
-                Text(
-                    text = msg.content,
-                    fontSize = 13.5.sp,
-                    color = if (msg.isMe) Color.White else FutaColors.Navy,
-                    lineHeight = 18.sp
-                )
+            }
+            Spacer(Modifier.height(2.dp))
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(3.dp),
+                modifier = Modifier.padding(horizontal = 4.dp)
+            ) {
+                Text(msg.time, fontSize = 9.5.sp, color = FutaColors.Slate)
+                if (msg.isMe) {
+                    Icon(
+                        Icons.Default.Done,
+                        contentDescription = "Đã gửi",
+                        tint = FutaColors.BrandGreen,
+                        modifier = Modifier.size(11.dp)
+                    )
+                }
             }
         }
-        Spacer(Modifier.height(3.dp))
-        Text(msg.time, fontSize = 10.sp, color = FutaColors.Slate)
     }
 }
 
 @Composable
 private fun TypingIndicatorBubble(senderName: String = "Trợ lý AI FUTA Land") {
-    val infiniteTransition = rememberInfiniteTransition(label = "typing_dots")
-    val dot1Alpha by infiniteTransition.animateFloat(
-        initialValue = 0.25f,
-        targetValue = 1f,
+    val infiniteTransition = rememberInfiniteTransition(label = "typing_bouncing_dots")
+    val dot1Offset by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = -5f,
         animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 500, delayMillis = 0),
+            animation = tween(durationMillis = 380, delayMillis = 0, easing = FastOutSlowInEasing),
             repeatMode = RepeatMode.Reverse
         ),
-        label = "dot1"
+        label = "dot1Offset"
+    )
+    val dot2Offset by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = -5f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 380, delayMillis = 130, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "dot2Offset"
+    )
+    val dot3Offset by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = -5f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 380, delayMillis = 260, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "dot3Offset"
+    )
+    val dot1Alpha by infiniteTransition.animateFloat(
+        initialValue = 0.35f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 380, delayMillis = 0),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "dot1Alpha"
     )
     val dot2Alpha by infiniteTransition.animateFloat(
-        initialValue = 0.25f,
+        initialValue = 0.35f,
         targetValue = 1f,
         animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 500, delayMillis = 180),
+            animation = tween(durationMillis = 380, delayMillis = 130),
             repeatMode = RepeatMode.Reverse
         ),
-        label = "dot2"
+        label = "dot2Alpha"
     )
     val dot3Alpha by infiniteTransition.animateFloat(
-        initialValue = 0.25f,
+        initialValue = 0.35f,
         targetValue = 1f,
         animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 500, delayMillis = 360),
+            animation = tween(durationMillis = 380, delayMillis = 260),
             repeatMode = RepeatMode.Reverse
         ),
-        label = "dot3"
+        label = "dot3Alpha"
     )
 
-    Column(
+    Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 4.dp),
-        horizontalAlignment = Alignment.Start
+            .padding(horizontal = 8.dp, vertical = 4.dp),
+        horizontalArrangement = Arrangement.Start,
+        verticalAlignment = Alignment.Bottom
     ) {
+        // AI Avatar
+        Surface(
+            shape = CircleShape,
+            color = Color(0xFFE8F5E9),
+            border = BorderStroke(1.dp, Color(0xFF16A34A).copy(alpha = 0.25f)),
+            modifier = Modifier
+                .size(30.dp)
+                .padding(bottom = 2.dp)
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Icon(
+                    painter = painterResource(R.drawable.ic_lucide_bot),
+                    contentDescription = null,
+                    tint = Color(0xFF16A34A),
+                    modifier = Modifier.size(16.dp)
+                )
+            }
+        }
+        Spacer(Modifier.width(8.dp))
+
+        // Bubble
         Surface(
             shape = RoundedCornerShape(
-                topStart = 14.dp,
-                topEnd = 14.dp,
-                bottomStart = 2.dp,
-                bottomEnd = 14.dp
+                topStart = 16.dp,
+                topEnd = 16.dp,
+                bottomStart = 3.dp,
+                bottomEnd = 16.dp
             ),
             color = Color.White,
-            border = BorderStroke(1.dp, FutaColors.LightBlueBorder),
+            border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
             shadowElevation = 1.dp
         ) {
-            Column(modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)) {
-                Text(
-                    text = senderName,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = FutaColors.BrandGreen
-                )
-                Spacer(Modifier.height(6.dp))
+            Column(modifier = Modifier.padding(horizontal = 14.dp, vertical = 9.dp)) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Text(
+                        text = senderName,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF166534)
+                    )
+                    Surface(
+                        shape = RoundedCornerShape(4.dp),
+                        color = Color(0xFFDCFCE7)
+                    ) {
+                        Text(
+                            text = "AI 24/7",
+                            fontSize = 9.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF15803D),
+                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                        )
+                    }
+                }
+                Spacer(Modifier.height(7.dp))
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     Box(
                         modifier = Modifier
-                            .size(7.dp)
-                            .background(FutaColors.BrandGreen.copy(alpha = dot1Alpha), CircleShape)
+                            .offset(y = dot1Offset.dp)
+                            .size(7.5.dp)
+                            .background(Color(0xFF16A34A).copy(alpha = dot1Alpha), CircleShape)
                     )
                     Box(
                         modifier = Modifier
-                            .size(7.dp)
-                            .background(FutaColors.BrandGreen.copy(alpha = dot2Alpha), CircleShape)
+                            .offset(y = dot2Offset.dp)
+                            .size(7.5.dp)
+                            .background(Color(0xFF16A34A).copy(alpha = dot2Alpha), CircleShape)
                     )
                     Box(
                         modifier = Modifier
-                            .size(7.dp)
-                            .background(FutaColors.BrandGreen.copy(alpha = dot3Alpha), CircleShape)
+                            .offset(y = dot3Offset.dp)
+                            .size(7.5.dp)
+                            .background(Color(0xFF16A34A).copy(alpha = dot3Alpha), CircleShape)
                     )
-                    Spacer(Modifier.width(6.dp))
+                    Spacer(Modifier.width(8.dp))
                     Text(
                         text = "Đang soạn câu trả lời...",
                         fontSize = 11.5.sp,
