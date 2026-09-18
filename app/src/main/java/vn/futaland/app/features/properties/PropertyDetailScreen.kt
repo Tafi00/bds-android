@@ -752,7 +752,7 @@ fun PropertyDetailScreen(
                     }
                 }
 
-                // 4. Pricing Breakdown Card (BẢNG GIÁ CHI TIẾT - Matching Web & Screenshot)
+                // 4. Pricing Breakdown Card (BẢNG GIÁ CHI TIẾT với nút "Tính giá thử" mở Sheet)
                 item {
                     val policies = remember(property.id) {
                         PaymentScheduleEngine.parsePolicies(property)
@@ -764,10 +764,6 @@ fun PropertyDetailScreen(
                             showPaymentScheduleSheet = true
                         }
                     )
-                }
-                // 4A. Payment Schedule Simulator (Bảng tính minh họa giá trị thanh toán theo đợt)
-                item {
-                    PaymentSchedulePanel(property = property)
                 }
                 // 4B. Townhouse Floor Breakdown (Matching Web & iOS)
                 val isTownhouse = run {
