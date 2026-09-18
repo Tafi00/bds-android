@@ -302,6 +302,61 @@ fun ProjectDetailScreen(
                         Spacer(Modifier.height(16.dp))
                     }
                 }
+
+                // 3.5 Bank Deposit Account Info (Tài khoản nhận cọc dự án)
+                val depositAccount = p["depositAccountNumber"].string
+                val depositBank = p["depositBankName"].string.ifEmpty { p["depositBankCode"].string }
+                val depositHolder = p["depositAccountHolder"].string
+                val depositPrefix = p["depositTransferSyntaxPrefix"].string.ifEmpty { "FUTA" }
+                val depositAmount = p["depositDefaultAmount"].double
+
+                if (depositAccount.isNotEmpty()) {
+                    item {
+                        FutaCard(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp)
+                        ) {
+                            Column(modifier = Modifier.padding(16.dp)) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text("TÀI KHOẢN NHẬN CỌC DỰ ÁN", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
+                                    Surface(
+                                        shape = RoundedCornerShape(6.dp),
+                                        color = Color(0xFFECFDF5)
+                                    ) {
+                                        Text("STK riêng", fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = FutaColors.BrandGreen, modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp))
+                                    }
+                                }
+                                Spacer(Modifier.height(10.dp))
+                                if (depositBank.isNotEmpty()) {
+                                    Text("Ngân hàng: $depositBank", fontSize = 13.sp, color = FutaColors.Navy, fontWeight = FontWeight.Medium)
+                                    Spacer(Modifier.height(4.dp))
+                                }
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text("Số tài khoản: ", fontSize = 13.sp, color = FutaColors.Slate)
+                                    Text(depositAccount, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = FutaColors.BrandGreen)
+                                }
+                                if (depositHolder.isNotEmpty()) {
+                                    Spacer(Modifier.height(4.dp))
+                                    Text("Chủ tài khoản: $depositHolder", fontSize = 13.sp, color = FutaColors.Navy)
+                                }
+                                Spacer(Modifier.height(4.dp))
+                                Text("Cú pháp chuyển khoản: $depositPrefix [MÃ CĂN] [MÃ PHIẾU]", fontSize = 12.sp, color = FutaColors.Slate)
+                                if (depositAmount > 0) {
+                                    Spacer(Modifier.height(4.dp))
+                                    val formattedAmount = java.text.NumberFormat.getCurrencyInstance(java.util.Locale("vi", "VN")).format(depositAmount)
+                                    Text("Tiền cọc mặc định: $formattedAmount", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = FutaColors.BrandGreen)
+                                }
+                            }
+                        }
+                        Spacer(Modifier.height(16.dp))
+                    }
+                }
+
                 // 4. Master Plan / Sơ đồ tổng thể
                 item {
                     FutaCard(
