@@ -58,6 +58,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.CancellationException
 import vn.futaland.app.core.network.JSONValue
+import vn.futaland.app.features.messaging.ChatWebSocketManager
 import vn.futaland.app.designsystem.*
 import vn.futaland.app.navigation.FutaDestinations
 import kotlin.math.pow
@@ -73,7 +74,7 @@ fun PropertyDetailScreen(
     val scope = rememberCoroutineScope()
     val sessionUser by AppSession.shared.currentUser.collectAsState()
     val permissions by AppSession.shared.permissions.collectAsState()
-    val scopeKey = "$propertyId|${productContext.wire}|${sessionUser?.element}|$permissions"
+    val scopeKey = "$propertyId|${productContext.wire}|${sessionUser?.id.orEmpty()}|${AppSession.shared.role}|$permissions"
     val lifecycleOwner = LocalLifecycleOwner.current
     var refreshRevision by remember(scopeKey) { mutableIntStateOf(0) }
     DisposableEffect(lifecycleOwner) {
@@ -83,7 +84,47 @@ fun PropertyDetailScreen(
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
+
     var property by remember(scopeKey) { mutableStateOf<JSONValue?>(null) }
+
+    DisposableEffect(propertyId) {
+        ChatWebSocketManager.shared.connect()
+        val listenerKey = "PropertyDetail-$propertyId"
+        ChatWebSocketManager.shared.addProductEventListener(listenerKey) { event ->
+            val eventPropId = event["propertyId"].string
+            if (eventPropId == propertyId) {
+                val currentProp = property
+                if (currentProp != null) {
+                    val status = event["status"].string
+                    val bookingStatus = event["bookingStatus"].string
+                    val activeHoldingStatus = event["activeHoldingStatus"].string
+                    val activeHoldingExpiresAt = event["activeHoldingExpiresAt"].string
+
+                    val updates = mutableMapOf<String, Any?>()
+                    if (status.isNotEmpty()) updates["status"] = status
+                    if (bookingStatus.isNotEmpty()) updates["bookingStatus"] = bookingStatus
+                    if (activeHoldingStatus.isNotEmpty()) updates["activeHoldingStatus"] = activeHoldingStatus
+                    if (activeHoldingExpiresAt.isNotEmpty()) updates["activeHoldingExpiresAt"] = activeHoldingExpiresAt
+
+                    val accessObj = currentProp["access"]
+                    if (!accessObj.isNull) {
+                        val accessUpdates = mutableMapOf<String, Any?>()
+                        if (bookingStatus.isNotEmpty()) accessUpdates["bookingStatus"] = bookingStatus
+                        if (activeHoldingStatus.isNotEmpty()) accessUpdates["activeHoldingStatus"] = activeHoldingStatus
+                        if (activeHoldingExpiresAt.isNotEmpty()) accessUpdates["activeHoldingExpiresAt"] = activeHoldingExpiresAt
+                        updates["access"] = accessObj.withUpdates(accessUpdates)
+                    }
+
+                    if (updates.isNotEmpty()) {
+                        property = currentProp.withUpdates(updates)
+                    }
+                }
+            }
+        }
+        onDispose {
+            ChatWebSocketManager.shared.removeProductEventListener(listenerKey)
+        }
+    }
     var similarProperties by remember(scopeKey) { mutableStateOf<List<JSONValue>>(emptyList()) }
     var loading by remember(scopeKey) { mutableStateOf(true) }
     var isFavorite by remember(scopeKey) { mutableStateOf(false) }
@@ -111,7 +152,7 @@ fun PropertyDetailScreen(
     var registrationInfo by remember(scopeKey) { mutableStateOf<JSONValue?>(null) }
 
     // Shared gallery state, hoisted so the full-screen photo viewer survives list recycling.
-    val galleryImages = remember(property) { property?.let { propertyGalleryImages(it) } ?: emptyList() }
+    val galleryImages = remember(property?.id) { property?.let { propertyGalleryImages(it) } ?: emptyList() }
     val galleryPagerState = rememberPagerState(pageCount = { galleryImages.size })
     var viewerPhotoIndex by remember(scopeKey) { mutableStateOf<Int?>(null) }
 
@@ -240,7 +281,7 @@ fun PropertyDetailScreen(
                 Text(loadError.orEmpty())
                 TextButton(onClick = { refreshRevision++ }) { Text("Thử lại") }
             }
-        } else if (loading || property == null) {
+        } else if (loading && property == null) {
             Column(
                 modifier = Modifier
                     .fillMaxSize()

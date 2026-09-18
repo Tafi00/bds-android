@@ -90,4 +90,34 @@ class JSONValue(val element: JsonElement) {
         map[key] = value.element
         return JSONValue(JsonObject(map))
     }
+
+    fun with(key: String, value: String?): JSONValue {
+        return with(key, if (value == null) Null else JSONValue(JsonPrimitive(value)))
+    }
+
+    fun withUpdates(updates: Map<String, Any?>): JSONValue {
+        val map = (element as? JsonObject)?.toMutableMap() ?: mutableMapOf()
+        for ((k, v) in updates) {
+            when (v) {
+                null -> map[k] = JsonNull
+                is JSONValue -> map[k] = v.element
+                is JsonElement -> map[k] = v
+                is String -> map[k] = JsonPrimitive(v)
+                is Number -> map[k] = JsonPrimitive(v)
+                is Boolean -> map[k] = JsonPrimitive(v)
+                else -> map[k] = JsonPrimitive(v.toString())
+            }
+        }
+        return JSONValue(JsonObject(map))
+    }
+
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (other !is JSONValue) return false
+        return element == other.element
+    }
+
+    override fun hashCode(): Int {
+        return element.hashCode()
+    }
 }

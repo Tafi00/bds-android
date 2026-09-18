@@ -30,6 +30,7 @@ import kotlinx.coroutines.launch
 import vn.futaland.app.core.network.APIClient
 import vn.futaland.app.core.network.JSONValue
 import vn.futaland.app.designsystem.*
+import vn.futaland.app.features.messaging.ChatWebSocketManager
 import vn.futaland.app.features.properties.PropertyFormatters
 import vn.futaland.app.navigation.FutaDestinations
 
@@ -75,14 +76,16 @@ fun AdvisorProductsScreen(
         "completed" to "GD thành công"
     )
 
-    fun loadData() {
+    fun loadData(silent: Boolean = false) {
         scope.launch {
-            loading = true
+            if (!silent && items.isEmpty()) {
+                loading = true
+            }
             try {
                 val res = APIClient.get().request("/sales/registrations")
                 items = res["data"].array
             } catch (_: Exception) {
-                items = emptyList()
+                if (!silent) items = emptyList()
             } finally {
                 loading = false
             }
@@ -91,6 +94,52 @@ fun AdvisorProductsScreen(
 
     LaunchedEffect(Unit) {
         loadData()
+    }
+
+    DisposableEffect(Unit) {
+        ChatWebSocketManager.shared.connect()
+        val listenerKey = "AdvisorProductsScreen"
+        ChatWebSocketManager.shared.addProductEventListener(listenerKey) { event ->
+            val targetPropId = event["propertyId"].string
+            val targetRegId = event["registrationId"].string
+            val bookingStatus = event["bookingStatus"].string
+            val activeHoldingStatus = event["activeHoldingStatus"].string
+            val activeHoldingExpiresAt = event["activeHoldingExpiresAt"].string
+            val activeHoldingAdvisorId = event["activeHoldingAdvisorId"].string
+            val onlineHoldExpiresAt = event["onlineHoldExpiresAt"].string
+            val status = event["status"].string
+
+            if (targetPropId.isNotEmpty() || targetRegId.isNotEmpty()) {
+                var matched = false
+                val updatedItems = items.map { reg ->
+                    val rId = reg["id"].string.ifEmpty { reg.id }
+                    val pId = reg["propertyId"].string.ifEmpty { reg["property"]["id"].string }
+                    val isMatch = (targetRegId.isNotEmpty() && rId == targetRegId) ||
+                                  (targetPropId.isNotEmpty() && pId == targetPropId)
+                    if (isMatch) {
+                        matched = true
+                        val updates = mutableMapOf<String, Any?>()
+                        if (bookingStatus.isNotEmpty()) updates["bookingStatus"] = bookingStatus
+                        if (activeHoldingStatus.isNotEmpty()) updates["activeHoldingStatus"] = activeHoldingStatus
+                        if (activeHoldingExpiresAt.isNotEmpty()) updates["activeHoldingExpiresAt"] = activeHoldingExpiresAt
+                        if (activeHoldingAdvisorId.isNotEmpty()) updates["activeHoldingAdvisorId"] = activeHoldingAdvisorId
+                        if (onlineHoldExpiresAt.isNotEmpty()) updates["onlineHoldExpiresAt"] = onlineHoldExpiresAt
+                        if (status.isNotEmpty()) updates["status"] = status
+                        reg.withUpdates(updates)
+                    } else {
+                        reg
+                    }
+                }
+                if (matched) {
+                    items = updatedItems
+                } else if (event["type"].string == "product_registration_updated" && status in listOf("approved", "active")) {
+                    loadData(silent = true)
+                }
+            }
+        }
+        onDispose {
+            ChatWebSocketManager.shared.removeProductEventListener(listenerKey)
+        }
     }
 
     // Web parity: Only show approved registrations with active sales permission in the basket

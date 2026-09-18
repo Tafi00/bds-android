@@ -87,6 +87,7 @@ class AppSession private constructor() {
             if (!userData.isNull) {
                 _currentUser.value = userData
                 fetchPermissions()
+                vn.futaland.app.features.messaging.ChatWebSocketManager.shared.connect()
             } else {
                 logout()
             }
@@ -122,12 +123,14 @@ class AppSession private constructor() {
         APIClient.get().tokenStorage.refreshToken = refreshToken
         _currentUser.value = userData
         FcmRegistrar.ensureRegistered(APIClient.get().appContext)
+        vn.futaland.app.features.messaging.ChatWebSocketManager.shared.connect()
     }
 
     fun logout() {
         APIClient.get().tokenStorage.clear()
         _currentUser.value = null
         _permissions.value = emptySet()
+        vn.futaland.app.features.messaging.ChatWebSocketManager.shared.disconnect()
     }
     suspend fun ensureGuest(): Boolean {
         if (isAuthenticated) return true

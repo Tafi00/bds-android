@@ -36,6 +36,7 @@ import vn.futaland.app.core.auth.AppSession
 import vn.futaland.app.core.network.APIClient
 import vn.futaland.app.core.network.JSONValue
 import vn.futaland.app.designsystem.*
+import vn.futaland.app.features.messaging.ChatWebSocketManager
 import vn.futaland.app.features.properties.PropertyFormatters
 
 enum class RegistrationTab(val label: String) {
@@ -57,9 +58,11 @@ fun AdminRegistrationsScreen(
     var selectedRegistration by remember { mutableStateOf<JSONValue?>(null) }
     var actionBusy by remember { mutableStateOf(false) }
 
-    fun loadRegistrations(searchQuery: String = search) {
+    fun loadRegistrations(searchQuery: String = search, silent: Boolean = false) {
         scope.launch {
-            loading = true
+            if (!silent && registrations.isEmpty()) {
+                loading = true
+            }
             try {
                 if (APIClient.get().tokenStorage.accessToken.isNullOrEmpty()) {
                     try {
@@ -80,7 +83,7 @@ fun AdminRegistrationsScreen(
                 android.util.Log.i("AdminRegSuccess", "Loaded ${registrations.size} registrations")
             } catch (e: Exception) {
                 android.util.Log.e("AdminRegErr", "ERROR: ${e.javaClass.name}: ${e.message}", e)
-                registrations = emptyList()
+                if (!silent) registrations = emptyList()
             } finally {
                 loading = false
             }
@@ -90,6 +93,52 @@ fun AdminRegistrationsScreen(
     LaunchedEffect(search) {
         kotlinx.coroutines.delay(300)
         loadRegistrations(search)
+    }
+
+    DisposableEffect(Unit) {
+        ChatWebSocketManager.shared.connect()
+        val listenerKey = "AdminRegistrationsScreen"
+        ChatWebSocketManager.shared.addProductEventListener(listenerKey) { event ->
+            val targetPropId = event["propertyId"].string
+            val targetRegId = event["registrationId"].string
+            val bookingStatus = event["bookingStatus"].string
+            val activeHoldingStatus = event["activeHoldingStatus"].string
+            val activeHoldingExpiresAt = event["activeHoldingExpiresAt"].string
+            val activeHoldingAdvisorId = event["activeHoldingAdvisorId"].string
+            val onlineHoldExpiresAt = event["onlineHoldExpiresAt"].string
+            val status = event["status"].string
+
+            if (targetPropId.isNotEmpty() || targetRegId.isNotEmpty()) {
+                var matched = false
+                val updated = registrations.map { reg ->
+                    val rId = reg["id"].string.ifEmpty { reg.id }
+                    val pId = reg["propertyId"].string.ifEmpty { reg["property"]["id"].string }
+                    val isMatch = (targetRegId.isNotEmpty() && rId == targetRegId) ||
+                                  (targetPropId.isNotEmpty() && pId == targetPropId)
+                    if (isMatch) {
+                        matched = true
+                        val updates = mutableMapOf<String, Any?>()
+                        if (bookingStatus.isNotEmpty()) updates["bookingStatus"] = bookingStatus
+                        if (activeHoldingStatus.isNotEmpty()) updates["activeHoldingStatus"] = activeHoldingStatus
+                        if (activeHoldingExpiresAt.isNotEmpty()) updates["activeHoldingExpiresAt"] = activeHoldingExpiresAt
+                        if (activeHoldingAdvisorId.isNotEmpty()) updates["activeHoldingAdvisorId"] = activeHoldingAdvisorId
+                        if (onlineHoldExpiresAt.isNotEmpty()) updates["onlineHoldExpiresAt"] = onlineHoldExpiresAt
+                        if (status.isNotEmpty()) updates["status"] = status
+                        reg.withUpdates(updates)
+                    } else {
+                        reg
+                    }
+                }
+                if (matched) {
+                    registrations = updated
+                } else {
+                    loadRegistrations(search, silent = true)
+                }
+            }
+        }
+        onDispose {
+            ChatWebSocketManager.shared.removeProductEventListener(listenerKey)
+        }
     }
 
     // Competing unit codes calculation (units with > 1 registration)
@@ -320,7 +369,7 @@ fun AdminRegistrationsScreen(
                 }
             }
             // List of registrations
-            if (loading) {
+            if (loading && registrations.isEmpty()) {
                 items(4) {
                     FutaRegistrationCardSkeleton()
                 }

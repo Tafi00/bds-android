@@ -26,6 +26,16 @@ class ChatWebSocketManager private constructor() {
     var onMessagesRead: ((conversationId: String, userId: String) -> Unit)? = null
     var onNewConversation: ((JSONValue) -> Unit)? = null
 
+    private val productEventListeners = java.util.concurrent.ConcurrentHashMap<String, (JSONValue) -> Unit>()
+
+    fun addProductEventListener(key: String, listener: (JSONValue) -> Unit) {
+        productEventListeners[key] = listener
+    }
+
+    fun removeProductEventListener(key: String) {
+        productEventListeners.remove(key)
+    }
+
     private var webSocket: WebSocket? = null
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private var pingJob: Job? = null
@@ -230,6 +240,17 @@ class ChatWebSocketManager private constructor() {
                     val conv = json["conversation"]
                     scope.launch(Dispatchers.Main) {
                         onNewConversation?.invoke(conv)
+                    }
+                }
+                "product_holding_updated", "product_registration_updated", "product_inventory_updated" -> {
+                    scope.launch(Dispatchers.Main) {
+                        for (listener in productEventListeners.values) {
+                            try {
+                                listener(json)
+                            } catch (e: Exception) {
+                                Log.e(TAG, "Error invoking product event listener: ${e.message}")
+                            }
+                        }
                     }
                 }
             }
