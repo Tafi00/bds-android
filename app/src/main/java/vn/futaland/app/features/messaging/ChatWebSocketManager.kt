@@ -187,7 +187,8 @@ class ChatWebSocketManager private constructor() {
                 "new_message" -> {
                     val msg = json["message"]
                     val convId = msg["conversationId"].string
-                    if (convId.isNotEmpty()) {
+                    val isBot = msg["senderType"].string == "bot"
+                    if (convId.isNotEmpty() && isBot) {
                         synchronized(typingJobs) {
                             typingJobs.remove(convId)?.cancel()
                         }

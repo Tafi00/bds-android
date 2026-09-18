@@ -1006,9 +1006,12 @@ fun ChatScreen(
                         propertyCards = cards
                     )
                     mergeIncomingChatMessage(messages, newMsg)
-                    if (!isMine) {
+                    val isBot = jsonMsg["senderType"].string == "bot"
+                    if (isBot) {
                         isAiThinking = false
                         aiPollJob?.cancel()
+                    }
+                    if (!isMine) {
                         scope.launch { refreshUnreadBadge() }
                     }
                     scope.launch {
@@ -1042,10 +1045,11 @@ fun ChatScreen(
             if (isCurrentConversationAi) {
                 isAiThinking = true
                 aiPollJob?.cancel()
+                val existingIds = messages.map { it.id }.toSet()
                 aiPollJob = scope.launch {
                     var attempts = 0
-                    while (isAiThinking && attempts < 16) {
-                        delay(2000)
+                    while (isAiThinking && attempts < 25) {
+                        delay(1500)
                         attempts++
                         val currentConvId = activeConversationId
                         if (currentConvId != null && currentConvId != "ai_agent") {
@@ -1054,21 +1058,23 @@ fun ChatScreen(
                                 val msgList = msgRes["data"].array
                                 if (msgList.isNotEmpty()) {
                                     val currentUserId = AppSession.shared.user?.id.orEmpty()
-                                    val latestBot = msgList.filter { m ->
+                                    val newBot = msgList.firstOrNull { m ->
                                         val sType = m["senderType"].string
                                         val sId = m["senderId"].string
-                                        !isOwnChatMessage(sId, sType, currentUserId, viewerIsCustomer = !isStaff) && (sType == "bot" || sType == "staff")
-                                    }.maxByOrNull { it["createdAt"].string }
+                                        !existingIds.contains(m.id) &&
+                                        !isOwnChatMessage(sId, sType, currentUserId, viewerIsCustomer = !isStaff) &&
+                                        (sType == "bot" || sType == "staff")
+                                    }
 
-                                    if (latestBot != null) {
-                                        val cards = parseChatPropertyCards(latestBot["metadata"])
+                                    if (newBot != null) {
+                                        val cards = parseChatPropertyCards(newBot["metadata"])
                                         val botMsg = ChatMessage(
-                                            id = latestBot.id,
-                                            senderId = latestBot["senderId"].string,
-                                            senderName = if (latestBot["senderType"].string == "bot") "Trợ lý AI FUTA Land" else latestBot["senderName"].string.ifEmpty { activeConversationName },
-                                            content = latestBot["content"].string,
+                                            id = newBot.id,
+                                            senderId = newBot["senderId"].string,
+                                            senderName = if (newBot["senderType"].string == "bot") "Trợ lý AI FUTA Land" else newBot["senderName"].string.ifEmpty { activeConversationName },
+                                            content = newBot["content"].string,
                                             isMe = false,
-                                            time = formatChatTime(latestBot["createdAt"].string),
+                                            time = formatChatTime(newBot["createdAt"].string),
                                             propertyCard = cards.firstOrNull(),
                                             propertyCards = cards
                                         )
