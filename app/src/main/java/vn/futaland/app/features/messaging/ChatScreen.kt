@@ -31,6 +31,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.animation.core.*
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import vn.futaland.app.R
@@ -921,6 +923,9 @@ fun ChatScreen(
         val messages = remember {
             mutableStateListOf<ChatMessage>()
         }
+        var isAiThinking by remember { mutableStateOf(false) }
+        var aiPollJob by remember { mutableStateOf<Job?>(null) }
+        val isCurrentConversationAi = isAiChat || activeConversationName.contains("AI") || targetAdvisorId.isNullOrEmpty()
         val isImeVisible = WindowInsets.isImeVisible
         LaunchedEffect(isImeVisible, messages.size) {
             if (messages.isNotEmpty()) {
@@ -929,13 +934,16 @@ fun ChatScreen(
         }
 
         val activeTypingUser = activeConversationId?.let { typingUsers[it] }
-        LaunchedEffect(activeTypingUser) {
-            if (!activeTypingUser.isNullOrEmpty() && messages.isNotEmpty()) {
+        val showTypingIndicator = isAiThinking || !activeTypingUser.isNullOrEmpty()
+        LaunchedEffect(showTypingIndicator, activeTypingUser) {
+            if (showTypingIndicator && messages.isNotEmpty()) {
                 listState.animateScrollToItem(messages.size)
             }
         }
 
         LaunchedEffect(activeConversationId) {
+            isAiThinking = false
+            aiPollJob?.cancel()
             activeConversationId?.let { convId ->
                 ChatWebSocketManager.shared.join(convId)
                 ChatWebSocketManager.shared.markRead(convId)
@@ -999,6 +1007,8 @@ fun ChatScreen(
                     )
                     mergeIncomingChatMessage(messages, newMsg)
                     if (!isMine) {
+                        isAiThinking = false
+                        aiPollJob?.cancel()
                         scope.launch { refreshUnreadBadge() }
                     }
                     scope.launch {
@@ -1027,6 +1037,53 @@ fun ChatScreen(
             if (customText == null) messageText = ""
             scope.launch {
                 listState.animateScrollToItem(messages.size - 1)
+            }
+
+            if (isCurrentConversationAi) {
+                isAiThinking = true
+                aiPollJob?.cancel()
+                aiPollJob = scope.launch {
+                    var attempts = 0
+                    while (isAiThinking && attempts < 16) {
+                        delay(2000)
+                        attempts++
+                        val currentConvId = activeConversationId
+                        if (currentConvId != null && currentConvId != "ai_agent") {
+                            try {
+                                val msgRes = APIClient.get().request("/chat/conversations/$currentConvId/messages", query = mapOf("limit" to "10"))
+                                val msgList = msgRes["data"].array
+                                if (msgList.isNotEmpty()) {
+                                    val currentUserId = AppSession.shared.user?.id.orEmpty()
+                                    val latestBot = msgList.filter { m ->
+                                        val sType = m["senderType"].string
+                                        val sId = m["senderId"].string
+                                        !isOwnChatMessage(sId, sType, currentUserId, viewerIsCustomer = !isStaff) && (sType == "bot" || sType == "staff")
+                                    }.maxByOrNull { it["createdAt"].string }
+
+                                    if (latestBot != null) {
+                                        val cards = parseChatPropertyCards(latestBot["metadata"])
+                                        val botMsg = ChatMessage(
+                                            id = latestBot.id,
+                                            senderId = latestBot["senderId"].string,
+                                            senderName = if (latestBot["senderType"].string == "bot") "Trợ lý AI FUTA Land" else latestBot["senderName"].string.ifEmpty { activeConversationName },
+                                            content = latestBot["content"].string,
+                                            isMe = false,
+                                            time = formatChatTime(latestBot["createdAt"].string),
+                                            propertyCard = cards.firstOrNull(),
+                                            propertyCards = cards
+                                        )
+                                        mergeIncomingChatMessage(messages, botMsg)
+                                        isAiThinking = false
+                                        refreshUnreadBadge()
+                                        listState.animateScrollToItem(messages.size - 1)
+                                        break
+                                    }
+                                }
+                            } catch (_: Exception) {}
+                        }
+                    }
+                    isAiThinking = false
+                }
             }
 
             scope.launch {
@@ -1385,39 +1442,14 @@ fun ChatScreen(
                     MessageBubble(msg = msg, onOpenProperty = { id -> onNavigate(vn.futaland.app.navigation.FutaDestinations.propertyDetail(id, productContext)) })
                 }
 
-                val typingUser = activeConversationId?.let { typingUsers[it] }
-                if (!typingUser.isNullOrEmpty()) {
-                    item(key = "typing_indicator_item") {
-                        Row(
-                            modifier = Modifier.padding(start = 4.dp, top = 2.dp, bottom = 4.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Surface(
-                                shape = RoundedCornerShape(16.dp),
-                                color = Color.White,
-                                border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
-                                shadowElevation = 0.5.dp
-                            ) {
-                                Row(
-                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                                ) {
-                                    Icon(
-                                        painter = painterResource(R.drawable.ic_lucide_bot),
-                                        contentDescription = null,
-                                        tint = FutaColors.BrandGreen,
-                                        modifier = Modifier.size(14.dp)
-                                    )
-                                    Text(
-                                        text = "$typingUser đang soạn tin nhắn...",
-                                        fontSize = 11.5.sp,
-                                        color = Color(0xFF64748B),
-                                        fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
-                                    )
-                                }
-                            }
-                        }
+                if (showTypingIndicator) {
+                    val displayName = when {
+                        !activeTypingUser.isNullOrEmpty() -> activeTypingUser
+                        isCurrentConversationAi -> "Trợ lý AI FUTA Land"
+                        else -> activeConversationName
+                    }
+                    item(key = "typing_indicator_bubble") {
+                        TypingIndicatorBubble(senderName = displayName)
                     }
                 }
             }
@@ -1574,6 +1606,94 @@ private fun MessageBubble(msg: ChatMessage, onOpenProperty: (String) -> Unit) {
         }
         Spacer(Modifier.height(3.dp))
         Text(msg.time, fontSize = 10.sp, color = FutaColors.Slate)
+    }
+}
+
+@Composable
+private fun TypingIndicatorBubble(senderName: String = "Trợ lý AI FUTA Land") {
+    val infiniteTransition = rememberInfiniteTransition(label = "typing_dots")
+    val dot1Alpha by infiniteTransition.animateFloat(
+        initialValue = 0.25f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 500, delayMillis = 0),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "dot1"
+    )
+    val dot2Alpha by infiniteTransition.animateFloat(
+        initialValue = 0.25f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 500, delayMillis = 180),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "dot2"
+    )
+    val dot3Alpha by infiniteTransition.animateFloat(
+        initialValue = 0.25f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 500, delayMillis = 360),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "dot3"
+    )
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
+        horizontalAlignment = Alignment.Start
+    ) {
+        Surface(
+            shape = RoundedCornerShape(
+                topStart = 14.dp,
+                topEnd = 14.dp,
+                bottomStart = 2.dp,
+                bottomEnd = 14.dp
+            ),
+            color = Color.White,
+            border = BorderStroke(1.dp, FutaColors.LightBlueBorder),
+            shadowElevation = 1.dp
+        ) {
+            Column(modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)) {
+                Text(
+                    text = senderName,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = FutaColors.BrandGreen
+                )
+                Spacer(Modifier.height(6.dp))
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(7.dp)
+                            .background(FutaColors.BrandGreen.copy(alpha = dot1Alpha), CircleShape)
+                    )
+                    Box(
+                        modifier = Modifier
+                            .size(7.dp)
+                            .background(FutaColors.BrandGreen.copy(alpha = dot2Alpha), CircleShape)
+                    )
+                    Box(
+                        modifier = Modifier
+                            .size(7.dp)
+                            .background(FutaColors.BrandGreen.copy(alpha = dot3Alpha), CircleShape)
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    Text(
+                        text = "Đang soạn câu trả lời...",
+                        fontSize = 11.5.sp,
+                        color = Color(0xFF64748B),
+                        fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
+                    )
+                }
+            }
+        }
     }
 }
 
