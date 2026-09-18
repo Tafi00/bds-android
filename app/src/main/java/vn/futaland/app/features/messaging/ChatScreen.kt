@@ -60,7 +60,8 @@ data class ChatMessage(
     val content: String,
     val isMe: Boolean,
     val time: String,
-    val propertyCard: JSONValue? = null
+    val propertyCard: JSONValue? = null,
+    val propertyCards: List<JSONValue> = emptyList()
 )
 
 /** Ids of bubbles rendered optimistically before the server confirms them. */
@@ -70,6 +71,17 @@ private val localMessageCounter = java.util.concurrent.atomic.AtomicLong()
 
 private fun nextLocalMessageId(): String =
     "$LOCAL_MESSAGE_PREFIX${System.currentTimeMillis()}-${localMessageCounter.incrementAndGet()}"
+
+/** Extract every property card embedded in message metadata.
+ *  Bot replies send `propertyCards` (array); older payloads use `propertyCard`
+ *  or `apartmentCard` (single object). */
+private fun parseChatPropertyCards(metadata: JSONValue): List<JSONValue> {
+    val list = metadata["propertyCards"].array
+    val singles = if (list.isNotEmpty()) list else listOf(metadata["propertyCard"], metadata["apartmentCard"])
+    return singles.filter { card ->
+        !card.isNull && (card["propertyCode"].string.isNotEmpty() || card["title"].string.isNotEmpty() || card.id.isNotEmpty())
+    }
+}
 
 /**
  * Whether a message returned by the API/WebSocket was authored by the signed-in
@@ -940,8 +952,7 @@ fun ChatScreen(
                                 val senderId = m["senderId"].string
                                 val isMe = isOwnChatMessage(senderId, sType, currentUserId, viewerIsCustomer = !isStaff)
                                 val timeStr = formatChatTime(m["createdAt"].string)
-                                val card = m["metadata"]["propertyCard"].let { if (it.isNull) m["metadata"]["apartmentCard"] else it }
-                                val hasCard = !card.isNull && (card["propertyCode"].string.isNotEmpty() || card["title"].string.isNotEmpty() || card.id.isNotEmpty())
+                                val cards = parseChatPropertyCards(m["metadata"])
                                 messages.add(
                                     ChatMessage(
                                         id = m.id,
@@ -950,7 +961,8 @@ fun ChatScreen(
                                         content = m["content"].string,
                                         isMe = isMe,
                                         time = timeStr,
-                                        propertyCard = if (hasCard) card else null
+                                        propertyCard = cards.firstOrNull(),
+                                        propertyCards = cards
                                     )
                                 )
                             }
@@ -966,8 +978,7 @@ fun ChatScreen(
             ChatWebSocketManager.shared.onNewMessage = { jsonMsg ->
                 val convId = jsonMsg["conversationId"].string
                 if (convId.isNotEmpty() && (convId == activeConversationId || activeConversationId == null || activeConversationId == "ai_agent")) {
-                    val card = jsonMsg["metadata"]["propertyCard"].let { if (it.isNull) jsonMsg["metadata"]["apartmentCard"] else it }
-                    val hasCard = !card.isNull && (card["propertyCode"].string.isNotEmpty() || card["title"].string.isNotEmpty() || card.id.isNotEmpty())
+                    val cards = parseChatPropertyCards(jsonMsg["metadata"])
                     // The gateway echoes our own messages back over the socket, so
                     // classify them as ours instead of attributing them to the other side.
                     val isMine = isOwnChatMessage(
@@ -983,7 +994,8 @@ fun ChatScreen(
                         content = jsonMsg["content"].string,
                         isMe = isMine,
                         time = "Vừa xong",
-                        propertyCard = if (hasCard) card else null
+                        propertyCard = cards.firstOrNull(),
+                        propertyCards = cards
                     )
                     mergeIncomingChatMessage(messages, newMsg)
                     if (!isMine) {
@@ -1495,8 +1507,8 @@ private fun MessageBubble(msg: ChatMessage, onOpenProperty: (String) -> Unit) {
                     Text(msg.senderName, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = FutaColors.BrandGreen)
                     Spacer(Modifier.height(3.dp))
                 }
-                if (msg.propertyCard != null) {
-                    val card = msg.propertyCard
+                val cards = msg.propertyCards.ifEmpty { listOfNotNull(msg.propertyCard) }
+                for (card in cards) {
                     val title = card["title"].string.ifEmpty { "Căn hộ ${card["propertyCode"].string}" }
                     val projectName = card["zone"].string
                     val price = card["price"].double
