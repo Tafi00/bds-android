@@ -1270,7 +1270,7 @@ fun ChatScreen(
                                 }
                             }
                         }
-                    } else if (isCurrentConversationAi) {
+                    } else if (isCurrentConversationAi && !isAiThinking && activeTypingUser.isNullOrEmpty()) {
                         val aiSuggestions = listOf(
                             "🔍 Tìm căn 2PN giá tốt",
                             "🏢 Dự án đang mở bán",
@@ -1365,7 +1365,7 @@ fun ChatScreen(
                     .fillMaxSize()
                     .background(FutaColors.PageBg)
                     .padding(padding),
-                contentPadding = PaddingValues(16.dp),
+                contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 12.dp, bottom = 28.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 if (messages.isEmpty() && !isStaff) {
