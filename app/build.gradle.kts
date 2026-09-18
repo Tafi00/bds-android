@@ -14,8 +14,8 @@ android {
         applicationId = "com.futaland.realestate"
         minSdk = 26
         targetSdk = 36
-        versionCode = 25
-        versionName = "1.0.14"
+        versionCode = 27
+        versionName = "1.0.15"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -112,6 +112,9 @@ dependencies {
 
     // Firebase Cloud Messaging (push notifications)
     implementation("com.google.firebase:firebase-messaging-ktx:24.1.0")
+
+    // Google Play In-App Updates
+    implementation("com.google.android.play:app-update-ktx:2.1.0")
 
     // Coroutines & Serialization
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
