@@ -31,6 +31,7 @@ import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import vn.futaland.app.R
 import vn.futaland.app.core.auth.AppSession
+import vn.futaland.app.core.update.PlayStoreUpdateManager
 import vn.futaland.app.designsystem.FutaCard
 import vn.futaland.app.designsystem.FutaColors
 import vn.futaland.app.designsystem.FutaDialog
@@ -55,6 +56,12 @@ fun AccountScreen(
     var showSignOutDialog by remember { mutableStateOf(false) }
     var showAboutDialog by remember { mutableStateOf(false) }
     var showTermsDialog by remember { mutableStateOf(false) }
+
+    val appVersionLabel = remember {
+        val name = PlayStoreUpdateManager.installedVersionName(context)
+        val code = PlayStoreUpdateManager.installedVersionCode(context)
+        if (name.isBlank() || code <= 0) "" else "Phiên bản $name • Build $code"
+    }
 
     LazyColumn(
         modifier = Modifier
@@ -399,6 +406,21 @@ fun AccountScreen(
                             color = Color.Red
                         )
                     }
+                }
+            }
+        }
+
+        if (appVersionLabel.isNotEmpty()) {
+            item {
+                Box(
+                    modifier = Modifier.fillMaxWidth(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = appVersionLabel,
+                        fontSize = 12.sp,
+                        color = FutaColors.Slate
+                    )
                 }
             }
         }

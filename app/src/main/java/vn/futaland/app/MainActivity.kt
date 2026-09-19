@@ -83,15 +83,8 @@ import vn.futaland.app.features.messaging.ChatScreen
 import vn.futaland.app.features.properties.PropertyDetailScreen
 import vn.futaland.app.core.sales.ProductContext
 import vn.futaland.app.features.properties.PropertySearchScreen
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.sp
+import vn.futaland.app.core.update.AppUpdateDialog
 import vn.futaland.app.core.update.PlayStoreUpdateManager
-import vn.futaland.app.designsystem.FutaColors
 import vn.futaland.app.navigation.*
 
 class MainActivity : ComponentActivity() {
@@ -558,46 +551,13 @@ class MainActivity : ComponentActivity() {
                     // Toast System Overlay
                     FutaToastOverlay()
 
-                    if (PlayStoreUpdateManager.shouldShowAlert.value) {
-                        AlertDialog(
-                            onDismissRequest = {
-                                PlayStoreUpdateManager.shouldShowAlert.value = false
-                            },
-                            title = {
-                                Text(
-                                    text = "Đã có phiên bản mới",
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 18.sp
-                                )
-                            },
-                            text = {
-                                Text(
-                                    text = "Đã có phiên bản mới của ứng dụng trên Google Play. Vui lòng cập nhật để trải nghiệm các tính năng mới nhất.",
-                                    fontSize = 14.sp,
-                                    color = Color(0xFF4B5563)
-                                )
-                            },
-                            confirmButton = {
-                                Button(
-                                    onClick = {
-                                        PlayStoreUpdateManager.startUpdateFlow(this@MainActivity)
-                                    },
-                                    colors = ButtonDefaults.buttonColors(containerColor = FutaColors.BrandGreen)
-                                ) {
-                                    Text("Cập nhật")
-                                }
-                            },
-                            dismissButton = {
-                                TextButton(
-                                    onClick = {
-                                        PlayStoreUpdateManager.shouldShowAlert.value = false
-                                    }
-                                ) {
-                                    Text("Để sau", color = Color.Gray)
-                                }
-                            }
-                        )
-                    }
+                    AppUpdateDialog(
+                        visible = PlayStoreUpdateManager.shouldShowAlert.value,
+                        installedVersionName = PlayStoreUpdateManager.installedVersionName.value,
+                        availableVersionCode = PlayStoreUpdateManager.availableVersionCode.value,
+                        onUpdate = { PlayStoreUpdateManager.actOnUpdate(this@MainActivity) },
+                        onLater = { PlayStoreUpdateManager.dismiss(this@MainActivity) }
+                    )
                 }
             }
         }
@@ -634,7 +594,7 @@ class MainActivity : ComponentActivity() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             val granted = ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
             if (!granted) {
-                ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.POST_NOTIFICATIONS), 1001)
+                ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.POST_NOTIFICATIONS), 1002)
             }
         }
     }
