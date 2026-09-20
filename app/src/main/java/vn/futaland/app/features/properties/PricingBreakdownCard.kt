@@ -61,20 +61,32 @@ object PricingBreakdownParser {
 
     fun parse(property: JSONValue): List<PricingBreakdownItem> {
         val breakdownArray = property["pricingBreakdown"].array
+        val isApt = isApartment(property)
         val configured = breakdownArray.mapNotNull { item ->
-            val label = item["label"].string.trim()
+            val rawLabel = item["label"].string.trim()
+            val key = item["key"].string.ifEmpty { rawLabel }
             val value = if (item["value"].double > 0) item["value"].double else null
             val strVal = item["value"].string.trim()
-            if (label.isNotEmpty() && (value != null || strVal.isNotEmpty())) {
+            if (rawLabel.isNotEmpty() && (value != null || strVal.isNotEmpty())) {
+                val label = if (isApt) {
+                    when {
+                        key == "netPriceBeforeVat" || rawLabel.contains("gồm CPBH", ignoreCase = true) ->
+                            "Giá trị căn bán (chưa bao gồm VAT và KPBT)"
+                        key == "maintenanceFee" || rawLabel == "Phí bảo trì" || rawLabel == "Kinh phí bảo trì" ->
+                            "Phí bảo trì (2%)"
+                        key == "vatAmount" || rawLabel == "Thuế VAT" || rawLabel == "VAT" ->
+                            "Thuế GTGT (10%)"
+                        else -> rawLabel
+                    }
+                } else rawLabel
                 PricingBreakdownItem(
-                    key = item["key"].string.ifEmpty { label },
+                    key = key,
                     label = label,
                     value = value,
                     displayString = if (value == null && strVal.isNotEmpty()) strVal else null
                 )
             } else null
         }
-
         if (configured.isNotEmpty()) return configured
 
         // Fallback standard rows if pricingBreakdown is not configured
@@ -106,7 +118,7 @@ object PricingBreakdownParser {
             return "Giá cho thuê"
         }
         val raw = property["salePriceLabel"].string.trim()
-        val defaultLabel = if (isApartmentType(property["propertyType"].string)) {
+        val defaultLabel = if (isApartment(property)) {
             "Giá bán (bao gồm VAT và PBT)"
         } else {
             "Giá bán"
@@ -117,9 +129,16 @@ object PricingBreakdownParser {
             .replace(Regex("(?i)\\s+và\\s+phí bảo trì"), " và PBT")
     }
 
+    private fun isApartment(property: JSONValue): Boolean {
+        val proj = (property["projectName"].string + " " + property["zone"].string).lowercase()
+        if (proj.contains("c5b")) return false
+        val type = property["propertyType"].string.lowercase()
+        return isApartmentType(type) || proj.contains("times square") || proj.contains("căn hộ")
+    }
+
     private fun isApartmentType(type: String): Boolean {
         val lower = type.lowercase()
-        return lower.contains("can-ho") || lower.contains("chung-cu") || lower.contains("apartment")
+        return lower.contains("can-ho") || lower.contains("chung-cu") || lower.contains("apartment") || lower.contains("căn hộ")
     }
 }
 
