@@ -654,7 +654,7 @@ fun PropertyDetailScreen(
                                     SummaryInfoRow(iconRes = R.drawable.sf_mappin_circle_green, label = "Dự án / Phân khu", value = projectName)
                                     HorizontalDivider(color = Color(0xFFF1F5F9), thickness = 0.8.dp)
                                 }
-                                SummaryInfoRow(iconRes = R.drawable.sf_quick_projects, label = "Tòa / Block", value = property["block"].string.ifEmpty { property["building"].string }.ifEmpty { "Đang cập nhật" })
+                                SummaryInfoRow(iconRes = R.drawable.sf_quick_projects, label = "Tòa", value = property["block"].string.ifEmpty { property["building"].string }.ifEmpty { "Đang cập nhật" })
                                 HorizontalDivider(color = Color(0xFFF1F5F9), thickness = 0.8.dp)
                                 SummaryInfoRow(iconRes = R.drawable.sf_spec_area, label = "Tầng", value = property["floor"].string.ifEmpty { "Đang cập nhật" })
                             }
@@ -1915,7 +1915,7 @@ private fun TownhouseFloorsCard(property: JSONValue) {
             if (totalFloor.isNotEmpty()) {
                 TownhouseInfoRow("Tổng diện tích sàn", if (totalFloor.contains("m")) totalFloor else "$totalFloor m²")
             }
-            TownhouseInfoRow("Block", block)
+            TownhouseInfoRow("Tòa", block)
             if (totalFloorsVal.isNotEmpty()) {
                 TownhouseInfoRow("Tổng số tầng", totalFloorsVal)
             } else if (rawFloors.isNotEmpty()) {

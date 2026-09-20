@@ -730,7 +730,7 @@ fun AdvisorProductsScreen(
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 DetailRow("Dự án / Phân khu", item["projectName"].string.ifEmpty { item["property"]["projectName"].string.ifEmpty { "-" } })
-                DetailRow("Tòa / Block", item["block"].string.ifEmpty { item["property"]["block"].string.ifEmpty { "-" } })
+                DetailRow("Tòa", item["block"].string.ifEmpty { item["property"]["block"].string.ifEmpty { "-" } })
                 val fl = item["floor"].int.let { if (it > 0) it else item["property"]["floor"].int }
                 DetailRow("Tầng", if (fl > 0) "$fl" else "-")
                 DetailRow("Quyền bán", sellStatusText)

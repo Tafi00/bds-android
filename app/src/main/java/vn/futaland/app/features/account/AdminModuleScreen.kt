@@ -750,7 +750,7 @@ private fun AdminRecordCreateSheet(
                     FutaInput(
                         value = if (isProject) landArea else category,
                         onValueChange = { if (isProject) landArea = it else category = it },
-                        placeholder = if (isProject) "Ví dụ: 2.1 ha" else "Khu A, Block 1..."
+                        placeholder = if (isProject) "Ví dụ: 2.1 ha" else "Khu A, Tòa 1..."
                     )
                 }
             }
