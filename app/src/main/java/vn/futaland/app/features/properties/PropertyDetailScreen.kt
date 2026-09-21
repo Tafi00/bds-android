@@ -721,11 +721,29 @@ fun PropertyDetailScreen(
                             )
                             Spacer(Modifier.height(12.dp))
 
+                            val unitType = property["apartmentType"].string.lowercase().trim()
+                            val beds = property["bedrooms"].double
+                            val bedText: String? = when {
+                                unitType.contains("studio") || unitType.contains("stu") -> "Studio"
+                                beds != null && beds > 0 -> "${beds.toInt()} PN"
+                                unitType.contains("1pn") -> "1 PN"
+                                unitType.contains("2pn") -> "2 PN"
+                                unitType.contains("3pn") -> "3 PN"
+                                unitType.contains("4pn") -> "4 PN"
+                                beds == 0.0 && unitType.isNotEmpty() && !unitType.contains("apartment") && !unitType.contains("can-ho") -> "Studio"
+                                else -> null
+                            }
+
                             val specsList = mutableListOf(
-                                Triple(R.drawable.sf_spec_area, "Diện tích sử dụng", "${area} m²"),
-                                Triple(R.drawable.sf_spec_bed, "Phòng ngủ", "${property["bedrooms"].int.coerceAtLeast(1)} PN"),
-                                Triple(R.drawable.sf_spec_bath, "Phòng tắm / WC", "${property["bathrooms"].int.coerceAtLeast(1)} WC")
+                                Triple(R.drawable.sf_spec_area, "Diện tích sử dụng", "${area} m²")
                             )
+                            if (bedText != null) {
+                                specsList.add(Triple(R.drawable.sf_spec_bed, "Phòng ngủ", bedText))
+                            }
+                            val bathCount = property["bathrooms"].int
+                            if (bathCount > 0) {
+                                specsList.add(Triple(R.drawable.sf_spec_bath, "Phòng tắm / WC", "$bathCount WC"))
+                            }
                             val dir = property["direction"].string
                             if (dir.isNotEmpty()) specsList.add(Triple(R.drawable.sf_spec_compass, "Hướng cửa chính", dir))
                             val balcony = property["balconyDirection"].string
