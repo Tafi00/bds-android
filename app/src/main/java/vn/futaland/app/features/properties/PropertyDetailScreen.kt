@@ -738,7 +738,7 @@ fun PropertyDetailScreen(
                                 Triple(R.drawable.sf_spec_area, "Diện tích sử dụng", "${area} m²")
                             )
                             if (bedText != null) {
-                                specsList.add(Triple(R.drawable.sf_spec_bed, "Phòng ngủ", bedText))
+                                specsList.add(Triple(R.drawable.sf_spec_bed, "Loại sản phẩm", bedText))
                             }
                             val bathCount = property["bathrooms"].int
                             if (bathCount > 0) {
