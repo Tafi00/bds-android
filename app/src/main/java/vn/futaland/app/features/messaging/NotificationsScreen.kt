@@ -1,5 +1,11 @@
 package vn.futaland.app.features.messaging
 
+import android.content.Intent
+import android.net.Uri
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -39,7 +45,10 @@ data class NotificationModel(
     val categoryBgColor: Color,
     val icon: ImageVector,
     val iconColor: Color,
-    val route: String? = null
+    val route: String? = null,
+    val fullContent: String? = null,
+    val imageUrl: String? = null,
+    val externalLink: String? = null
 )
 
 private fun normalizeNotificationCategory(raw: String, route: String = "", title: String = "", body: String = ""): String {
@@ -106,6 +115,7 @@ fun NotificationsScreen(
     var serverUnreadCount by remember { mutableIntStateOf(0) }
     var serverUnreadByCategory by remember { mutableStateOf<Map<String, Int>>(emptyMap()) }
     var loading by remember { mutableStateOf(true) }
+    var selectedNotification by remember { mutableStateOf<NotificationModel?>(null) }
 
     fun loadNotifications() {
         scope.launch {
@@ -152,7 +162,10 @@ fun NotificationsScreen(
                             categoryBgColor = colors.second,
                             icon = icon,
                             iconColor = colors.first,
-                            route = targetRoute
+                            route = targetRoute,
+                            fullContent = item["fullContent"].string.takeIf { it.isNotEmpty() },
+                            imageUrl = item["imageUrl"].string.takeIf { it.isNotEmpty() },
+                            externalLink = item["externalLink"].string.takeIf { it.isNotEmpty() }
                         )
                     }
                 } else {
@@ -431,7 +444,13 @@ fun NotificationsScreen(
                                     serverUnreadByCategory = serverUnreadByCategory + (item.category to currentCatCount - 1)
                                 }
                             }
-                            item.route?.let { r -> onNavigate(r) }
+                            val r = item.route
+                            val isSelfOrNoRoute = r.isNullOrEmpty() || r == "/notifications" || r == "notifications"
+                            if (!isSelfOrNoRoute) {
+                                onNavigate(r)
+                            } else {
+                                selectedNotification = item
+                            }
                         }
                     ) {
                         Row(
@@ -499,9 +518,191 @@ fun NotificationsScreen(
                                     color = FutaColors.Slate,
                                     lineHeight = 17.sp
                                 )
+                                Spacer(Modifier.height(6.dp))
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = "Xem chi tiết",
+                                        fontSize = 11.5.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = FutaColors.BrandGreen
+                                    )
+                                    Spacer(Modifier.width(4.dp))
+                                    Icon(
+                                        Icons.AutoMirrored.Filled.ArrowForward,
+                                        contentDescription = null,
+                                        tint = FutaColors.BrandGreen,
+                                        modifier = Modifier.size(12.dp)
+                                    )
+                                }
                             }
                         }
                     }
+                }
+            }
+        }
+    }
+
+    NotificationDetailDialog(
+        notification = selectedNotification,
+        onDismiss = { selectedNotification = null },
+        onNavigate = onNavigate
+    )
+}
+
+@Composable
+fun NotificationDetailDialog(
+    notification: NotificationModel?,
+    onDismiss: () -> Unit,
+    onNavigate: (String) -> Unit
+) {
+    if (notification == null) return
+    val context = LocalContext.current
+
+    androidx.compose.ui.window.Dialog(onDismissRequest = onDismiss) {
+        Surface(
+            shape = RoundedCornerShape(16.dp),
+            color = Color.White,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 4.dp)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(20.dp)
+            ) {
+                // Header: Category icon & Badge + Close button
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Surface(
+                            shape = CircleShape,
+                            color = notification.iconColor.copy(alpha = 0.12f),
+                            modifier = Modifier.size(34.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(notification.icon, null, tint = notification.iconColor, modifier = Modifier.size(17.dp))
+                            }
+                        }
+                        Surface(
+                            shape = RoundedCornerShape(5.dp),
+                            color = notification.categoryBgColor,
+                            border = BorderStroke(0.5.dp, notification.categoryTextColor.copy(alpha = 0.25f))
+                        ) {
+                            Text(
+                                text = notification.categoryLabel,
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = notification.categoryTextColor,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            )
+                        }
+                    }
+                    IconButton(
+                        onClick = onDismiss,
+                        modifier = Modifier.size(28.dp)
+                    ) {
+                        Icon(Icons.Default.Close, contentDescription = "Đóng", tint = FutaColors.Slate, modifier = Modifier.size(18.dp))
+                    }
+                }
+
+                Spacer(Modifier.height(14.dp))
+
+                // Title
+                Text(
+                    text = notification.title,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = FutaColors.Navy,
+                    lineHeight = 22.sp
+                )
+
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    text = notification.time,
+                    fontSize = 11.5.sp,
+                    color = FutaColors.Muted
+                )
+
+                Spacer(Modifier.height(12.dp))
+
+                // Optional Image
+                if (!notification.imageUrl.isNullOrEmpty()) {
+                    coil3.compose.AsyncImage(
+                        model = notification.imageUrl,
+                        contentDescription = null,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(160.dp)
+                            .clip(RoundedCornerShape(10.dp)),
+                        contentScale = ContentScale.Crop
+                    )
+                    Spacer(Modifier.height(12.dp))
+                }
+
+                // Body / Full content Box
+                Surface(
+                    shape = RoundedCornerShape(10.dp),
+                    color = Color(0xFFF8FAFC),
+                    border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        text = notification.fullContent ?: notification.body,
+                        fontSize = 13.sp,
+                        color = Color(0xFF334155),
+                        lineHeight = 19.sp,
+                        modifier = Modifier.padding(14.dp)
+                    )
+                }
+
+                Spacer(Modifier.height(18.dp))
+
+                // Actions: External link / Navigate / Dismiss
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    if (!notification.externalLink.isNullOrEmpty()) {
+                        FutaButton(
+                            text = "Mở liên kết",
+                            variant = FutaButtonVariant.OUTLINE,
+                            onClick = {
+                                try {
+                                    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(notification.externalLink)))
+                                } catch (_: Exception) {}
+                            },
+                            modifier = Modifier.padding(end = 8.dp)
+                        )
+                    }
+
+                    val r = notification.route
+                    if (!r.isNullOrEmpty() && r != "/notifications" && r != "notifications") {
+                        FutaButton(
+                            text = "Đi đến mục này",
+                            variant = FutaButtonVariant.PRIMARY,
+                            onClick = {
+                                onDismiss()
+                                onNavigate(r)
+                            },
+                            modifier = Modifier.padding(end = 8.dp)
+                        )
+                    }
+
+                    FutaButton(
+                        text = "Đóng",
+                        variant = FutaButtonVariant.OUTLINE,
+                        onClick = onDismiss
+                    )
                 }
             }
         }
