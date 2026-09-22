@@ -23,7 +23,8 @@ import vn.futaland.app.R
 class FutaMessagingService : FirebaseMessagingService() {
 
     companion object {
-        const val CHANNEL_ID = "futaland-important"
+        const val CHANNEL_ID = "futaland_alerts_v1"
+        const val LEGACY_CHANNEL_ID = "futaland-important"
         const val EXTRA_ROUTE = "fcm_route"
 
         fun createChannel(context: Context) {
@@ -35,27 +36,21 @@ class FutaMessagingService : FirebaseMessagingService() {
                     .setUsage(AudioAttributes.USAGE_NOTIFICATION)
                     .build()
 
-                // Self-healing: if an existing channel is muted or low importance, delete and recreate
-                val existing = manager.getNotificationChannel(CHANNEL_ID)
-                if (existing != null && (existing.importance < NotificationManager.IMPORTANCE_HIGH || existing.sound == null)) {
-                    try {
-                        manager.deleteNotificationChannel(CHANNEL_ID)
-                    } catch (_: Exception) {}
+                for (chId in listOf(CHANNEL_ID, LEGACY_CHANNEL_ID)) {
+                    val channel = NotificationChannel(
+                        chId,
+                        "Tin nhắn & thông báo quan trọng",
+                        NotificationManager.IMPORTANCE_HIGH
+                    ).apply {
+                        description = "Thông báo tin nhắn trò chuyện và sự kiện quan trọng"
+                        enableLights(true)
+                        enableVibration(true)
+                        vibrationPattern = longArrayOf(0, 250, 250, 250)
+                        setSound(soundUri, audioAttributes)
+                        lockscreenVisibility = android.app.Notification.VISIBILITY_PUBLIC
+                    }
+                    manager.createNotificationChannel(channel)
                 }
-
-                val channel = NotificationChannel(
-                    CHANNEL_ID,
-                    "Tin nhắn & thông báo quan trọng",
-                    NotificationManager.IMPORTANCE_HIGH
-                ).apply {
-                    description = "Thông báo tin nhắn trò chuyện và sự kiện quan trọng"
-                    enableLights(true)
-                    enableVibration(true)
-                    vibrationPattern = longArrayOf(0, 250, 250, 250)
-                    setSound(soundUri, audioAttributes)
-                    lockscreenVisibility = android.app.Notification.VISIBILITY_PUBLIC
-                }
-                manager.createNotificationChannel(channel)
             }
         }
     }
@@ -91,19 +86,25 @@ class FutaMessagingService : FirebaseMessagingService() {
             intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
+        val soundUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
         val notification = NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_notification_chat)
             .setContentTitle(title)
             .setContentText(body)
             .setAutoCancel(true)
             .setContentIntent(pending)
-            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setPriority(NotificationCompat.PRIORITY_MAX)
             .setCategory(NotificationCompat.CATEGORY_MESSAGE)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
-            .setSound(RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION), AudioManager.STREAM_NOTIFICATION)
+            .setSound(soundUri, AudioManager.STREAM_NOTIFICATION)
             .setDefaults(NotificationCompat.DEFAULT_ALL)
             .setVibrate(longArrayOf(0, 250, 250, 250))
             .build()
+        // Play notification ringtone directly so the user reliably hears an alert even when system suppresses heads-up in foreground
+        try {
+            val ringtone = RingtoneManager.getRingtone(applicationContext, soundUri)
+            ringtone?.play()
+        } catch (_: Exception) {}
         try {
             val managerCompat = NotificationManagerCompat.from(this)
             managerCompat.notify(System.currentTimeMillis().toInt(), notification)

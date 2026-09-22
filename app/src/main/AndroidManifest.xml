@@ -61,7 +61,7 @@
         <!-- Default notification channel for FCM fallback -->
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_channel_id"
-            android:value="futaland-important" />
+            android:value="futaland_alerts_v1" />
 
     </application>
 
