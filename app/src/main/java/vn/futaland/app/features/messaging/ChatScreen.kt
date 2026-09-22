@@ -925,7 +925,17 @@ fun ChatScreen(
         }
         var isAiThinking by remember { mutableStateOf(false) }
         var aiPollJob by remember { mutableStateOf<Job?>(null) }
-        val isCurrentConversationAi = isAiChat || activeConversationName.contains("AI") || targetAdvisorId.isNullOrEmpty()
+        val activeConv = conversations.find { it.id == activeConversationId }
+        val isCurrentConversationAi = when {
+            activeConversationId == "ai_agent" -> true
+            activeConv != null -> activeConv.isAi
+            activeConversationName.contains("AI", ignoreCase = true) -> true
+            activeConversationName.startsWith("Sale:", ignoreCase = true) -> false
+            activeConversationName.contains("Tư vấn viên", ignoreCase = true) -> false
+            !targetAdvisorId.isNullOrEmpty() -> false
+            isAiChat -> true
+            else -> false
+        }
         val isImeVisible = WindowInsets.isImeVisible
         LaunchedEffect(isImeVisible, messages.size) {
             if (messages.isNotEmpty()) {
@@ -934,7 +944,7 @@ fun ChatScreen(
         }
 
         val activeTypingUser = activeConversationId?.let { typingUsers[it] }
-        val showTypingIndicator = isAiThinking || !activeTypingUser.isNullOrEmpty()
+        val showTypingIndicator = (isCurrentConversationAi && isAiThinking) || !activeTypingUser.isNullOrEmpty()
         LaunchedEffect(showTypingIndicator, activeTypingUser) {
             if (showTypingIndicator && messages.isNotEmpty()) {
                 listState.animateScrollToItem(messages.size)
@@ -1374,7 +1384,7 @@ fun ChatScreen(
                 contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 12.dp, bottom = 28.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                if (messages.isEmpty() && !isStaff) {
+                if (messages.isEmpty() && !isStaff && isCurrentConversationAi) {
                     val activeConv = conversations.find { it.id == activeConversationId }
                     val contextProjectName = activeConv?.contextProjectName.orEmpty()
                     val contextCode = activeConv?.contextCode.orEmpty()
@@ -1480,13 +1490,14 @@ fun ChatScreen(
                 }
 
                 if (showTypingIndicator) {
+                    val isAi = isCurrentConversationAi && activeTypingUser.isNullOrEmpty()
                     val displayName = when {
                         !activeTypingUser.isNullOrEmpty() -> activeTypingUser
                         isCurrentConversationAi -> "Trợ lý AI FUTA Land"
                         else -> activeConversationName
                     }
                     item(key = "typing_indicator_bubble") {
-                        TypingIndicatorBubble(senderName = displayName)
+                        TypingIndicatorBubble(senderName = displayName, isAi = isAi)
                     }
                 }
             }
@@ -1781,7 +1792,10 @@ private fun parseMarkdownToAnnotatedString(text: String): androidx.compose.ui.te
 }
 
 @Composable
-private fun TypingIndicatorBubble(senderName: String = "Trợ lý AI FUTA Land") {
+private fun TypingIndicatorBubble(
+    senderName: String = "Trợ lý AI FUTA Land",
+    isAi: Boolean = true
+) {
     val infiniteTransition = rememberInfiniteTransition(label = "typing_bouncing_dots")
     val dot1Offset by infiniteTransition.animateFloat(
         initialValue = 0f,
@@ -1845,22 +1859,31 @@ private fun TypingIndicatorBubble(senderName: String = "Trợ lý AI FUTA Land")
         horizontalArrangement = Arrangement.Start,
         verticalAlignment = Alignment.Bottom
     ) {
-        // AI Avatar
+        // Avatar
         Surface(
             shape = CircleShape,
-            color = Color(0xFFE8F5E9),
+            color = if (isAi) Color(0xFFE8F5E9) else FutaColors.MintBg,
             border = BorderStroke(1.dp, Color(0xFF16A34A).copy(alpha = 0.25f)),
             modifier = Modifier
                 .size(30.dp)
                 .padding(bottom = 2.dp)
         ) {
             Box(contentAlignment = Alignment.Center) {
-                Icon(
-                    painter = painterResource(R.drawable.ic_lucide_bot),
-                    contentDescription = null,
-                    tint = Color(0xFF16A34A),
-                    modifier = Modifier.size(16.dp)
-                )
+                if (isAi) {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_lucide_bot),
+                        contentDescription = null,
+                        tint = Color(0xFF16A34A),
+                        modifier = Modifier.size(16.dp)
+                    )
+                } else {
+                    Text(
+                        text = senderName.take(1).uppercase(),
+                        color = Color(0xFF16A34A),
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 12.sp
+                    )
+                }
             }
         }
         Spacer(Modifier.width(8.dp))
@@ -1888,17 +1911,19 @@ private fun TypingIndicatorBubble(senderName: String = "Trợ lý AI FUTA Land")
                         fontWeight = FontWeight.Bold,
                         color = Color(0xFF166534)
                     )
-                    Surface(
-                        shape = RoundedCornerShape(4.dp),
-                        color = Color(0xFFDCFCE7)
-                    ) {
-                        Text(
-                            text = "AI 24/7",
-                            fontSize = 9.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFF15803D),
-                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
-                        )
+                    if (isAi) {
+                        Surface(
+                            shape = RoundedCornerShape(4.dp),
+                            color = Color(0xFFDCFCE7)
+                        ) {
+                            Text(
+                                text = "AI 24/7",
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF15803D),
+                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                            )
+                        }
                     }
                 }
                 Spacer(Modifier.height(7.dp))
@@ -1926,7 +1951,7 @@ private fun TypingIndicatorBubble(senderName: String = "Trợ lý AI FUTA Land")
                     )
                     Spacer(Modifier.width(8.dp))
                     Text(
-                        text = "Đang soạn câu trả lời...",
+                        text = if (isAi) "Đang soạn câu trả lời..." else "Đang soạn tin nhắn...",
                         fontSize = 11.5.sp,
                         color = Color(0xFF64748B),
                         fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
