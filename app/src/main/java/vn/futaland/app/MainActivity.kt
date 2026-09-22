@@ -86,6 +86,7 @@ import vn.futaland.app.features.properties.PropertySearchScreen
 import vn.futaland.app.core.update.AppUpdateDialog
 import vn.futaland.app.core.update.PlayStoreUpdateManager
 import vn.futaland.app.navigation.*
+import vn.futaland.app.features.messaging.FcmRegistrar
 
 class MainActivity : ComponentActivity() {
 
@@ -595,7 +596,23 @@ class MainActivity : ComponentActivity() {
             val granted = ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
             if (!granted) {
                 ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.POST_NOTIFICATIONS), 1002)
+            } else {
+                FcmRegistrar.ensureRegistered(this)
             }
+        } else {
+            FcmRegistrar.ensureRegistered(this)
+        }
+    }
+
+    @Deprecated("Deprecated in Java")
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<String>,
+        grantResults: IntArray
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == 1002 && grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+            FcmRegistrar.ensureRegistered(this)
         }
     }
 }

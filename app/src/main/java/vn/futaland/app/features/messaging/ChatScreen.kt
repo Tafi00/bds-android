@@ -1743,22 +1743,28 @@ private fun MessageBubble(msg: ChatMessage, onOpenProperty: (String) -> Unit) {
                         color = if (msg.isMe) Color.White else FutaColors.Navy,
                         lineHeight = 20.sp
                     )
-                }
-            }
-            Spacer(Modifier.height(2.dp))
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(3.dp),
-                modifier = Modifier.padding(horizontal = 4.dp)
-            ) {
-                Text(msg.time, fontSize = 9.5.sp, color = FutaColors.Slate)
-                if (msg.isMe) {
-                    Icon(
-                        Icons.Default.Done,
-                        contentDescription = "Đã gửi",
-                        tint = FutaColors.BrandGreen,
-                        modifier = Modifier.size(11.dp)
-                    )
+
+                    Spacer(Modifier.height(3.dp))
+                    Row(
+                        modifier = Modifier.align(Alignment.End),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(3.dp)
+                    ) {
+                        Text(
+                            text = msg.time,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = if (msg.isMe) Color.White.copy(alpha = 0.75f) else Color(0xFF94A3B8)
+                        )
+                        if (msg.isMe) {
+                            Icon(
+                                Icons.Default.Done,
+                                contentDescription = "Đã gửi",
+                                tint = Color.White.copy(alpha = 0.85f),
+                                modifier = Modifier.size(11.dp)
+                            )
+                        }
+                    }
                 }
             }
         }
