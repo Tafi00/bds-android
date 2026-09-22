@@ -4,6 +4,9 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
+import android.media.AudioManager
+import android.media.AudioAttributes
+import android.media.RingtoneManager
 import android.content.Intent
 import android.os.Build
 import androidx.core.app.NotificationCompat
@@ -25,14 +28,34 @@ class FutaMessagingService : FirebaseMessagingService() {
 
         fun createChannel(context: Context) {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                val manager = context.getSystemService(NotificationManager::class.java) ?: return
+                val soundUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
+                val audioAttributes = AudioAttributes.Builder()
+                    .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                    .setUsage(AudioAttributes.USAGE_NOTIFICATION)
+                    .build()
+
+                // Self-healing: if an existing channel is muted or low importance, delete and recreate
+                val existing = manager.getNotificationChannel(CHANNEL_ID)
+                if (existing != null && (existing.importance < NotificationManager.IMPORTANCE_HIGH || existing.sound == null)) {
+                    try {
+                        manager.deleteNotificationChannel(CHANNEL_ID)
+                    } catch (_: Exception) {}
+                }
+
                 val channel = NotificationChannel(
                     CHANNEL_ID,
                     "Tin nhắn & thông báo quan trọng",
                     NotificationManager.IMPORTANCE_HIGH
                 ).apply {
                     description = "Thông báo tin nhắn trò chuyện và sự kiện quan trọng"
+                    enableLights(true)
+                    enableVibration(true)
+                    vibrationPattern = longArrayOf(0, 250, 250, 250)
+                    setSound(soundUri, audioAttributes)
+                    lockscreenVisibility = android.app.Notification.VISIBILITY_PUBLIC
                 }
-                context.getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
+                manager.createNotificationChannel(channel)
             }
         }
     }
@@ -75,11 +98,24 @@ class FutaMessagingService : FirebaseMessagingService() {
             .setAutoCancel(true)
             .setContentIntent(pending)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setCategory(NotificationCompat.CATEGORY_MESSAGE)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .setSound(RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION), AudioManager.STREAM_NOTIFICATION)
+            .setDefaults(NotificationCompat.DEFAULT_ALL)
+            .setVibrate(longArrayOf(0, 250, 250, 250))
             .build()
         try {
-            NotificationManagerCompat.from(this).notify(System.currentTimeMillis().toInt(), notification)
+            val managerCompat = NotificationManagerCompat.from(this)
+            managerCompat.notify(System.currentTimeMillis().toInt(), notification)
+            if (!managerCompat.areNotificationsEnabled()) {
+                val ringtone = RingtoneManager.getRingtone(applicationContext, RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION))
+                ringtone?.play()
+            }
         } catch (_: Exception) {
-            // Notifications permission may be missing; ignore.
+            try {
+                val ringtone = RingtoneManager.getRingtone(applicationContext, RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION))
+                ringtone?.play()
+            } catch (_: Exception) {}
         }
     }
 }

@@ -1,5 +1,6 @@
 package vn.futaland.app.features.messaging
 
+import android.media.RingtoneManager
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.border
 import androidx.compose.foundation.background
@@ -65,6 +66,10 @@ data class ChatMessage(
     val propertyCard: JSONValue? = null,
     val propertyCards: List<JSONValue> = emptyList()
 )
+enum class BubbleGroupPosition {
+    SINGLE, FIRST, MIDDLE, LAST
+}
+
 
 /** Ids of bubbles rendered optimistically before the server confirms them. */
 private const val LOCAL_MESSAGE_PREFIX = "local-"
@@ -1023,6 +1028,10 @@ fun ChatScreen(
                     }
                     if (!isMine) {
                         scope.launch { refreshUnreadBadge() }
+                        try {
+                            val soundUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
+                            RingtoneManager.getRingtone(APIClient.get().appContext, soundUri)?.play()
+                        } catch (_: Exception) {}
                     }
                     scope.launch {
                         listState.animateScrollToItem(messages.size - 1)
@@ -1485,8 +1494,30 @@ fun ChatScreen(
                         }
                     }
                 }
-                itemsIndexed(messages, key = { _, msg -> msg.id }) { _, msg ->
-                    MessageBubble(msg = msg, onOpenProperty = { id -> onNavigate(vn.futaland.app.navigation.FutaDestinations.propertyDetail(id, productContext)) })
+                itemsIndexed(messages, key = { _, msg -> msg.id }) { index, msg ->
+                    val prev = if (index > 0) messages[index - 1] else null
+                    val next = if (index < messages.size - 1) messages[index + 1] else null
+
+                    val isPrevSame = prev != null &&
+                        prev.isMe == msg.isMe &&
+                        (msg.isMe || (prev.senderName == msg.senderName && prev.senderId == msg.senderId))
+
+                    val isNextSame = next != null &&
+                        next.isMe == msg.isMe &&
+                        (msg.isMe || (next.senderName == msg.senderName && next.senderId == msg.senderId))
+
+                    val position = when {
+                        !isPrevSame && isNextSame -> BubbleGroupPosition.FIRST
+                        isPrevSame && isNextSame -> BubbleGroupPosition.MIDDLE
+                        isPrevSame && !isNextSame -> BubbleGroupPosition.LAST
+                        else -> BubbleGroupPosition.SINGLE
+                    }
+
+                    MessageBubble(
+                        msg = msg,
+                        position = position,
+                        onOpenProperty = { id -> onNavigate(vn.futaland.app.navigation.FutaDestinations.propertyDetail(id, productContext)) }
+                    )
                 }
 
                 if (showTypingIndicator) {
@@ -1565,61 +1596,93 @@ fun ChatScreen(
 }
 
 @Composable
-private fun MessageBubble(msg: ChatMessage, onOpenProperty: (String) -> Unit) {
+private fun MessageBubble(
+    msg: ChatMessage,
+    position: BubbleGroupPosition = BubbleGroupPosition.SINGLE,
+    onOpenProperty: (String) -> Unit
+) {
+    val verticalPadding = when (position) {
+        BubbleGroupPosition.FIRST -> 2.dp
+        BubbleGroupPosition.MIDDLE -> 1.5.dp
+        BubbleGroupPosition.LAST -> 2.dp
+        BubbleGroupPosition.SINGLE -> 4.dp
+    }
+    val topPadding = when (position) {
+        BubbleGroupPosition.FIRST -> 6.dp
+        BubbleGroupPosition.SINGLE -> 4.dp
+        else -> 1.dp
+    }
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 8.dp, vertical = 4.dp),
+            .padding(horizontal = 8.dp)
+            .padding(top = topPadding, bottom = verticalPadding),
         horizontalArrangement = if (msg.isMe) Arrangement.End else Arrangement.Start,
         verticalAlignment = Alignment.Bottom
     ) {
         if (!msg.isMe) {
-            Surface(
-                shape = CircleShape,
-                color = Color(0xFFE8F5E9),
-                border = BorderStroke(1.dp, Color(0xFF16A34A).copy(alpha = 0.25f)),
-                modifier = Modifier
-                    .size(30.dp)
-                    .padding(bottom = 2.dp)
-            ) {
-                Box(contentAlignment = Alignment.Center) {
-                    if (msg.senderName.contains("AI")) {
-                        Icon(
-                            painter = painterResource(R.drawable.ic_lucide_bot),
-                            contentDescription = null,
-                            tint = Color(0xFF16A34A),
-                            modifier = Modifier.size(16.dp)
-                        )
-                    } else {
-                        Text(
-                            msg.senderName.take(1).uppercase(),
-                            color = Color(0xFF16A34A),
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 12.sp
-                        )
+            if (position == BubbleGroupPosition.LAST || position == BubbleGroupPosition.SINGLE) {
+                Surface(
+                    shape = CircleShape,
+                    color = Color(0xFFE8F5E9),
+                    border = BorderStroke(1.dp, Color(0xFF16A34A).copy(alpha = 0.25f)),
+                    modifier = Modifier
+                        .size(30.dp)
+                        .padding(bottom = 2.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        if (msg.senderName.contains("AI")) {
+                            Icon(
+                                painter = painterResource(R.drawable.ic_lucide_bot),
+                                contentDescription = null,
+                                tint = Color(0xFF16A34A),
+                                modifier = Modifier.size(16.dp)
+                            )
+                        } else {
+                            Text(
+                                msg.senderName.take(1).uppercase(),
+                                color = Color(0xFF16A34A),
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 12.sp
+                            )
+                        }
                     }
                 }
+                Spacer(Modifier.width(8.dp))
+            } else {
+                Spacer(Modifier.width(38.dp))
             }
-            Spacer(Modifier.width(8.dp))
         }
 
         Column(
             horizontalAlignment = if (msg.isMe) Alignment.End else Alignment.Start
         ) {
+            val bubbleShape = if (msg.isMe) {
+                when (position) {
+                    BubbleGroupPosition.FIRST -> RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp, bottomStart = 16.dp, bottomEnd = 4.dp)
+                    BubbleGroupPosition.MIDDLE -> RoundedCornerShape(topStart = 16.dp, topEnd = 4.dp, bottomStart = 16.dp, bottomEnd = 4.dp)
+                    BubbleGroupPosition.LAST -> RoundedCornerShape(topStart = 16.dp, topEnd = 4.dp, bottomStart = 16.dp, bottomEnd = 16.dp)
+                    BubbleGroupPosition.SINGLE -> RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp, bottomStart = 16.dp, bottomEnd = 4.dp)
+                }
+            } else {
+                when (position) {
+                    BubbleGroupPosition.FIRST -> RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp, bottomStart = 4.dp, bottomEnd = 16.dp)
+                    BubbleGroupPosition.MIDDLE -> RoundedCornerShape(topStart = 4.dp, topEnd = 16.dp, bottomStart = 4.dp, bottomEnd = 16.dp)
+                    BubbleGroupPosition.LAST -> RoundedCornerShape(topStart = 4.dp, topEnd = 16.dp, bottomStart = 16.dp, bottomEnd = 16.dp)
+                    BubbleGroupPosition.SINGLE -> RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp, bottomStart = 4.dp, bottomEnd = 16.dp)
+                }
+            }
+
             Surface(
-                shape = RoundedCornerShape(
-                    topStart = 16.dp,
-                    topEnd = 16.dp,
-                    bottomStart = if (msg.isMe) 16.dp else 3.dp,
-                    bottomEnd = if (msg.isMe) 3.dp else 16.dp
-                ),
+                shape = bubbleShape,
                 color = if (msg.isMe) FutaColors.BrandGreen else Color.White,
                 border = BorderStroke(1.dp, if (msg.isMe) Color.Transparent else Color(0xFFE2E8F0)),
                 shadowElevation = 1.dp,
                 modifier = Modifier.widthIn(min = 40.dp, max = 310.dp)
             ) {
                 Column(modifier = Modifier.padding(horizontal = 13.dp, vertical = 10.dp)) {
-                    if (!msg.isMe) {
+                    if (!msg.isMe && (position == BubbleGroupPosition.FIRST || position == BubbleGroupPosition.SINGLE)) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(5.dp)

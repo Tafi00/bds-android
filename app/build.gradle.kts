@@ -14,8 +14,8 @@ android {
         applicationId = "com.futaland.realestate"
         minSdk = 26
         targetSdk = 36
-        versionCode = 44
-        versionName = "1.1.1"
+        versionCode = 45
+        versionName = "1.1.2"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -24,7 +24,7 @@ android {
     }
     signingConfigs {
         create("release") {
-            storeFile = file("upload-keystore.jks")
+            storeFile = file("/Users/tafi/Downloads/upload-keystore.jks").takeIf { it.exists() } ?: file("upload-keystore.jks")
             storePassword = "futaland789"
             keyAlias = "upload"
             keyPassword = "futaland789"
