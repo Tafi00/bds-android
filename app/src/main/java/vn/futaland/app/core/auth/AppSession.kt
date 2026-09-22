@@ -87,6 +87,7 @@ class AppSession private constructor() {
             if (!userData.isNull) {
                 _currentUser.value = userData
                 fetchPermissions()
+                FcmRegistrar.ensureRegistered(APIClient.get().appContext)
                 vn.futaland.app.features.messaging.ChatWebSocketManager.shared.connect()
             } else {
                 logout()
