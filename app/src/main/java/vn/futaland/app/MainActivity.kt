@@ -338,7 +338,14 @@ class MainActivity : ComponentActivity() {
 
                             // 3. Inbox Tab & Direct Chat
                             composable(FutaDestinations.INBOX) {
+                                // Staff land on the advisor chat center (same as the
+                                // bottom-bar chat button); customers/guests keep the
+                                // buyer-side AI + advisor chat list.
+                                val isStaffRole = AppSession.shared.isAuthenticated &&
+                                    AppSession.shared.role != "customer" && AppSession.shared.role != "guest"
                                 ChatScreen(
+                                    staffContext = isStaffRole,
+                                    productContext = if (isStaffRole) ProductContext.ADVISOR else ProductContext.CUSTOMER,
                                     onNavigate = { route -> safeNavigate(route) },
                                     onBack = if (!isRootTab) ({ navController.popBackStack() }) else null
                                 )
