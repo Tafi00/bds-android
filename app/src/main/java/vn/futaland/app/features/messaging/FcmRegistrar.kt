@@ -20,7 +20,7 @@ object FcmRegistrar {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     /** Stable per-install id, kept in a plain prefs file so it survives logout. */
-    private fun deviceId(context: Context): String {
+    fun deviceId(context: Context): String {
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         prefs.getString(KEY_DEVICE_ID, null)?.let { return it }
         val id = java.util.UUID.randomUUID().toString()

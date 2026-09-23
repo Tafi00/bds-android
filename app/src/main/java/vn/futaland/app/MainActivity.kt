@@ -81,6 +81,7 @@ import vn.futaland.app.features.messaging.FutaMessagingService
 import vn.futaland.app.features.luckywheel.LuckyWheelScreen
 import vn.futaland.app.features.messaging.ChatScreen
 import vn.futaland.app.features.properties.PropertyDetailScreen
+import vn.futaland.app.features.properties.AgentDetailScreen
 import vn.futaland.app.core.sales.ProductContext
 import vn.futaland.app.features.properties.PropertySearchScreen
 import vn.futaland.app.core.update.AppUpdateDialog
@@ -119,93 +120,169 @@ class MainActivity : ComponentActivity() {
                     }
                 }
 
-                // Listen to deep links
+                // Listen to deep links, FCM taps and in-app notification routes.
                 val pendingRoute by RouteCoordinator.pendingIntent.collectAsState()
-                LaunchedEffect(pendingRoute) {
-                    pendingRoute?.let { intent ->
+                val sessionUser by AppSession.shared.currentUser.collectAsState()
+                LaunchedEffect(pendingRoute, sessionUser) {
+                    val intent = pendingRoute ?: return@LaunchedEffect
+                    val routeUri = android.net.Uri.parse(intent.route)
+                    val path = routeUri.path.orEmpty()
+                    val segments = path.split("/").filter { it.isNotEmpty() }
+                    val first = segments.firstOrNull().orEmpty()
+
+                    // iOS parity: non-public roots require an authenticated session.
+                    // The intent stays pending so it resumes after login.
+                    val publicRoots = setOf(
+                        "", "listing", "projects", "news", "search", "properties", "danh-sach-bds",
+                        "login", "auth", "dang-nhap", "signin", "account", "chat", "logout", "signout", "dang-xuat",
+                        "policies", "dieu-khoan-chinh-sach", "quy-che-hoat-dong",
+                        "about", "gioi-thieu", "contact", "lien-he", "ho-tro",
+                        "guide", "huong-dan", "docs", "pricing", "bang-gia", "advisor", "registrations", "map"
+                    )
+                    if ((!publicRoots.contains(first) || intent.userId != null) && !AppSession.shared.isAuthenticated) {
+                        safeNavigate(FutaDestinations.AUTH)
+                        return@LaunchedEffect
+                    }
+                    // iOS parity: a notification owned by another account is dropped.
+                    if (intent.userId != null && intent.userId != sessionUser?.get("id")?.string) {
                         RouteCoordinator.consume(intent)
-                        val routeUri = android.net.Uri.parse(intent.route)
-                        val path = routeUri.path.orEmpty()
-                        if (path == "/login-admin" || path == "/admin-login" || path == "/auth" || path == "/login") {
-                            safeNavigate(FutaDestinations.AUTH)
-                        } else if (path == "/logout") {
+                        ToastCenter.show("Thông báo này thuộc tài khoản khác.", isError = true)
+                        return@LaunchedEffect
+                    }
+                    RouteCoordinator.consume(intent)
+                    // iOS parity: tapping a push marks its inbox row as read.
+                    intent.notificationId?.takeIf { it.isNotEmpty() }?.let { notifId ->
+                        launch {
+                            try {
+                                APIClient.get().request("/notifications/$notifId/read", method = "PATCH", bodyJson = "{\"isRead\":true}")
+                            } catch (_: Exception) {}
+                        }
+                    }
+
+                    when (first) {
+                        "" -> navController.navigate(FutaDestinations.DISCOVER) { popUpTo(0) }
+                        "login-admin", "admin-login", "auth", "login", "dang-nhap", "signin", "auth-password" ->
+                            safeNavigate(if (first == "auth-password") "auth_password" else FutaDestinations.AUTH)
+                        "logout", "signout", "dang-xuat" -> {
                             AppSession.shared.logout()
                             navController.navigate(FutaDestinations.ACCOUNT)
-                        } else if (path.startsWith("/listing/")) {
-                            val id = path.removePrefix("/listing/")
-                            navController.navigate(FutaDestinations.propertyDetail(id, if (routeUri.getQueryParameter("context") == "advisor") ProductContext.ADVISOR else ProductContext.CUSTOMER))
-                        } else if (path == "/lucky-wheel") {
-                            navController.navigate(FutaDestinations.LUCKY_WHEEL)
-                        } else if (path == "/chat") {
-                            navController.navigate(FutaDestinations.INBOX)
-                        } else if (path == "/search") {
-                            navController.navigate(FutaDestinations.SEARCH)
-                        } else if (path == "/workspace") {
-                            navController.navigate(FutaDestinations.WORKSPACE)
-                        } else if (path == "/account") {
-                            navController.navigate(FutaDestinations.ACCOUNT)
-                        } else if (path == "/saved") {
-                            navController.navigate(FutaDestinations.SAVED)
-                        } else if (path == "/projects/map" || path == "/map") {
-                            safeNavigate(FutaDestinations.PROJECTS_MAP)
-                        } else if (path == "/projects") {
-                            safeNavigate(FutaDestinations.PROJECTS_LIST)
-                        } else if (path.startsWith("/project/")) {
-                            val id = path.removePrefix("/project/")
-                            safeNavigate(FutaDestinations.projectDetail(id))
-                        } else if (path == "/pricing") {
-                            safeNavigate(FutaDestinations.PRICING)
-                        } else if (path == "/notifications") {
-                            safeNavigate(FutaDestinations.NOTIFICATIONS)
-                        } else if (path.startsWith("/admin/")) {
-                            val dest = path.removePrefix("/admin/")
-                            when (dest) {
-                                "dashboard" -> safeNavigate(FutaDestinations.ADMIN_DASHBOARD)
-                                "projects" -> safeNavigate(FutaDestinations.ADMIN_PROJECTS)
-                                "campaigns" -> safeNavigate(FutaDestinations.ADMIN_CAMPAIGNS)
-                                "inventory" -> safeNavigate(FutaDestinations.ADMIN_INVENTORY)
-                                "registrations" -> safeNavigate(FutaDestinations.ADMIN_REGISTRATIONS)
-                                "transactions" -> safeNavigate(FutaDestinations.ADMIN_TRANSACTIONS)
-                                "cms" -> safeNavigate(FutaDestinations.ADMIN_CMS)
-                                "settings" -> safeNavigate(FutaDestinations.ADMIN_SETTINGS)
-                                "users" -> safeNavigate(FutaDestinations.ADMIN_USERS)
-                                "roles" -> safeNavigate(FutaDestinations.ADMIN_ROLES)
-                                "advisor-profiles" -> safeNavigate(FutaDestinations.ADMIN_ADVISOR_PROFILES)
-                                "ai" -> safeNavigate(FutaDestinations.ADMIN_AI)
-                                "zalo" -> safeNavigate(FutaDestinations.ADMIN_ZALO)
-                                "customers" -> safeNavigate(FutaDestinations.ADMIN_CUSTOMERS)
-                                "contracts" -> safeNavigate(FutaDestinations.ADMIN_CONTRACTS)
-                                "reports" -> safeNavigate(FutaDestinations.ADMIN_REPORTS)
-                                "crm" -> safeNavigate(FutaDestinations.CRM)
-                                "lucky-wheel" -> safeNavigate(FutaDestinations.ADMIN_LUCKY_WHEEL)
-                            }
-                        } else if (path == "/customers") {
-                            safeNavigate(FutaDestinations.ADMIN_CUSTOMERS)
-                        } else if (path == "/contracts") {
-                            safeNavigate(FutaDestinations.ADMIN_CONTRACTS)
-                        } else if (path == "/reports") {
-                            safeNavigate(FutaDestinations.ADMIN_REPORTS)
-                        } else if (path == "/advisor-products" || path == "/advisor/products") {
-                            safeNavigate(FutaDestinations.ADVISOR_PRODUCTS)
-                        } else if (path == "/proposals" || path == "/advisor/proposals") {
-                            safeNavigate(FutaDestinations.ADVISOR_PROPOSALS)
-                        } else if (path == "/advisor") {
-                            safeNavigate(FutaDestinations.ADVISOR)
-                        } else if (path == "/advisor/registrations" || path == "/registrations" || path == "/advisor_registrations") {
-                            safeNavigate(FutaDestinations.ADMIN_REGISTRATIONS)
-                        } else if (path == "/my-listings") {
-                            safeNavigate(FutaDestinations.MY_LISTINGS)
-                        } else if (path == "/history") {
-                            safeNavigate(FutaDestinations.VIEW_HISTORY)
-                        } else if (path == "/billing") {
-                            safeNavigate(FutaDestinations.BILLING)
-                        } else if (path == "/profile") {
-                            safeNavigate(FutaDestinations.PROFILE)
-                        } else if (path == "/auth-password") {
-                            safeNavigate("auth_password")
-                        } else if (path == "/auth" || path == "/login") {
-                            safeNavigate(FutaDestinations.AUTH)
                         }
+                        "listing" -> when {
+                            segments.size >= 3 && segments[1] == "agents" ->
+                                safeNavigate(FutaDestinations.agentDetail(segments[2]))
+                            segments.size >= 2 -> navController.navigate(
+                                FutaDestinations.propertyDetail(
+                                    segments[1],
+                                    if (routeUri.getQueryParameter("context") == "advisor") ProductContext.ADVISOR else ProductContext.CUSTOMER
+                                )
+                            )
+                            else -> safeNavigate(FutaDestinations.SEARCH)
+                        }
+                        "lucky-wheel" -> safeNavigate(FutaDestinations.LUCKY_WHEEL)
+                        "chat", "tro-chuyen" -> navController.navigate(
+                            FutaDestinations.chat(
+                                conversationId = routeUri.getQueryParameter("conversationId"),
+                                propertyId = routeUri.getQueryParameter("propertyId") ?: routeUri.getQueryParameter("apartmentId"),
+                                context = if (routeUri.getQueryParameter("context") == "advisor") ProductContext.ADVISOR else ProductContext.CUSTOMER
+                            )
+                        )
+                        "search", "properties", "danh-sach-bds" -> safeNavigate(FutaDestinations.SEARCH)
+                        "workspace" -> safeNavigate(FutaDestinations.WORKSPACE)
+                        "account" -> when (segments.getOrNull(1)) {
+                            "profile" -> safeNavigate(FutaDestinations.PROFILE)
+                            "billing" -> safeNavigate(FutaDestinations.BILLING)
+                            else -> safeNavigate(FutaDestinations.ACCOUNT)
+                        }
+                        "saved", "favorites", "tin-da-luu", "folders" -> safeNavigate(FutaDestinations.SAVED)
+                        "projects", "du-an" -> when {
+                            segments.getOrNull(1) == "map" -> safeNavigate(FutaDestinations.PROJECTS_MAP)
+                            segments.size >= 2 -> safeNavigate(FutaDestinations.projectDetail(segments[1]))
+                            else -> safeNavigate(FutaDestinations.PROJECTS_LIST)
+                        }
+                        "project" -> if (segments.size >= 2) {
+                            safeNavigate(FutaDestinations.projectDetail(segments[1]))
+                        } else {
+                            safeNavigate(FutaDestinations.PROJECTS_LIST)
+                        }
+                        "map" -> safeNavigate(FutaDestinations.PROJECTS_MAP)
+                        "news" -> if (segments.size >= 2) {
+                            safeNavigate(FutaDestinations.newsDetail(segments[1]))
+                        } else {
+                            safeNavigate(FutaDestinations.NEWS)
+                        }
+                        "pricing", "bang-gia", "upgrade" -> safeNavigate(FutaDestinations.PRICING)
+                        "notifications" -> safeNavigate(FutaDestinations.NOTIFICATIONS)
+                        "customers" -> routeUri.getQueryParameter("conversationId")?.takeIf { it.isNotEmpty() }?.let { convId ->
+                            navController.navigate(FutaDestinations.chat(conversationId = convId))
+                        } ?: safeNavigate(
+                            FutaDestinations.adminCustomers(
+                                routeUri.getQueryParameter("customerId") ?: routeUri.getQueryParameter("id")
+                            )
+                        )
+                        "crm" -> safeNavigate(
+                            FutaDestinations.crm(
+                                groupId = routeUri.getQueryParameter("groupId"),
+                                leadId = routeUri.getQueryParameter("leadId")
+                            )
+                        )
+                        "contracts" -> safeNavigate(
+                            FutaDestinations.adminContracts(
+                                routeUri.getQueryParameter("contractId") ?: routeUri.getQueryParameter("id")
+                            )
+                        )
+                        "reports", "report", "bao-cao" -> safeNavigate(FutaDestinations.ADMIN_REPORTS)
+                        "advisor" -> when {
+                            segments.getOrNull(1) == "products" -> safeNavigate(
+                                FutaDestinations.advisorProducts(
+                                    code = segments.getOrNull(2),
+                                    booking = segments.getOrNull(3) == "booking"
+                                )
+                            )
+                            segments.getOrNull(1) == "proposals" -> safeNavigate(FutaDestinations.ADVISOR_PROPOSALS)
+                            segments.contains("registrations") -> safeNavigate(FutaDestinations.ADMIN_REGISTRATIONS)
+                            else -> safeNavigate(FutaDestinations.ADVISOR)
+                        }
+                        "advisor-products" -> safeNavigate(FutaDestinations.ADVISOR_PRODUCTS)
+                        "proposals", "de-xuat" -> safeNavigate(FutaDestinations.ADVISOR_PROPOSALS)
+                        "registrations" -> safeNavigate(FutaDestinations.ADMIN_REGISTRATIONS)
+                        "my-listings" -> safeNavigate(FutaDestinations.MY_LISTINGS)
+                        "history", "view-history", "tin-da-xem" -> safeNavigate(FutaDestinations.VIEW_HISTORY)
+                        "billing" -> safeNavigate(FutaDestinations.BILLING)
+                        "profile" -> safeNavigate(FutaDestinations.PROFILE)
+                        "inventory" -> safeNavigate(FutaDestinations.ADMIN_INVENTORY)
+                        "transactions" -> safeNavigate(FutaDestinations.ADMIN_TRANSACTIONS)
+                        "cms" -> safeNavigate(FutaDestinations.ADMIN_CMS)
+                        "users" -> safeNavigate(FutaDestinations.ADMIN_USERS)
+                        "admin-news" -> safeNavigate(FutaDestinations.ADMIN_CMS)
+                        "admin-wheel" -> safeNavigate(FutaDestinations.ADMIN_LUCKY_WHEEL)
+                        "about", "gioi-thieu" -> safeNavigate(FutaDestinations.ABOUT)
+                        "contact", "lien-he", "ho-tro" -> safeNavigate(FutaDestinations.CONTACT)
+                        "policies", "dieu-khoan-chinh-sach", "quy-che-hoat-dong" -> safeNavigate(FutaDestinations.POLICIES)
+                        "guide", "huong-dan", "docs" -> safeNavigate(FutaDestinations.GUIDE)
+                        "admin" -> when (segments.getOrNull(1).orEmpty()) {
+                            "dashboard" -> safeNavigate(FutaDestinations.ADMIN_DASHBOARD)
+                            "projects" -> safeNavigate(FutaDestinations.ADMIN_PROJECTS)
+                            "campaigns", "sales-campaigns" -> safeNavigate(FutaDestinations.ADMIN_CAMPAIGNS)
+                            "inventory", "product-inventory" -> safeNavigate(FutaDestinations.ADMIN_INVENTORY)
+                            "registrations", "sales-registrations" -> safeNavigate(FutaDestinations.ADMIN_REGISTRATIONS)
+                            "transactions" -> safeNavigate(FutaDestinations.ADMIN_TRANSACTIONS)
+                            "cms", "news" -> safeNavigate(FutaDestinations.ADMIN_CMS)
+                            "settings", "system-settings" -> safeNavigate(FutaDestinations.ADMIN_SETTINGS)
+                            "users" -> safeNavigate(FutaDestinations.ADMIN_USERS)
+                            "roles" -> safeNavigate(FutaDestinations.ADMIN_ROLES)
+                            "advisor-profiles" -> safeNavigate(FutaDestinations.ADMIN_ADVISOR_PROFILES)
+                            "ai", "ai-training" -> safeNavigate(FutaDestinations.ADMIN_AI)
+                            "exams", "advisor-exams" -> safeNavigate(FutaDestinations.ADMIN_EXAMS)
+                            "zalo" -> safeNavigate(FutaDestinations.ADMIN_ZALO)
+                            "chat" -> safeNavigate(FutaDestinations.CHAT_CENTER)
+                            "customers" -> safeNavigate(FutaDestinations.ADMIN_CUSTOMERS)
+                            "contracts" -> safeNavigate(FutaDestinations.ADMIN_CONTRACTS)
+                            "reports" -> safeNavigate(FutaDestinations.ADMIN_REPORTS)
+                            "crm" -> safeNavigate(FutaDestinations.CRM)
+                            "lucky-wheel", "wheel", "game-admin", "gameAdmin" -> safeNavigate(FutaDestinations.ADMIN_LUCKY_WHEEL)
+                            else -> safeNavigate(FutaDestinations.ADMIN_DASHBOARD)
+                        }
+                        else -> ToastCenter.show("Liên kết không còn khả dụng hoặc chưa được hỗ trợ.", isError = true)
                     }
                 }
                 val isRootTab = (currentRoute in BottomNavRoutes || currentRoute?.startsWith("tab_search") == true) && (currentRoute != FutaDestinations.INBOX)
@@ -334,6 +411,18 @@ class MainActivity : ComponentActivity() {
                                 )
                             }
 
+                            // Secondary: Agent Detail (deep link /listing/agents/{id})
+                            composable(
+                                route = FutaDestinations.AGENT_DETAIL,
+                                arguments = listOf(navArgument("id") { type = NavType.StringType })
+                            ) { backStack ->
+                                AgentDetailScreen(
+                                    agentId = backStack.arguments?.getString("id") ?: "",
+                                    onBack = { navController.popBackStack() },
+                                    onNavigate = { route -> safeNavigate(route) }
+                                )
+                            }
+
                             // Secondary: Property Detail
                             composable(
                                 route = FutaDestinations.PROPERTY_DETAIL,
@@ -373,7 +462,7 @@ class MainActivity : ComponentActivity() {
                             composable(FutaDestinations.NOTIFICATIONS) {
                                 NotificationsScreen(
                                     onBack = { navController.popBackStack() },
-                                    onNavigate = { route -> safeNavigate(route) }
+                                    onNavigate = { route -> RouteCoordinator.enqueue(route) }
                                 )
                             }
 
@@ -439,11 +528,23 @@ class MainActivity : ComponentActivity() {
                             composable(FutaDestinations.ADMIN_ZALO) {
                                 AdminModuleScreen("Marketing Zalo", "/zalo/campaigns") { navController.popBackStack() }
                             }
-                            composable(FutaDestinations.ADMIN_CUSTOMERS) {
-                                AdminCustomersScreen { navController.popBackStack() }
+                            composable(
+                                route = FutaDestinations.ADMIN_CUSTOMERS_ROUTE,
+                                arguments = listOf(navArgument("customerId") { type = NavType.StringType; nullable = true; defaultValue = null })
+                            ) { backStack ->
+                                AdminCustomersScreen(
+                                    onBack = { navController.popBackStack() },
+                                    initialCustomerId = backStack.arguments?.getString("customerId")
+                                )
                             }
-                            composable(FutaDestinations.ADMIN_CONTRACTS) {
-                                AdminContractsScreen { navController.popBackStack() }
+                            composable(
+                                route = FutaDestinations.ADMIN_CONTRACTS_ROUTE,
+                                arguments = listOf(navArgument("contractId") { type = NavType.StringType; nullable = true; defaultValue = null })
+                            ) { backStack ->
+                                AdminContractsScreen(
+                                    onBack = { navController.popBackStack() },
+                                    initialContractId = backStack.arguments?.getString("contractId")
+                                )
                             }
                             composable(FutaDestinations.ADMIN_REPORTS) {
                                 AdminReportsScreen { navController.popBackStack() }
@@ -451,8 +552,18 @@ class MainActivity : ComponentActivity() {
                             composable(FutaDestinations.ADMIN_DASHBOARD) {
                                 AdminDashboardScreen { navController.popBackStack() }
                             }
-                            composable(FutaDestinations.CRM) {
-                                AdminCRMScreen { navController.popBackStack() }
+                            composable(
+                                route = FutaDestinations.CRM_ROUTE,
+                                arguments = listOf(
+                                    navArgument("groupId") { type = NavType.StringType; nullable = true; defaultValue = null },
+                                    navArgument("leadId") { type = NavType.StringType; nullable = true; defaultValue = null }
+                                )
+                            ) { backStack ->
+                                AdminCRMScreen(
+                                    onBack = { navController.popBackStack() },
+                                    initialGroupId = backStack.arguments?.getString("groupId"),
+                                    initialLeadId = backStack.arguments?.getString("leadId")
+                                )
                             }
                             composable(FutaDestinations.ADMIN_LUCKY_WHEEL) {
                                 AdminLuckyWheelScreen { navController.popBackStack() }
@@ -466,8 +577,16 @@ class MainActivity : ComponentActivity() {
                                     onNavigate = { route -> safeNavigate(route) }
                                 )
                             }
-                            composable(FutaDestinations.ADVISOR_PRODUCTS) {
+                            composable(
+                                route = FutaDestinations.ADVISOR_PRODUCTS_ROUTE,
+                                arguments = listOf(
+                                    navArgument("code") { type = NavType.StringType; nullable = true; defaultValue = null },
+                                    navArgument("booking") { type = NavType.StringType; nullable = true; defaultValue = null }
+                                )
+                            ) { backStack ->
                                 AdvisorProductsScreen(
+                                    initialProductCode = backStack.arguments?.getString("code"),
+                                    bookingIntent = backStack.arguments?.getString("booking") == "true",
                                     onBack = { navController.popBackStack() },
                                     onNavigate = { route -> safeNavigate(route) }
                                 )
@@ -581,9 +700,19 @@ class MainActivity : ComponentActivity() {
         }
 
         // FCM notification tap → navigate to its target route (e.g. /chat).
+        val isNotificationTap = intent?.getBooleanExtra(FutaMessagingService.EXTRA_NOTIFICATION_TAP, false) == true
         val fcmRoute = intent?.getStringExtra(FutaMessagingService.EXTRA_ROUTE)
-        if (!fcmRoute.isNullOrEmpty()) {
-            RouteCoordinator.enqueue(fcmRoute)
+        if (isNotificationTap) {
+            if (!fcmRoute.isNullOrEmpty()) {
+                RouteCoordinator.enqueue(
+                    fcmRoute,
+                    userId = intent.getStringExtra(FutaMessagingService.EXTRA_USER_ID),
+                    notificationId = intent.getStringExtra(FutaMessagingService.EXTRA_NOTIFICATION_ID)
+                )
+            } else {
+                // iOS parity: a push without a usable link surfaces an error.
+                ToastCenter.show("Thông báo không còn khả dụng. Vui lòng mở hộp thông báo.", isError = true)
+            }
             return
         }
 

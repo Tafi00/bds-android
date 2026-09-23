@@ -34,7 +34,8 @@ import vn.futaland.app.designsystem.*
 
 @Composable
 fun AdminCustomersScreen(
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    initialCustomerId: String? = null
 ) {
     val scope = rememberCoroutineScope()
     var customers by remember { mutableStateOf<List<JSONValue>>(emptyList()) }
@@ -49,8 +50,18 @@ fun AdminCustomersScreen(
     var showFilterSheet by remember { mutableStateOf(false) }
 
     var selectedCustomer by remember { mutableStateOf<JSONValue?>(null) }
-    var showCreateDialog by remember { mutableStateOf(false) }
 
+    // Deep link (notification tap /customers?customerId=…): open the detail sheet directly.
+    LaunchedEffect(initialCustomerId) {
+        val target = initialCustomerId?.takeIf { it.isNotEmpty() } ?: return@LaunchedEffect
+        try {
+            val res = APIClient.get().request("/customers/${java.net.URLEncoder.encode(target, "UTF-8")}")
+            val detail = res["data"]
+            if (!detail.isNull) selectedCustomer = detail
+        } catch (_: Exception) {}
+    }
+
+    var showCreateDialog by remember { mutableStateOf(false) }
     val statusFilters = listOf(
         "all" to "Tất cả",
         "Khách mới" to "Khách mới",

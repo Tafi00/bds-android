@@ -46,6 +46,30 @@ object FutaDestinations {
     const val PRICING = "pricing"
     const val PROFILE = "profile"
     const val ADMIN_LUCKY_WHEEL = "admin_lucky_wheel"
+
+    // Deep-link variants carrying an initial target (notification taps, web routes).
+    const val AGENT_DETAIL = "agent_detail/{id}"
+    const val ADMIN_CONTRACTS_ROUTE = "admin_contracts?contractId={contractId}"
+    const val ADMIN_CUSTOMERS_ROUTE = "admin_customers?customerId={customerId}"
+    const val CRM_ROUTE = "crm?groupId={groupId}&leadId={leadId}"
+    const val ADVISOR_PRODUCTS_ROUTE = "advisor_products?code={code}&booking={booking}"
+    fun agentDetail(id: String) = "agent_detail/${android.net.Uri.encode(id)}"
+    fun adminContracts(contractId: String? = null) =
+        if (contractId.isNullOrEmpty()) ADMIN_CONTRACTS else "admin_contracts?contractId=${android.net.Uri.encode(contractId)}"
+    fun adminCustomers(customerId: String? = null) =
+        if (customerId.isNullOrEmpty()) ADMIN_CUSTOMERS else "admin_customers?customerId=${android.net.Uri.encode(customerId)}"
+    fun crm(groupId: String? = null, leadId: String? = null): String {
+        val params = mutableListOf<String>()
+        if (!groupId.isNullOrEmpty()) params.add("groupId=${android.net.Uri.encode(groupId)}")
+        if (!leadId.isNullOrEmpty()) params.add("leadId=${android.net.Uri.encode(leadId)}")
+        return if (params.isEmpty()) CRM else "crm?${params.joinToString("&")}"
+    }
+    fun advisorProducts(code: String? = null, booking: Boolean = false): String {
+        val params = mutableListOf<String>()
+        if (!code.isNullOrEmpty()) params.add("code=${android.net.Uri.encode(code)}")
+        if (booking) params.add("booking=true")
+        return if (params.isEmpty()) ADVISOR_PRODUCTS else "advisor_products?${params.joinToString("&")}"
+    }
     const val NEWS = "news"
     const val GUIDE = "guide"
     const val CONTACT = "contact"

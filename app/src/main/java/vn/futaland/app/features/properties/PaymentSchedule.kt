@@ -227,6 +227,9 @@ object PaymentScheduleEngine {
     }
 
     fun resolveDefaultBasePrice(property: JSONValue, policies: List<PaymentSchedulePolicy>): Long {
+        val beforeVat = property["pricingBreakdown"].array
+            .firstOrNull { it["key"].string == "netPriceBeforeVat" }?.get("value")?.double
+        if (beforeVat != null && beforeVat.isFinite() && beforeVat > 0) return beforeVat.roundToLong()
         val basisPrice = property["erpPriceTable"]["basis"]["listPrice"].double
         if (basisPrice > 0) return basisPrice.roundToLong()
 

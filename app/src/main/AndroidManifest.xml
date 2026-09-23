@@ -62,6 +62,13 @@
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_channel_id"
             android:value="futaland_alerts_v1" />
+        <!-- Default icon/color for FCM notifications posted while app is in background -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_icon"
+            android:resource="@drawable/ic_notification_logo" />
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_color"
+            android:resource="@color/futa_brand_green" />
 
     </application>
 

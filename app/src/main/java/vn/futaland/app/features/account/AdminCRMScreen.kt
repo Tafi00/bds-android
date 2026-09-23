@@ -42,7 +42,9 @@ data class CrmLead(
 
 @Composable
 fun AdminCRMScreen(
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    initialGroupId: String? = null,
+    initialLeadId: String? = null
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -108,6 +110,30 @@ fun AdminCRMScreen(
             } catch (_: Exception) {
             } finally {
                 loading = false
+            }
+            // Deep link (notification tap /crm?groupId=…&leadId=…): open the lead sheet.
+            val targetLeadId = initialLeadId?.takeIf { it.isNotEmpty() } ?: return@launch
+            val found = leads.firstOrNull { it.id == targetLeadId }
+            if (found != null) {
+                selectedLead = found
+            } else if (!initialGroupId.isNullOrEmpty()) {
+                try {
+                    val res = APIClient.get().request(
+                        "/crm/groups/${java.net.URLEncoder.encode(initialGroupId, "UTF-8")}/leads/${java.net.URLEncoder.encode(targetLeadId, "UTF-8")}"
+                    )
+                    val l = res["data"]
+                    if (!l.isNull) {
+                        selectedLead = CrmLead(
+                            id = l.id.ifEmpty { targetLeadId },
+                            name = l["name"].string.ifEmpty { l["customerName"].string.ifEmpty { "Khách hàng" } },
+                            phone = l["phone"].string.ifEmpty { l["customerPhone"].string.ifEmpty { "Chưa có SĐT" } },
+                            demand = l["demand"].string.ifEmpty { l["note"].string.ifEmpty { "Nhu cầu mua / thuê căn hộ" } },
+                            budget = l["budget"].string.ifEmpty { "Thỏa thuận" },
+                            stage = l["stage"].string.ifEmpty { l["status"].string.ifEmpty { "lead" } },
+                            advisor = l["advisor"]["name"].string.ifEmpty { l["advisorName"].string.ifEmpty { "Chuyên viên FUTA" } }
+                        )
+                    }
+                } catch (_: Exception) {}
             }
         }
     }

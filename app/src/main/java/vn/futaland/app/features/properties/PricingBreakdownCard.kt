@@ -171,7 +171,7 @@ fun PricingBreakdownCard(
         ) {
             // Header
             Text(
-                text = "BẢNG GIÁ CHI TIẾT",
+                text = "BẢNG GIÁ CHI TIẾT (Tạm tính)",
                 fontSize = 13.sp,
                 fontWeight = FontWeight.Bold,
                 color = FutaColors.Navy,

@@ -8,7 +8,8 @@ import java.util.UUID
 data class RouteIntent(
     val id: String = UUID.randomUUID().toString(),
     val route: String,
-    val userId: String? = null
+    val userId: String? = null,
+    val notificationId: String? = null
 )
 
 object RouteCoordinator {
@@ -47,9 +48,9 @@ object RouteCoordinator {
         return path + (uri.encodedQuery?.let { "?$it" } ?: "")
     }
 
-    fun enqueue(route: String, userId: String? = null) {
+    fun enqueue(route: String, userId: String? = null, notificationId: String? = null) {
         val normalized = normalizeRoute(route) ?: return
-        _pendingIntent.value = RouteIntent(route = normalized, userId = userId)
+        _pendingIntent.value = RouteIntent(route = normalized, userId = userId, notificationId = notificationId)
     }
 
     fun consume(intent: RouteIntent) {

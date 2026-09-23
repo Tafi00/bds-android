@@ -31,7 +31,8 @@ import vn.futaland.app.designsystem.*
 
 @Composable
 fun AdminContractsScreen(
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    initialContractId: String? = null
 ) {
     val scope = rememberCoroutineScope()
     var contracts by remember { mutableStateOf<List<JSONValue>>(emptyList()) }
@@ -43,6 +44,15 @@ fun AdminContractsScreen(
 
     var selectedContract by remember { mutableStateOf<JSONValue?>(null) }
 
+    // Deep link (notification tap /contracts?contractId=…): open the detail sheet directly.
+    LaunchedEffect(initialContractId) {
+        val target = initialContractId?.takeIf { it.isNotEmpty() } ?: return@LaunchedEffect
+        try {
+            val res = APIClient.get().request("/contracts/${java.net.URLEncoder.encode(target, "UTF-8")}")
+            val detail = res["data"]
+            if (!detail.isNull) selectedContract = detail
+        } catch (_: Exception) {}
+    }
     val statusOptions = listOf(
         "" to "Tất cả",
         "draft" to "Bản nháp",

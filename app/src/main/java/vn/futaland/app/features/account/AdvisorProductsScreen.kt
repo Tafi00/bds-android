@@ -37,7 +37,9 @@ import vn.futaland.app.navigation.FutaDestinations
 @Composable
 fun AdvisorProductsScreen(
     onBack: () -> Unit,
-    onNavigate: (String) -> Unit
+    onNavigate: (String) -> Unit,
+    initialProductCode: String? = null,
+    bookingIntent: Boolean = false
 ) {
     val scope = rememberCoroutineScope()
     var items by remember { mutableStateOf<List<JSONValue>>(emptyList()) }
@@ -76,24 +78,51 @@ fun AdvisorProductsScreen(
         "completed" to "GD thành công"
     )
 
-    fun loadData(silent: Boolean = false) {
-        scope.launch {
-            if (!silent && items.isEmpty()) {
-                loading = true
-            }
-            try {
-                val res = APIClient.get().request("/sales/registrations")
-                items = res["data"].array
-            } catch (_: Exception) {
-                if (!silent) items = emptyList()
-            } finally {
-                loading = false
-            }
+    suspend fun fetchData(silent: Boolean = false) {
+        if (!silent && items.isEmpty()) {
+            loading = true
+        }
+        try {
+            val res = APIClient.get().request("/sales/registrations")
+            items = res["data"].array
+        } catch (_: Exception) {
+            if (!silent) items = emptyList()
+        } finally {
+            loading = false
         }
     }
 
+    fun loadData(silent: Boolean = false) {
+        scope.launch { fetchData(silent) }
+    }
+
+    var deepLinkHandled by remember { mutableStateOf(false) }
+
     LaunchedEffect(Unit) {
-        loadData()
+        fetchData()
+        // Deep link (notification tap /advisor/products/{code}[/booking]).
+        val code = initialProductCode?.takeIf { it.isNotEmpty() } ?: return@LaunchedEffect
+        if (deepLinkHandled) return@LaunchedEffect
+        deepLinkHandled = true
+        val match = items.firstOrNull { reg ->
+            reg["unitCode"].string.equals(code, ignoreCase = true) ||
+                reg["property"]["propertyCode"].string.equals(code, ignoreCase = true)
+        }
+        if (match != null) {
+            if (bookingIntent) {
+                // iOS parity: booking intent opens the product detail in advisor context.
+                val targetId = match["propertyId"].string.ifEmpty { match["property"]["id"].string.ifEmpty { match.id } }
+                if (targetId.isNotEmpty()) {
+                    onNavigate(FutaDestinations.propertyDetail(targetId, vn.futaland.app.core.sales.ProductContext.ADVISOR))
+                } else {
+                    detailItem = match
+                }
+            } else {
+                detailItem = match
+            }
+        } else {
+            ToastCenter.show("Không tìm thấy sản phẩm $code trong rổ hàng của bạn.", isError = true)
+        }
     }
 
     DisposableEffect(Unit) {
