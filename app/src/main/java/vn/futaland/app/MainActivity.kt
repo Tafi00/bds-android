@@ -179,13 +179,18 @@ class MainActivity : ComponentActivity() {
                             else -> safeNavigate(FutaDestinations.SEARCH)
                         }
                         "lucky-wheel" -> safeNavigate(FutaDestinations.LUCKY_WHEEL)
-                        "chat", "tro-chuyen" -> navController.navigate(
-                            FutaDestinations.chat(
-                                conversationId = routeUri.getQueryParameter("conversationId"),
-                                propertyId = routeUri.getQueryParameter("propertyId") ?: routeUri.getQueryParameter("apartmentId"),
-                                context = if (routeUri.getQueryParameter("context") == "advisor") ProductContext.ADVISOR else ProductContext.CUSTOMER
+                        "chat", "tro-chuyen" -> {
+                            val isAdvisorRole = AppSession.shared.role != "customer" && AppSession.shared.role != "guest"
+                            val contextParam = routeUri.getQueryParameter("context")
+                            val isAdvisor = contextParam == "advisor" || (isAdvisorRole && contextParam != "customer")
+                            navController.navigate(
+                                FutaDestinations.chat(
+                                    conversationId = routeUri.getQueryParameter("conversationId"),
+                                    propertyId = routeUri.getQueryParameter("propertyId") ?: routeUri.getQueryParameter("apartmentId"),
+                                    context = if (isAdvisor) ProductContext.ADVISOR else ProductContext.CUSTOMER
+                                )
                             )
-                        )
+                        }
                         "search", "properties", "danh-sach-bds" -> safeNavigate(FutaDestinations.SEARCH)
                         "workspace" -> safeNavigate(FutaDestinations.WORKSPACE)
                         "account" -> when (segments.getOrNull(1)) {
@@ -363,13 +368,17 @@ class MainActivity : ComponentActivity() {
                                 val advName = backStack.arguments?.getString("advisorName")
                                 val propertyId = backStack.arguments?.getString("propertyId")
                                 val isAi = backStack.arguments?.getString("isAi") == "true"
+                                val isStaffRole = AppSession.shared.role != "customer" && AppSession.shared.role != "guest"
+                                val contextArg = backStack.arguments?.getString("context")
+                                val isAdvisorContext = contextArg == "advisor" || (isStaffRole && contextArg != "customer" && advId == null)
                                 ChatScreen(
                                     initialConversationId = convId,
                                     targetAdvisorId = advId,
                                     targetAdvisorName = advName,
                                     targetPropertyId = propertyId,
                                     isAiChat = isAi,
-                                    productContext = if (backStack.arguments?.getString("context") == "advisor") ProductContext.ADVISOR else ProductContext.CUSTOMER,
+                                    staffContext = isAdvisorContext,
+                                    productContext = if (isAdvisorContext) ProductContext.ADVISOR else ProductContext.CUSTOMER,
                                     onNavigate = { route -> safeNavigate(route) },
                                     onBack = { navController.popBackStack() }
                                 )

@@ -151,9 +151,10 @@ fun FutaBottomBar(
             // ====================================================================
             // ISLAND 2: Detached Floating Circular Chat / AI Button (64dp Diameter)
             // ====================================================================
-            val chatSelected = currentRoute == FutaDestinations.INBOX
-            val isGuest = !AppSession.shared.isAuthenticated || AppSession.shared.role in listOf("guest", "khach", "customer")
-            val chatActionTitle = if (isGuest) "Trợ lý AI" else "Tin nhắn"
+            val isStaffUser = AppSession.shared.isAuthenticated && AppSession.shared.role !in listOf("guest", "khach", "customer")
+            val chatTarget = if (isStaffUser) FutaDestinations.CHAT_CENTER else FutaDestinations.INBOX
+            val chatSelected = currentRoute == FutaDestinations.INBOX || currentRoute == FutaDestinations.CHAT_CENTER
+            val chatActionTitle = if (!isStaffUser) "Trợ lý AI" else "Tin nhắn"
 
             Surface(
                 shape = CircleShape,
@@ -171,7 +172,7 @@ fun FutaBottomBar(
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null,
-                        onClick = { onNavigate(FutaDestinations.INBOX) }
+                        onClick = { onNavigate(chatTarget) }
                     )
             ) {
                 Box(contentAlignment = Alignment.Center) {

@@ -162,7 +162,7 @@ fun ChatScreen(
     // A null id shows the conversation list (the entry screen). Deep links and an
     // explicit advisor/AI target open the thread directly instead.
     var activeConversationId by remember { mutableStateOf(initialConversationId) }
-    var activeConversationName by remember { mutableStateOf(targetAdvisorName ?: (if (isAiChat) "Trợ lý AI FUTA Land" else "Trợ lý AI FUTA Land")) }
+    var activeConversationName by remember { mutableStateOf(targetAdvisorName ?: (if (isAiChat) "Trợ lý AI FUTA Land" else if (isStaff) "Khách hàng" else "Trợ lý AI FUTA Land")) }
 
     val focusRequester = remember { FocusRequester() }
     LaunchedEffect(activeConversationId) {
@@ -235,6 +235,11 @@ fun ChatScreen(
                         contextCode = code
                     )
                 )
+            }
+            if (!activeConversationId.isNullOrEmpty()) {
+                conversations.find { it.id == activeConversationId }?.let { matched ->
+                    activeConversationName = matched.name
+                }
             }
 
             if (isStaff && mode == "buyer") {
@@ -932,6 +937,7 @@ fun ChatScreen(
         var aiPollJob by remember { mutableStateOf<Job?>(null) }
         val activeConv = conversations.find { it.id == activeConversationId }
         val isCurrentConversationAi = when {
+            isStaff -> false
             activeConversationId == "ai_agent" -> true
             activeConv != null -> activeConv.isAi
             activeConversationName.contains("AI", ignoreCase = true) -> true
@@ -980,7 +986,7 @@ fun ChatScreen(
                                     ChatMessage(
                                         id = m.id,
                                         senderId = m["senderId"].string,
-                                        senderName = if (isMe) "Tôi" else (if (sType == "bot") "Trợ lý AI FUTA Land" else "Tư vấn viên"),
+                                        senderName = if (isMe) "Tôi" else (if (sType == "bot") "Trợ lý AI FUTA Land" else if (isStaff) "Khách hàng" else "Tư vấn viên"),
                                         content = m["content"].string,
                                         isMe = isMe,
                                         time = timeStr,
@@ -1156,7 +1162,9 @@ fun ChatScreen(
                                 modifier = Modifier
                                     .size(36.dp)
                                     .clickable {
-                                        if (onBack != null) {
+                                        if (activeConversationId != null && isStaff) {
+                                            activeConversationId = null
+                                        } else if (onBack != null) {
                                             onBack.invoke()
                                         } else {
                                             activeConversationId = null
