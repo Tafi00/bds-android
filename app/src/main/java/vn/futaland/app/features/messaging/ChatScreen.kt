@@ -53,7 +53,12 @@ data class ConversationItem(
     val isAi: Boolean = false,
     val badge: String = "",
     val contextProjectName: String = "",
-    val contextCode: String = ""
+    val contextCode: String = "",
+    // Participant ids — needed so an admin observing someone else's thread can
+    // tell they are not a party and split bubbles by senderType instead.
+    val advisorId: String = "",
+    val customerPhone: String = "",
+    val customerUserId: String = ""
 )
 
 data class ChatMessage(
@@ -99,8 +104,12 @@ private fun isOwnChatMessage(
     senderId: String,
     senderType: String,
     currentUserId: String,
-    viewerIsCustomer: Boolean
+    viewerIsCustomer: Boolean,
+    viewerIsParticipant: Boolean = true
 ): Boolean {
+    // A non-participant viewer (admin monitoring another thread) is never the
+    // sender — split by senderType: customer left, staff right.
+    if (!viewerIsParticipant) return senderType == "staff"
     if (currentUserId.isNotEmpty() && senderId.isNotEmpty()) return senderId == currentUserId
     return if (viewerIsCustomer) senderType == "customer" else senderType == "staff"
 }
@@ -232,7 +241,10 @@ fun ChatScreen(
                         isAi = isAi,
                         badge = badge,
                         contextProjectName = projectName,
-                        contextCode = code
+                        contextCode = code,
+                        advisorId = advId,
+                        customerPhone = c["customerPhone"].string,
+                        customerUserId = c["customer"]["websiteUserId"].string
                     )
                 )
             }
@@ -936,6 +948,20 @@ fun ChatScreen(
         var isAiThinking by remember { mutableStateOf(false) }
         var aiPollJob by remember { mutableStateOf<Job?>(null) }
         val activeConv = conversations.find { it.id == activeConversationId }
+        // The viewer is a party of the thread when they are the assigned advisor
+        // or the customer. An admin opening someone else's conversation is an
+        // observer: their id matches no sender, so sides come from senderType.
+        // While the record is still loading, a staff viewer is also an observer.
+        val myUserId = AppSession.shared.user?.id.orEmpty()
+        val myPhone = AppSession.shared.user?.get("phone")?.string.orEmpty()
+        val viewerIsParticipant = if (!isStaff) {
+            true
+        } else if (activeConv == null) {
+            false
+        } else {
+            (myUserId.isNotEmpty() && (myUserId == activeConv.advisorId || myUserId == activeConv.customerUserId)) ||
+                (myPhone.isNotEmpty() && myPhone == activeConv.customerPhone)
+        }
         val isCurrentConversationAi = when {
             isStaff -> false
             activeConversationId == "ai_agent" -> true
@@ -979,14 +1005,14 @@ fun ChatScreen(
                             for (m in sorted) {
                                 val sType = m["senderType"].string
                                 val senderId = m["senderId"].string
-                                val isMe = isOwnChatMessage(senderId, sType, currentUserId, viewerIsCustomer = !isStaff)
+                                val isMe = isOwnChatMessage(senderId, sType, currentUserId, viewerIsCustomer = !isStaff, viewerIsParticipant = viewerIsParticipant)
                                 val timeStr = formatChatTime(m["createdAt"].string)
                                 val cards = parseChatPropertyCards(m["metadata"])
                                 messages.add(
                                     ChatMessage(
                                         id = m.id,
                                         senderId = m["senderId"].string,
-                                        senderName = if (isMe) "Tôi" else (if (sType == "bot") "Trợ lý AI FUTA Land" else if (isStaff) "Khách hàng" else "Tư vấn viên"),
+                                        senderName = if (isMe && viewerIsParticipant) "Tôi" else (if (sType == "bot") "Trợ lý AI FUTA Land" else if (sType == "staff") "Tư vấn viên" else "Khách hàng"),
                                         content = m["content"].string,
                                         isMe = isMe,
                                         time = timeStr,
@@ -1014,7 +1040,8 @@ fun ChatScreen(
                         senderId = jsonMsg["senderId"].string,
                         senderType = jsonMsg["senderType"].string,
                         currentUserId = AppSession.shared.user?.id.orEmpty(),
-                        viewerIsCustomer = !isStaff
+                        viewerIsCustomer = !isStaff,
+                        viewerIsParticipant = viewerIsParticipant
                     )
                     val newMsg = ChatMessage(
                         id = jsonMsg["id"].string.ifEmpty { nextLocalMessageId() },
@@ -1399,7 +1426,9 @@ fun ChatScreen(
                     .background(FutaColors.PageBg)
                     .padding(padding),
                 contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 12.dp, bottom = 28.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                // No fixed inter-item spacing — MessageBubble applies its own
+                // group-aware padding so consecutive same-sender bubbles merge.
+                verticalArrangement = Arrangement.spacedBy(0.dp)
             ) {
                 if (messages.isEmpty() && !isStaff && isCurrentConversationAi) {
                     val activeConv = conversations.find { it.id == activeConversationId }
@@ -1506,13 +1535,15 @@ fun ChatScreen(
                     val prev = if (index > 0) messages[index - 1] else null
                     val next = if (index < messages.size - 1) messages[index + 1] else null
 
+                    // Group by actual sender, not just side — an observer sees
+                    // both parties and different staff senders must not merge.
                     val isPrevSame = prev != null &&
                         prev.isMe == msg.isMe &&
-                        (msg.isMe || (prev.senderName == msg.senderName && prev.senderId == msg.senderId))
+                        prev.senderId == msg.senderId
 
                     val isNextSame = next != null &&
                         next.isMe == msg.isMe &&
-                        (msg.isMe || (next.senderName == msg.senderName && next.senderId == msg.senderId))
+                        next.senderId == msg.senderId
 
                     val position = when {
                         !isPrevSame && isNextSame -> BubbleGroupPosition.FIRST
@@ -1536,7 +1567,9 @@ fun ChatScreen(
                         else -> activeConversationName
                     }
                     item(key = "typing_indicator_bubble") {
-                        TypingIndicatorBubble(senderName = displayName, isAi = isAi)
+                        Box(modifier = Modifier.padding(top = 12.dp)) {
+                            TypingIndicatorBubble(senderName = displayName, isAi = isAi)
+                        }
                     }
                 }
             }
@@ -1609,23 +1642,18 @@ private fun MessageBubble(
     position: BubbleGroupPosition = BubbleGroupPosition.SINGLE,
     onOpenProperty: (String) -> Unit
 ) {
-    val verticalPadding = when (position) {
-        BubbleGroupPosition.FIRST -> 2.dp
-        BubbleGroupPosition.MIDDLE -> 1.5.dp
-        BubbleGroupPosition.LAST -> 2.dp
-        BubbleGroupPosition.SINGLE -> 4.dp
-    }
+    // Group-aware spacing: a new group (first/single) gets a larger gap,
+    // consecutive bubbles in the same group sit tight together.
     val topPadding = when (position) {
-        BubbleGroupPosition.FIRST -> 6.dp
-        BubbleGroupPosition.SINGLE -> 4.dp
-        else -> 1.dp
+        BubbleGroupPosition.FIRST, BubbleGroupPosition.SINGLE -> 12.dp
+        else -> 3.dp
     }
 
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 8.dp)
-            .padding(top = topPadding, bottom = verticalPadding),
+            .padding(top = topPadding),
         horizontalArrangement = if (msg.isMe) Arrangement.End else Arrangement.Start,
         verticalAlignment = Alignment.Bottom
     ) {
