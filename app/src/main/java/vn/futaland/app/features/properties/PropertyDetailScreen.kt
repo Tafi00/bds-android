@@ -74,7 +74,14 @@ fun PropertyDetailScreen(
     val scope = rememberCoroutineScope()
     val sessionUser by AppSession.shared.currentUser.collectAsState()
     val permissions by AppSession.shared.permissions.collectAsState()
-    val scopeKey = "$propertyId|${productContext.wire}|${sessionUser?.id.orEmpty()}|${AppSession.shared.role}|$permissions"
+    val effectiveContext = if (productContext == ProductContext.CUSTOMER) {
+        when (AppSession.shared.role) {
+            "admin" -> ProductContext.ADMIN
+            "sale", "telesale" -> ProductContext.ADVISOR
+            else -> ProductContext.CUSTOMER
+        }
+    } else productContext
+    val scopeKey = "$propertyId|${effectiveContext.wire}|${sessionUser?.id.orEmpty()}|${AppSession.shared.role}|$permissions"
     val lifecycleOwner = LocalLifecycleOwner.current
     var refreshRevision by remember(scopeKey) { mutableIntStateOf(0) }
     DisposableEffect(lifecycleOwner) {
@@ -157,8 +164,8 @@ fun PropertyDetailScreen(
     var viewerPhotoIndex by remember(scopeKey) { mutableStateOf<Int?>(null) }
 
     val access = property?.get("access")
-    val isAdvisorViewer = productContext == ProductContext.ADVISOR && access?.get("canViewCommission")?.bool == true
-    val sellingAction = SalesPolicy.sellingAction(productContext, access)
+    val isAdvisorViewer = (effectiveContext == ProductContext.ADVISOR || effectiveContext == ProductContext.ADMIN) && access?.get("canViewCommission")?.bool == true
+    val sellingAction = SalesPolicy.sellingAction(effectiveContext, access)
     val registrationLabel = SalesPolicy.registrationLabel(access?.get("registrationState")?.string.orEmpty())
     var loadError by remember(scopeKey) { mutableStateOf<String?>(null) }
 
@@ -173,7 +180,7 @@ fun PropertyDetailScreen(
                 loadError = null
             }
             try {
-                val res = APIClient.get().request("/apartments/$propertyId", query = mapOf("context" to productContext.wire))
+                val res = APIClient.get().request("/apartments/$propertyId", query = mapOf("context" to effectiveContext.wire))
                 var loadedProperty = res["data"]
                 if (loadedProperty["paymentPolicies"].array.isEmpty()) {
                     val projectName = loadedProperty["zone"].string.trim().ifEmpty { loadedProperty["projectName"].string.trim() }
@@ -192,7 +199,7 @@ fun PropertyDetailScreen(
                     }
                 }
                 property = loadedProperty
-                registrationInfo = if (productContext == ProductContext.ADVISOR) res["data"]["registrationInfo"] else null
+                registrationInfo = if (effectiveContext == ProductContext.ADVISOR) res["data"]["registrationInfo"] else null
                 similarProperties = res["data"]["suggestions"].array
                 loadError = null
             } catch (error: CancellationException) { throw error
@@ -1227,7 +1234,7 @@ fun PropertyDetailScreen(
                                                     .size(40.dp)
                                                     .clickable {
                                                         onNavigate(
-                                                            FutaDestinations.chat(context = productContext, 
+                                                            FutaDestinations.chat(context = effectiveContext, 
                                                                 advisorId = advId,
                                                                 advisorName = advName,
                                                                 propertyId = property.id.ifEmpty { propertyId }
@@ -1258,7 +1265,7 @@ fun PropertyDetailScreen(
                                     .fillMaxWidth()
                                     .clickable {
                                         onNavigate(
-                                            FutaDestinations.chat(context = productContext, 
+                                            FutaDestinations.chat(context = effectiveContext, 
                                                 propertyId = property.id.ifEmpty { propertyId },
                                                 isAi = true
                                             )
@@ -1308,7 +1315,7 @@ fun PropertyDetailScreen(
                                     Box(modifier = Modifier.width(260.dp)) {
                                         FutaPropertyCard(
                                             property = sim,
-                                            onClick = { onNavigate(FutaDestinations.propertyDetail(sim.id, productContext)) }
+                                            onClick = { onNavigate(FutaDestinations.propertyDetail(sim.id, effectiveContext)) }
                                         )
                                     }
                                 }
@@ -1336,11 +1343,11 @@ fun PropertyDetailScreen(
                     },
                     onChatAdvisor = { advId, advName ->
                         showAdvisorContactSheet = false
-                        onNavigate(FutaDestinations.chat(context = productContext, advisorId = advId, advisorName = advName, propertyId = property.id.ifEmpty { propertyId }))
+                        onNavigate(FutaDestinations.chat(context = effectiveContext, advisorId = advId, advisorName = advName, propertyId = property.id.ifEmpty { propertyId }))
                     },
                     onChatAi = {
                         showAdvisorContactSheet = false
-                        onNavigate(FutaDestinations.chat(context = productContext, propertyId = property.id.ifEmpty { propertyId }, isAi = true))
+                        onNavigate(FutaDestinations.chat(context = effectiveContext, propertyId = property.id.ifEmpty { propertyId }, isAi = true))
                     }
                 )
             }
