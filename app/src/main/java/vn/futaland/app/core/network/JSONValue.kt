@@ -22,7 +22,7 @@ class JSONValue(val element: JsonElement) {
         }
     }
 
-    val id: String get() = this["id"].string.ifEmpty { this["_id"].string.ifEmpty { this["recordId"].string } }
+    val id: String get() = this["id"].string.ifEmpty { this["_id"].string.ifEmpty { this["recordId"].string.ifEmpty { this["registrationId"].string } } }
 
     operator fun get(key: String): JSONValue {
         val obj = element as? JsonObject ?: return Null

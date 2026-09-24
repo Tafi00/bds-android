@@ -51,7 +51,7 @@ fun AdminCustomersScreen(
 
     var selectedCustomer by remember { mutableStateOf<JSONValue?>(null) }
 
-    // Deep link (notification tap /customers?customerId=…): open the detail sheet directly.
+    // Deep link (notification tap /customers/{id} or legacy ?customerId=…): open the detail sheet directly.
     LaunchedEffect(initialCustomerId) {
         val target = initialCustomerId?.takeIf { it.isNotEmpty() } ?: return@LaunchedEffect
         try {

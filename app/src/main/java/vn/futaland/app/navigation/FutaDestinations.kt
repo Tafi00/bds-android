@@ -58,6 +58,8 @@ object FutaDestinations {
         if (contractId.isNullOrEmpty()) ADMIN_CONTRACTS else "admin_contracts?contractId=${android.net.Uri.encode(contractId)}"
     fun adminCustomers(customerId: String? = null) =
         if (customerId.isNullOrEmpty()) ADMIN_CUSTOMERS else "admin_customers?customerId=${android.net.Uri.encode(customerId)}"
+    fun adminRegistrations(propertyId: String? = null) =
+        if (propertyId.isNullOrEmpty()) ADMIN_REGISTRATIONS else "admin_registrations?propertyId=${android.net.Uri.encode(propertyId)}"
     fun crm(groupId: String? = null, leadId: String? = null): String {
         val params = mutableListOf<String>()
         if (!groupId.isNullOrEmpty()) params.add("groupId=${android.net.Uri.encode(groupId)}")
@@ -82,6 +84,7 @@ object FutaDestinations {
     const val ADMIN_DASHBOARD = "admin_dashboard"
     const val ADMIN_INVENTORY = "admin_inventory"
     const val ADMIN_REGISTRATIONS = "admin_registrations"
+    const val ADMIN_REGISTRATIONS_ROUTE = "admin_registrations?propertyId={propertyId}"
     const val ADMIN_PROJECTS = "admin_projects"
     const val ADMIN_CAMPAIGNS = "admin_campaigns"
     const val ADMIN_TRANSACTIONS = "admin_transactions"

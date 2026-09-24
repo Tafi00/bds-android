@@ -58,7 +58,13 @@ data class ConversationItem(
     // tell they are not a party and split bubbles by senderType instead.
     val advisorId: String = "",
     val customerPhone: String = "",
-    val customerUserId: String = ""
+    val customerUserId: String = "",
+    // Extra fields for the web-parity search and sender labels.
+    val advisorName: String = "",
+    val advisorPhone: String = "",
+    val customerName: String = "",
+    val propertyTitle: String = "",
+    val propertyId: String = ""
 )
 
 data class ChatMessage(
@@ -69,8 +75,15 @@ data class ChatMessage(
     val isMe: Boolean,
     val time: String,
     val propertyCard: JSONValue? = null,
-    val propertyCards: List<JSONValue> = emptyList()
+    val propertyCards: List<JSONValue> = emptyList(),
+    val createdAt: String = "",
+    val readAt: String = "",
+    val pending: Boolean = false,
+    val failed: Boolean = false,
+    val detectedLanguage: String = "",
+    val translations: Map<String, String> = emptyMap()
 )
+
 enum class BubbleGroupPosition {
     SINGLE, FIRST, MIDDLE, LAST
 }
@@ -97,20 +110,26 @@ private fun parseChatPropertyCards(metadata: JSONValue): List<JSONValue> {
 
 /**
  * Whether a message returned by the API/WebSocket was authored by the signed-in
- * account. Guests have no profile id on the device, so the side of the
- * conversation being viewed is used as a fallback.
+ * account — same precedence as the web `isOwnMessage`: bot never own, explicit
+ * "me" marker, sender id, then the viewer's phone, then the observer rule,
+ * then the side of the conversation being viewed.
  */
 private fun isOwnChatMessage(
     senderId: String,
     senderType: String,
     currentUserId: String,
     viewerIsCustomer: Boolean,
-    viewerIsParticipant: Boolean = true
+    viewerIsParticipant: Boolean = true,
+    userPhone: String = ""
 ): Boolean {
+    if (senderType == "bot") return false
+    if (senderId == "me") return true
+    if (currentUserId.isNotEmpty() && senderId.isNotEmpty() && senderId == currentUserId) return true
+    if (userPhone.isNotEmpty() && senderId == userPhone) return true
     // A non-participant viewer (admin monitoring another thread) is never the
     // sender — split by senderType: customer left, staff right.
     if (!viewerIsParticipant) return senderType == "staff"
-    if (currentUserId.isNotEmpty() && senderId.isNotEmpty()) return senderId == currentUserId
+    if (currentUserId.isNotEmpty() && senderId.isNotEmpty()) return false
     return if (viewerIsCustomer) senderType == "customer" else senderType == "staff"
 }
 
@@ -156,14 +175,10 @@ fun ChatScreen(
 ) {
     val scope = rememberCoroutineScope()
     val accountIsStaff = AppSession.shared.role != "customer" && AppSession.shared.role != "guest"
-    // Role follows the screen context: outside the advisor workspace the
-    // account always talks as a customer, even when the account is staff.
+    // Staff only have the advisor inbox — staff-to-staff chat was removed.
     val isStaff = staffContext && accountIsStaff
-    val buyerPhone = if (accountIsStaff) AppSession.shared.user?.get("phone")?.string.orEmpty() else ""
-
     fun conversationBody(vararg fields: Pair<String, String>): String {
         val parts = mutableListOf<String>()
-        if (buyerPhone.isNotEmpty()) parts.add("\"customerPhone\":\"$buyerPhone\"")
         fields.forEach { (key, value) -> if (value.isNotEmpty()) parts.add("\"$key\":\"$value\"") }
         return if (parts.isEmpty()) "{}" else "{${parts.joinToString(",")}}"
     }
@@ -171,28 +186,7 @@ fun ChatScreen(
     // A null id shows the conversation list (the entry screen). Deep links and an
     // explicit advisor/AI target open the thread directly instead.
     var activeConversationId by remember { mutableStateOf(initialConversationId) }
-    var activeConversationName by remember { mutableStateOf(targetAdvisorName ?: (if (isAiChat) "Trợ lý AI FUTA Land" else if (isStaff) "Khách hàng" else "Trợ lý AI FUTA Land")) }
-
-    val focusRequester = remember { FocusRequester() }
-    LaunchedEffect(activeConversationId) {
-        delay(350)
-        try {
-            focusRequester.requestFocus()
-        } catch (_: Exception) {}
-    }
-
-    var search by remember { mutableStateOf("") }
-    var filterTab by remember { mutableStateOf("all") }
-    var showingNewChatDialog by remember { mutableStateOf(false) }
-    var newCustomerPhone by remember { mutableStateOf("") }
-    var isCreatingConv by remember { mutableStateOf(false) }
-    var staffChatMode by remember { mutableStateOf("advisor") } // "advisor" vs "buyer"
-    val availableAdvisors = remember { mutableStateListOf<JSONValue>() }
-    val conversations = remember {
-        mutableStateListOf<ConversationItem>()
-    }
-
-    suspend fun fetchConversationsList(mode: String) {
+    suspend fun fetchConversationsList(cursor: String? = null) {
         try {
             val unreadMap = mutableMapOf<String, Int>()
             try {
@@ -205,32 +199,38 @@ fun ChatScreen(
             } catch (_: Exception) {}
 
             val query = mutableMapOf("limit" to "50")
-            if (isStaff) {
-                query["mode"] = mode
-            } else if (accountIsStaff) {
-                // Staff outside the advisor workspace only sees own buyer chats.
-                query["mode"] = "buyer"
-            }
+            if (!cursor.isNullOrEmpty()) query["cursor"] = cursor
             val res = APIClient.get().request("/chat/conversations", query = query)
             val list = res["data"].array
 
-            conversations.clear()
+            // Join every thread like the web — unread badges and typing events
+            // only arrive for rooms the socket has joined.
+            for (c in list) {
+                if (c.id.isNotEmpty()) ChatWebSocketManager.shared.join(c.id)
+            }
+
+            val myUserId = AppSession.shared.user?.id.orEmpty()
+            val page = mutableListOf<ConversationItem>()
             for (c in list) {
                 val advId = c["advisorId"].string
                 val isAi = advId.isEmpty()
-                val name = if (isStaff && mode == "advisor") {
+                // Web parity: a staff member's own buyer thread shows the
+                // advisor side, not their own customer record.
+                val isBuyerConv = c["customer"]["websiteUserId"].string == myUserId || advId.isEmpty()
+                val name = if (isStaff && !isBuyerConv) {
                     val cName = c["customer"]["customerName"].string
                     cName.ifEmpty { c["customerPhone"].string.ifEmpty { "Khách hàng" } }
                 } else {
                     if (isAi) "Trợ lý AI FUTA Land" else c["advisor"]["name"].string.ifEmpty { "Sale phụ trách điều phối" }
                 }
-                val badge = if (isStaff && mode == "advisor") "" else (if (isAi) "" else "Sale phụ trách")
+                val badge = if (isAi) "" else if (!isStaff || isBuyerConv) "Sale phụ trách"
+                    else c["advisor"]["name"].string.ifEmpty { "Sale phụ trách" }
                 val lastMsg = c["lastMessageContent"].string.ifEmpty { "Bắt đầu cuộc trò chuyện..." }
                 val time = formatChatDateTime(c["lastMessageAt"].string.ifEmpty { c["updatedAt"].string })
                 val unread = unreadMap[c.id] ?: c["unreadCount"].int
                 val projectName = c["property"]["projectName"].string
                 val code = c["property"]["propertyCode"].string.ifEmpty { c["property"]["unitCode"].string }
-                conversations.add(
+                page.add(
                     ConversationItem(
                         id = c.id,
                         name = name,
@@ -244,22 +244,27 @@ fun ChatScreen(
                         contextCode = code,
                         advisorId = advId,
                         customerPhone = c["customerPhone"].string,
-                        customerUserId = c["customer"]["websiteUserId"].string
+                        customerUserId = c["customer"]["websiteUserId"].string,
+                        advisorName = c["advisor"]["name"].string,
+                        advisorPhone = c["advisor"]["phone"].string,
+                        customerName = c["customer"]["customerName"].string,
+                        propertyTitle = c["property"]["title"].string,
+                        propertyId = c["propertyId"].string.ifEmpty { c["property"]["id"].string }
                     )
                 )
             }
+
+            if (cursor.isNullOrEmpty()) {
+                conversations.clear()
+            }
+            val existingIds = conversations.map { it.id }.toSet()
+            conversations.addAll(page.filter { it.id !in existingIds })
+            conversationCursor = res["nextCursor"].string.ifEmpty { null }
+
             if (!activeConversationId.isNullOrEmpty()) {
                 conversations.find { it.id == activeConversationId }?.let { matched ->
                     activeConversationName = matched.name
                 }
-            }
-
-            if (isStaff && mode == "buyer") {
-                try {
-                    val advRes = APIClient.get().request("/sales/advisors")
-                    availableAdvisors.clear()
-                    availableAdvisors.addAll(advRes["data"].array)
-                } catch (_: Exception) {}
             }
 
             ChatUnreadBadge.set(conversations.sumOf { it.unreadCount })
@@ -288,10 +293,10 @@ fun ChatScreen(
             AppSession.shared.ensureGuest()
         }
         ChatWebSocketManager.shared.connect()
-        fetchConversationsList(if (isStaff) staffChatMode else "buyer")
+        fetchConversationsList()
 
         try {
-            if (!targetAdvisorId.isNullOrEmpty()) {
+            if (!targetAdvisorId.isNullOrEmpty() && !accountIsStaff) {
                 val existing = conversations.find { !it.isAi && it.name.contains(targetAdvisorName ?: "") }
                 if (existing != null) {
                     activeConversationId = existing.id
@@ -310,7 +315,7 @@ fun ChatScreen(
                         activeConversationName = advName
                     }
                 }
-            } else if (isAiChat) {
+            } else if (isAiChat && !accountIsStaff) {
                 val aiConv = conversations.find { it.isAi }
                 if (aiConv != null) {
                     activeConversationId = aiConv.id
@@ -324,9 +329,9 @@ fun ChatScreen(
                         activeConversationName = "Trợ lý AI FUTA Land"
                     }
                 }
-            } else if (!isStaff && activeConversationId.isNullOrEmpty()) {
+            } else if (!accountIsStaff && activeConversationId.isNullOrEmpty()) {
                 // Ensure the AI conversation always exists so it appears in the list.
-                if (conversations.isEmpty()) {
+                if (conversations.none { it.isAi }) {
                     val createRes = APIClient.get().request("/chat/conversations", method = "POST", bodyJson = conversationBody())
                     val newConv = createRes["data"]
                     if (!newConv.id.isEmpty()) {
@@ -347,11 +352,6 @@ fun ChatScreen(
         } catch (_: Exception) {}
     }
 
-    LaunchedEffect(staffChatMode) {
-        if (isStaff) {
-            fetchConversationsList(staffChatMode)
-        }
-    }
 
     val isConnected by ChatWebSocketManager.shared.isConnected.collectAsState()
     val typingUsers by ChatWebSocketManager.shared.typingUsers.collectAsState()
@@ -426,45 +426,6 @@ fun ChatScreen(
                         }
                     }
 
-                    // Staff Mode Switcher
-                    Surface(
-                        shape = RoundedCornerShape(10.dp),
-                        color = Color(0xFFF1F5F9),
-                        modifier = Modifier.fillMaxWidth().padding(top = 10.dp)
-                    ) {
-                        Row(modifier = Modifier.fillMaxWidth().padding(3.dp)) {
-                            Surface(
-                                shape = RoundedCornerShape(8.dp),
-                                color = if (staffChatMode == "advisor") Color.White else Color.Transparent,
-                                shadowElevation = if (staffChatMode == "advisor") 1.dp else 0.dp,
-                                modifier = Modifier.weight(1f).clickable { staffChatMode = "advisor" }
-                            ) {
-                                Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(vertical = 7.dp)) {
-                                    Text(
-                                        text = "Khách hàng liên hệ",
-                                        fontSize = 12.sp,
-                                        fontWeight = if (staffChatMode == "advisor") FontWeight.Bold else FontWeight.Medium,
-                                        color = if (staffChatMode == "advisor") FutaColors.BrandGreen else Color(0xFF64748B)
-                                    )
-                                }
-                            }
-                            Surface(
-                                shape = RoundedCornerShape(8.dp),
-                                color = if (staffChatMode == "buyer") Color.White else Color.Transparent,
-                                shadowElevation = if (staffChatMode == "buyer") 1.dp else 0.dp,
-                                modifier = Modifier.weight(1f).clickable { staffChatMode = "buyer" }
-                            ) {
-                                Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(vertical = 7.dp)) {
-                                    Text(
-                                        text = "Tôi hỏi mua / TVV khác",
-                                        fontSize = 12.sp,
-                                        fontWeight = if (staffChatMode == "buyer") FontWeight.Bold else FontWeight.Medium,
-                                        color = if (staffChatMode == "buyer") FutaColors.BrandGreen else Color(0xFF64748B)
-                                    )
-                                }
-                            }
-                        }
-                    }
 
                     Spacer(Modifier.height(10.dp))
 
@@ -637,81 +598,6 @@ fun ChatScreen(
                     }
                 }
 
-                if (staffChatMode == "buyer" && availableAdvisors.isNotEmpty()) {
-                    item {
-                        Text(
-                            text = "TƯ VẤN VIÊN SẴN SÀNG HỖ TRỢ",
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = FutaColors.BrandGreen,
-                            letterSpacing = 0.5.sp,
-                            modifier = Modifier.padding(top = 14.dp, bottom = 4.dp)
-                        )
-                    }
-                    items(availableAdvisors.size) { idx ->
-                        val item = availableAdvisors[idx]
-                        val adv = item["advisor"]
-                        val property = item["property"]
-                        val advName = adv["name"].string.ifEmpty { "Tư vấn viên FUTA" }
-                        val propCode = property["propertyCode"].string
-                        val projectName = property["projectName"].string
-
-                        FutaCard(
-                            modifier = Modifier.fillMaxWidth(),
-                            onClick = {
-                                scope.launch {
-                                    try {
-                                        val body = conversationBody(
-                                            "advisorId" to adv["id"].string,
-                                            "propertyId" to property.id
-                                        )
-                                        val res = APIClient.get().request("/chat/conversations", method = "POST", bodyJson = body)
-                                        val newConv = res["data"]
-                                        if (!newConv.id.isEmpty()) {
-                                            activeConversationId = newConv.id
-                                            activeConversationName = advName
-                                        }
-                                    } catch (_: Exception) {}
-                                }
-                            }
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(12.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Surface(
-                                    shape = CircleShape,
-                                    color = FutaColors.MintBg,
-                                    modifier = Modifier.size(42.dp)
-                                ) {
-                                    Box(contentAlignment = Alignment.Center) {
-                                        Icon(Icons.Default.Person, contentDescription = null, tint = FutaColors.BrandGreen, modifier = Modifier.size(20.dp))
-                                    }
-                                }
-                                Spacer(Modifier.width(12.dp))
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(text = advName, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
-                                    if (propCode.isNotEmpty()) {
-                                        Text(text = "$propCode • $projectName", fontSize = 11.5.sp, color = FutaColors.BrandGreen)
-                                    }
-                                }
-                                Surface(
-                                    shape = CircleShape,
-                                    color = FutaColors.BrandGreen,
-                                    modifier = Modifier.padding(start = 8.dp)
-                                ) {
-                                    Text(
-                                        text = "Nhắn tin",
-                                        fontSize = 11.5.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = Color.White,
-                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
             }
         }
     } else if (activeConversationId.isNullOrEmpty()) {
@@ -998,29 +884,37 @@ fun ChatScreen(
                     try {
                         val msgRes = APIClient.get().request("/chat/conversations/$convId/messages", query = mapOf("limit" to "50"))
                         val msgList = msgRes["data"].array
-                        if (msgList.isNotEmpty()) {
-                            messages.clear()
-                            val currentUserId = AppSession.shared.user?.id.orEmpty()
-                            val sorted = msgList.sortedBy { it["createdAt"].string }
-                            for (m in sorted) {
-                                val sType = m["senderType"].string
-                                val senderId = m["senderId"].string
-                                val isMe = isOwnChatMessage(senderId, sType, currentUserId, viewerIsCustomer = !isStaff, viewerIsParticipant = viewerIsParticipant)
-                                val timeStr = formatChatTime(m["createdAt"].string)
-                                val cards = parseChatPropertyCards(m["metadata"])
-                                messages.add(
-                                    ChatMessage(
-                                        id = m.id,
-                                        senderId = m["senderId"].string,
-                                        senderName = if (isMe && viewerIsParticipant) "Tôi" else (if (sType == "bot") "Trợ lý AI FUTA Land" else if (sType == "staff") "Tư vấn viên" else "Khách hàng"),
-                                        content = m["content"].string,
-                                        isMe = isMe,
-                                        time = timeStr,
-                                        propertyCard = cards.firstOrNull(),
-                                        propertyCards = cards
-                                    )
-                                )
+                        messagesCursor = msgRes["nextCursor"].string.ifEmpty { null }
+                        messages.clear()
+                        val currentUserId = AppSession.shared.user?.id.orEmpty()
+                        val myPhone = AppSession.shared.user?.get("phone")?.string.orEmpty()
+                        val sorted = msgList.sortedBy { it["createdAt"].string }
+                        for (m in sorted) {
+                            val sType = m["senderType"].string
+                            val senderId = m["senderId"].string
+                            val isMe = isOwnChatMessage(senderId, sType, currentUserId, viewerIsCustomer = !isStaff, viewerIsParticipant = viewerIsParticipant, userPhone = myPhone)
+                            val timeStr = formatChatTime(m["createdAt"].string)
+                            val cards = parseChatPropertyCards(m["metadata"])
+                            val transMap = mutableMapOf<String, String>()
+                            (m["translations"].element as? kotlinx.serialization.json.JsonObject)?.forEach { (k, v) ->
+                                transMap[k] = (v as? kotlinx.serialization.json.JsonPrimitive)?.content ?: ""
                             }
+                            messages.add(
+                                ChatMessage(
+                                    id = m.id,
+                                    senderId = m["senderId"].string,
+                                    senderName = if (isMe && viewerIsParticipant) "Tôi" else (if (sType == "bot") "Trợ lý AI FUTA Land" else if (sType == "staff") "Tư vấn viên" else "Khách hàng"),
+                                    content = m["content"].string,
+                                    isMe = isMe,
+                                    time = timeStr,
+                                    propertyCard = cards.firstOrNull(),
+                                    propertyCards = cards,
+                                    createdAt = m["createdAt"].string,
+                                    readAt = m["readAt"].string,
+                                    detectedLanguage = m["detectedLanguage"].string,
+                                    translations = transMap
+                                )
+                            )
                         }
                     } catch (_: Exception) {}
                 }
@@ -1041,8 +935,13 @@ fun ChatScreen(
                         senderType = jsonMsg["senderType"].string,
                         currentUserId = AppSession.shared.user?.id.orEmpty(),
                         viewerIsCustomer = !isStaff,
-                        viewerIsParticipant = viewerIsParticipant
+                        viewerIsParticipant = viewerIsParticipant,
+                        userPhone = AppSession.shared.user?.get("phone")?.string.orEmpty()
                     )
+                    val transMap = mutableMapOf<String, String>()
+                    (jsonMsg["translations"].element as? kotlinx.serialization.json.JsonObject)?.forEach { (k, v) ->
+                        transMap[k] = (v as? kotlinx.serialization.json.JsonPrimitive)?.content ?: ""
+                    }
                     val newMsg = ChatMessage(
                         id = jsonMsg["id"].string.ifEmpty { nextLocalMessageId() },
                         senderId = jsonMsg["senderId"].string,
@@ -1051,7 +950,11 @@ fun ChatScreen(
                         isMe = isMine,
                         time = "Vừa xong",
                         propertyCard = cards.firstOrNull(),
-                        propertyCards = cards
+                        propertyCards = cards,
+                        createdAt = jsonMsg["createdAt"].string,
+                        readAt = jsonMsg["readAt"].string,
+                        detectedLanguage = jsonMsg["detectedLanguage"].string,
+                        translations = transMap
                     )
                     mergeIncomingChatMessage(messages, newMsg)
                     val isBot = jsonMsg["senderType"].string == "bot"
@@ -1071,8 +974,33 @@ fun ChatScreen(
                     }
                 }
             }
+            // Read receipts: the other party marked the thread read — stamp
+            // readAt on every message the viewer sent (web: handleMessagesRead).
+            ChatWebSocketManager.shared.onMessagesRead = { convId, _ ->
+                if (convId == activeConversationId) {
+                    val now = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", java.util.Locale.US).apply {
+                        timeZone = java.util.TimeZone.getTimeZone("UTC")
+                    }.format(java.util.Date())
+                    for (i in messages.indices) {
+                        val m = messages[i]
+                        if (m.isMe && m.readAt.isEmpty()) {
+                            messages[i] = m.copy(readAt = now)
+                        }
+                    }
+                }
+            }
+            ChatWebSocketManager.shared.onMessageTranslated = { msgId, convId, translations ->
+                if (convId == activeConversationId) {
+                    val idx = messages.indexOfFirst { it.id == msgId }
+                    if (idx >= 0) {
+                        messages[idx] = messages[idx].copy(translations = translations)
+                    }
+                }
+            }
             onDispose {
                 ChatWebSocketManager.shared.onNewMessage = null
+                ChatWebSocketManager.shared.onMessagesRead = null
+                ChatWebSocketManager.shared.onMessageTranslated = null
             }
         }
 
@@ -1086,7 +1014,8 @@ fun ChatScreen(
                 senderName = "Tôi",
                 content = textToSend,
                 isMe = true,
-                time = "Bây giờ"
+                time = "Bây giờ",
+                pending = true
             )
             messages.add(newMsg)
             if (customText == null) messageText = ""
@@ -1146,6 +1075,8 @@ fun ChatScreen(
 
             scope.launch {
                 try {
+                    // 1. Resolve the real conversation id first — the prop may
+                    // still be "ai_agent" while the thread is created lazily.
                     var targetConvId = activeConversationId ?: "ai_agent"
                     if (targetConvId == "ai_agent") {
                         val createRes = APIClient.get().request("/chat/conversations", method = "POST", bodyJson = conversationBody())
@@ -1156,17 +1087,29 @@ fun ChatScreen(
                             ChatWebSocketManager.shared.join(newConv.id)
                         }
                     }
-                    if (ChatWebSocketManager.shared.isConnected.value) {
-                        ChatWebSocketManager.shared.sendMessage(targetConvId, textToSend)
-                    } else {
-                        val escaped = textToSend.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n")
-                        APIClient.get().request(
-                            "/chat/conversations/$targetConvId/messages",
-                            method = "POST",
-                            bodyJson = "{\"content\":\"$escaped\"}"
-                        )
+                    // 2. Post via REST like the web — the socket echo replaces
+                    // the optimistic bubble when it arrives.
+                    val escaped = textToSend.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n")
+                    val res = APIClient.get().request(
+                        "/chat/conversations/$targetConvId/messages",
+                        method = "POST",
+                        bodyJson = "{\"content\":\"$escaped\"}"
+                    )
+                    val saved = res["data"]
+                    if (!saved.id.isEmpty()) {
+                        val idx = messages.indexOfFirst { it.id == newMsg.id }
+                        if (idx >= 0) {
+                            messages[idx] = newMsg.copy(id = saved.id, pending = false, createdAt = saved["createdAt"].string)
+                        } else if (messages.none { it.id == saved.id }) {
+                            messages.add(newMsg.copy(id = saved.id, pending = false, createdAt = saved["createdAt"].string))
+                        }
                     }
-                } catch (_: Exception) {}
+                } catch (_: Exception) {
+                    // Mark the optimistic bubble failed so the user sees it did
+                    // not go through (web parity).
+                    val idx = messages.indexOfFirst { it.id == newMsg.id }
+                    if (idx >= 0) messages[idx] = messages[idx].copy(failed = true, pending = false)
+                }
             }
         }
 
@@ -1390,8 +1333,12 @@ fun ChatScreen(
                                 value = messageText,
                                 onValueChange = {
                                     messageText = it
+                                    // Web parity: typing events only fire for a
+                                    // real thread — never the "ai_agent" placeholder.
                                     activeConversationId?.let { convId ->
-                                        ChatWebSocketManager.shared.sendTyping(convId)
+                                        if (convId.isNotEmpty() && convId != "ai_agent") {
+                                            ChatWebSocketManager.shared.sendTyping(convId)
+                                        }
                                     }
                                 },
                                 placeholder = if (isStaff) "Nhập tin nhắn tư vấn…" else "Nhập câu hỏi và nhu cầu",

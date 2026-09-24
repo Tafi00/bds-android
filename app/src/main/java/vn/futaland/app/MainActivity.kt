@@ -221,7 +221,9 @@ class MainActivity : ComponentActivity() {
                             navController.navigate(FutaDestinations.chat(conversationId = convId))
                         } ?: safeNavigate(
                             FutaDestinations.adminCustomers(
-                                routeUri.getQueryParameter("customerId") ?: routeUri.getQueryParameter("id")
+                                segments.getOrNull(1)
+                                    ?: routeUri.getQueryParameter("customerId")
+                                    ?: routeUri.getQueryParameter("id")
                             )
                         )
                         "crm" -> safeNavigate(
@@ -269,7 +271,7 @@ class MainActivity : ComponentActivity() {
                             "projects" -> safeNavigate(FutaDestinations.ADMIN_PROJECTS)
                             "campaigns", "sales-campaigns" -> safeNavigate(FutaDestinations.ADMIN_CAMPAIGNS)
                             "inventory", "product-inventory" -> safeNavigate(FutaDestinations.ADMIN_INVENTORY)
-                            "registrations", "sales-registrations" -> safeNavigate(FutaDestinations.ADMIN_REGISTRATIONS)
+                            "registrations", "sales-registrations" -> safeNavigate(FutaDestinations.adminRegistrations(segments.getOrNull(2)))
                             "transactions" -> safeNavigate(FutaDestinations.ADMIN_TRANSACTIONS)
                             "cms", "news" -> safeNavigate(FutaDestinations.ADMIN_CMS)
                             "settings", "system-settings" -> safeNavigate(FutaDestinations.ADMIN_SETTINGS)
@@ -279,8 +281,8 @@ class MainActivity : ComponentActivity() {
                             "ai", "ai-training" -> safeNavigate(FutaDestinations.ADMIN_AI)
                             "exams", "advisor-exams" -> safeNavigate(FutaDestinations.ADMIN_EXAMS)
                             "zalo" -> safeNavigate(FutaDestinations.ADMIN_ZALO)
+                            "customers" -> safeNavigate(FutaDestinations.adminCustomers(segments.getOrNull(2)))
                             "chat" -> safeNavigate(FutaDestinations.CHAT_CENTER)
-                            "customers" -> safeNavigate(FutaDestinations.ADMIN_CUSTOMERS)
                             "contracts" -> safeNavigate(FutaDestinations.ADMIN_CONTRACTS)
                             "reports" -> safeNavigate(FutaDestinations.ADMIN_REPORTS)
                             "crm" -> safeNavigate(FutaDestinations.CRM)
@@ -514,8 +516,14 @@ class MainActivity : ComponentActivity() {
                             composable(FutaDestinations.ADMIN_INVENTORY) {
                                 AdminModuleScreen("Quản lý sản phẩm", "/apartments") { navController.popBackStack() }
                             }
-                            composable(FutaDestinations.ADMIN_REGISTRATIONS) {
-                                AdminRegistrationsScreen { navController.popBackStack() }
+                            composable(
+                                route = FutaDestinations.ADMIN_REGISTRATIONS_ROUTE,
+                                arguments = listOf(navArgument("propertyId") { type = NavType.StringType; nullable = true; defaultValue = null })
+                            ) { backStack ->
+                                AdminRegistrationsScreen(
+                                    onBack = { navController.popBackStack() },
+                                    initialPropertyId = backStack.arguments?.getString("propertyId")
+                                )
                             }
                             composable(FutaDestinations.ADMIN_TRANSACTIONS) {
                                 AdminTransactionsScreen { navController.popBackStack() }

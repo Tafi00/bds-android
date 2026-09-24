@@ -25,6 +25,7 @@ class ChatWebSocketManager private constructor() {
     var onNewMessage: ((JSONValue) -> Unit)? = null
     var onMessagesRead: ((conversationId: String, userId: String) -> Unit)? = null
     var onNewConversation: ((JSONValue) -> Unit)? = null
+    var onMessageTranslated: ((messageId: String, conversationId: String, translations: Map<String, String>) -> Unit)? = null
 
     private val productEventListeners = java.util.concurrent.ConcurrentHashMap<String, (JSONValue) -> Unit>()
 
@@ -241,6 +242,17 @@ class ChatWebSocketManager private constructor() {
                     val conv = json["conversation"]
                     scope.launch(Dispatchers.Main) {
                         onNewConversation?.invoke(conv)
+                    }
+                }
+                "message_translated" -> {
+                    val msgId = json["messageId"].string
+                    val convId = json["conversationId"].string
+                    val trans = mutableMapOf<String, String>()
+                    (json["translations"].element as? kotlinx.serialization.json.JsonObject)?.forEach { (k, v) ->
+                        trans[k] = (v as? kotlinx.serialization.json.JsonPrimitive)?.content ?: ""
+                    }
+                    scope.launch(Dispatchers.Main) {
+                        onMessageTranslated?.invoke(msgId, convId, trans)
                     }
                 }
                 "product_holding_updated", "product_registration_updated", "product_inventory_updated" -> {

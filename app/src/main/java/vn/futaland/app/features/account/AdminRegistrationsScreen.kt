@@ -46,7 +46,8 @@ enum class RegistrationTab(val label: String) {
 
 @Composable
 fun AdminRegistrationsScreen(
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    initialPropertyId: String? = null
 ) {
     val scope = rememberCoroutineScope()
     var registrations by remember { mutableStateOf<List<JSONValue>>(emptyList()) }
@@ -93,6 +94,24 @@ fun AdminRegistrationsScreen(
     LaunchedEffect(search) {
         kotlinx.coroutines.delay(300)
         loadRegistrations(search)
+    }
+
+    // Deep link (notification tap /admin/sales-registrations/{propertyId}):
+    // open the matching registration detail sheet once data arrives.
+    var deepLinkHandled by remember { mutableStateOf(false) }
+    LaunchedEffect(registrations, initialPropertyId) {
+        val target = initialPropertyId?.takeIf { it.isNotEmpty() } ?: return@LaunchedEffect
+        if (deepLinkHandled || registrations.isEmpty()) return@LaunchedEffect
+        val match = registrations.firstOrNull { reg ->
+            reg["propertyId"].string.equals(target, ignoreCase = true) ||
+                reg["property"]["id"].string.equals(target, ignoreCase = true) ||
+                reg["unitCode"].string.equals(target, ignoreCase = true) ||
+                reg["property"]["propertyCode"].string.equals(target, ignoreCase = true)
+        }
+        if (match != null) {
+            deepLinkHandled = true
+            selectedRegistration = match
+        }
     }
 
     DisposableEffect(Unit) {

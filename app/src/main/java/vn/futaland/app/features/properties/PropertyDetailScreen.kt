@@ -81,6 +81,8 @@ fun PropertyDetailScreen(
             else -> ProductContext.CUSTOMER
         }
     } else productContext
+    // Staff never chat as a customer — advisor/AI chat buttons are hidden for them.
+    val accountIsStaff = AppSession.shared.role != "customer" && AppSession.shared.role != "guest"
     val scopeKey = "$propertyId|${effectiveContext.wire}|${sessionUser?.id.orEmpty()}|${AppSession.shared.role}|$permissions"
     val lifecycleOwner = LocalLifecycleOwner.current
     var refreshRevision by remember(scopeKey) { mutableIntStateOf(0) }
@@ -1225,30 +1227,31 @@ fun PropertyDetailScreen(
                                                     Text("Zalo", fontSize = 11.sp, fontWeight = FontWeight.Black, color = Color(0xFF0068FF))
                                                 }
                                             }
-
-                                            // 3. Native Chat Button
-                                            Surface(
-                                                shape = CircleShape,
-                                                color = Color(0xFFE8F5E9),
-                                                modifier = Modifier
-                                                    .size(40.dp)
-                                                    .clickable {
-                                                        onNavigate(
-                                                            FutaDestinations.chat(context = effectiveContext, 
-                                                                advisorId = advId,
-                                                                advisorName = advName,
-                                                                propertyId = property.id.ifEmpty { propertyId }
+                                            // 3. Native Chat Button — customer-only.
+                                            if (!accountIsStaff) {
+                                                Surface(
+                                                    shape = CircleShape,
+                                                    color = Color(0xFFE8F5E9),
+                                                    modifier = Modifier
+                                                        .size(40.dp)
+                                                        .clickable {
+                                                            onNavigate(
+                                                                FutaDestinations.chat(context = effectiveContext,
+                                                                    advisorId = advId,
+                                                                    advisorName = advName,
+                                                                    propertyId = property.id.ifEmpty { propertyId }
+                                                                )
                                                             )
+                                                        }
+                                                ) {
+                                                    Box(contentAlignment = Alignment.Center) {
+                                                        Icon(
+                                                            painter = painterResource(id = R.drawable.sf_btn_chat),
+                                                            contentDescription = "Chat",
+                                                            tint = Color(0xFF0E7643),
+                                                            modifier = Modifier.size(15.dp)
                                                         )
                                                     }
-                                            ) {
-                                                Box(contentAlignment = Alignment.Center) {
-                                                    Icon(
-                                                        painter = painterResource(id = R.drawable.sf_btn_chat),
-                                                        contentDescription = "Chat",
-                                                        tint = Color(0xFF0E7643),
-                                                        modifier = Modifier.size(15.dp)
-                                                    )
                                                 }
                                             }
                                         }
@@ -1256,40 +1259,42 @@ fun PropertyDetailScreen(
                                 }
                             }
 
-                            // AI Consult Button (Matching iOS)
-                            Surface(
-                                shape = RoundedCornerShape(12.dp),
-                                color = Color.White,
-                                border = BorderStroke(1.5.dp, Color(0xFF0E7643)),
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clickable {
-                                        onNavigate(
-                                            FutaDestinations.chat(context = effectiveContext, 
-                                                propertyId = property.id.ifEmpty { propertyId },
-                                                isAi = true
+                            // AI Consult Button (Matching iOS) — customer-only.
+                            if (!accountIsStaff) {
+                                Surface(
+                                    shape = RoundedCornerShape(12.dp),
+                                    color = Color.White,
+                                    border = BorderStroke(1.5.dp, Color(0xFF0E7643)),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable {
+                                            onNavigate(
+                                                FutaDestinations.chat(context = effectiveContext,
+                                                    propertyId = property.id.ifEmpty { propertyId },
+                                                    isAi = true
+                                                )
                                             )
+                                        }
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(vertical = 11.dp),
+                                        horizontalArrangement = Arrangement.Center,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Icon(
+                                            painter = painterResource(id = R.drawable.sf_tab_chat_active),
+                                            contentDescription = null,
+                                            tint = Color(0xFF0E7643),
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                        Spacer(Modifier.width(8.dp))
+                                        Text(
+                                            text = "Tư vấn với AI (24/7)",
+                                            fontSize = 13.5.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = Color(0xFF0E7643)
                                         )
                                     }
-                            ) {
-                                Row(
-                                    modifier = Modifier.padding(vertical = 11.dp),
-                                    horizontalArrangement = Arrangement.Center,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Icon(
-                                        painter = painterResource(id = R.drawable.sf_tab_chat_active),
-                                        contentDescription = null,
-                                        tint = Color(0xFF0E7643),
-                                        modifier = Modifier.size(16.dp)
-                                    )
-                                    Spacer(Modifier.width(8.dp))
-                                    Text(
-                                        text = "Tư vấn với AI (24/7)",
-                                        fontSize = 13.5.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = Color(0xFF0E7643)
-                                    )
                                 }
                             }
                         }
@@ -1891,19 +1896,21 @@ private fun StickyContactBottomBar(
                     }
                 }
 
-                // Quick chat icon
-                Surface(
-                    shape = CircleShape,
-                    color = Color(0xFF0E7643),
-                    modifier = Modifier.size(38.dp).clickable(onClick = onChatClick)
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(
-                            painter = painterResource(id = R.drawable.sf_tab_chat_active),
-                            contentDescription = "Chat tư vấn",
-                            tint = Color.White,
-                            modifier = Modifier.size(16.dp)
-                        )
+                // Quick chat icon — customer-only, staff never chat as a customer.
+                if (AppSession.shared.role == "customer" || AppSession.shared.role == "guest") {
+                    Surface(
+                        shape = CircleShape,
+                        color = Color(0xFF0E7643),
+                        modifier = Modifier.size(38.dp).clickable(onClick = onChatClick)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                painter = painterResource(id = R.drawable.sf_tab_chat_active),
+                                contentDescription = "Chat tư vấn",
+                                tint = Color.White,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
                     }
                 }
             }
@@ -1995,6 +2002,8 @@ private fun AdvisorContactBottomSheet(
     onChatAdvisor: (String, String) -> Unit,
     onChatAi: () -> Unit
 ) {
+    // Staff never chat as a customer — chat options are hidden for them.
+    val accountIsStaff = AppSession.shared.role != "customer" && AppSession.shared.role != "guest"
     val availableList = property["availableAdvisors"].array
     val advisors = if (availableList.isNotEmpty()) {
         availableList.distinctBy { it["id"].string.ifEmpty { it["advisorId"].string } }
@@ -2072,7 +2081,8 @@ private fun AdvisorContactBottomSheet(
                 }
             }
 
-            // 1. AI Consultation Card
+            // 1. AI Consultation Card — customer-only.
+            if (!accountIsStaff) {
             Surface(
                 shape = RoundedCornerShape(16.dp),
                 color = Color(0xFFF0FDF4),
@@ -2153,6 +2163,7 @@ private fun AdvisorContactBottomSheet(
                         }
                     }
                 }
+            }
             }
 
             // 2. Advisor List
@@ -2239,22 +2250,23 @@ private fun AdvisorContactBottomSheet(
                                         )
                                     }
                                 }
-
-                                // Chat
-                                Surface(
-                                    shape = CircleShape,
-                                    color = Color(0xFFE8F5E9),
-                                    modifier = Modifier
-                                        .size(38.dp)
-                                        .clickable { onChatAdvisor(advId, name) }
-                                ) {
-                                    Box(contentAlignment = Alignment.Center) {
-                                        Icon(
-                                            painter = painterResource(id = R.drawable.sf_btn_chat),
-                                            contentDescription = "Chat",
-                                            tint = Color(0xFF0E7643),
-                                            modifier = Modifier.size(15.dp)
-                                        )
+                                // Chat — customer-only.
+                                if (!accountIsStaff) {
+                                    Surface(
+                                        shape = CircleShape,
+                                        color = Color(0xFFE8F5E9),
+                                        modifier = Modifier
+                                            .size(38.dp)
+                                            .clickable { onChatAdvisor(advId, name) }
+                                    ) {
+                                        Box(contentAlignment = Alignment.Center) {
+                                            Icon(
+                                                painter = painterResource(id = R.drawable.sf_btn_chat),
+                                                contentDescription = "Chat",
+                                                tint = Color(0xFF0E7643),
+                                                modifier = Modifier.size(15.dp)
+                                            )
+                                        }
                                     }
                                 }
                             }
