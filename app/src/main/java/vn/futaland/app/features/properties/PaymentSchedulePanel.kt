@@ -1,6 +1,6 @@
 package vn.futaland.app.features.properties
 
-import android.content.Intent
+
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -52,6 +52,7 @@ import androidx.compose.ui.unit.sp
 import vn.futaland.app.core.network.APIClient
 import vn.futaland.app.core.network.JSONValue
 import vn.futaland.app.designsystem.FutaColors
+import vn.futaland.app.designsystem.ToastCenter
 
 @Composable
 fun PaymentSchedulePanel(
@@ -298,17 +299,19 @@ fun PaymentSchedulePanel(
                         if (showExportButton) {
                             OutlinedButton(
                                 onClick = {
-                                    val text = PaymentScheduleEngine.exportSummaryText(
-                                        policy = activePolicy,
-                                        result = scheduleResult,
-                                        unitLabel = unitCode
-                                    )
-                                    val sendIntent = Intent().apply {
-                                        action = Intent.ACTION_SEND
-                                        putExtra(Intent.EXTRA_TEXT, text)
-                                        type = "text/plain"
+                                    // Share a real .xlsx file: plain text made chat apps such as
+                                    // Zalo reject the attachment ("File bị lỗi").
+                                    try {
+                                        PaymentScheduleExcelExporter.share(
+                                            context = context,
+                                            policy = activePolicy,
+                                            result = scheduleResult,
+                                            unitLabel = unitCode,
+                                            projectName = property["projectName"].string.ifBlank { property["project"]["name"].string }
+                                        )
+                                    } catch (e: Exception) {
+                                        ToastCenter.show("Không tạo được file bảng tính. Vui lòng thử lại.", isError = true)
                                     }
-                                    context.startActivity(Intent.createChooser(sendIntent, "Xuất bảng tính thanh toán"))
                                 },
                                 shape = RoundedCornerShape(10.dp),
                                 border = BorderStroke(1.dp, Color(0xFFDFE6ED)),
