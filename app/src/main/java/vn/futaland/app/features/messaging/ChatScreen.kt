@@ -186,6 +186,22 @@ fun ChatScreen(
     // A null id shows the conversation list (the entry screen). Deep links and an
     // explicit advisor/AI target open the thread directly instead.
     var activeConversationId by remember { mutableStateOf(initialConversationId) }
+    var activeConversationName by remember { mutableStateOf(targetAdvisorName ?: "Trợ lý AI FUTA Land") }
+
+    val focusRequester = remember { FocusRequester() }
+    LaunchedEffect(activeConversationId) {
+        delay(350)
+        try {
+            focusRequester.requestFocus()
+        } catch (_: Exception) {}
+    }
+
+    var search by remember { mutableStateOf("") }
+    var filterTab by remember { mutableStateOf("all") }
+    var conversationCursor by remember { mutableStateOf<String?>(null) }
+    val conversations = remember {
+        mutableStateListOf<ConversationItem>()
+    }
     suspend fun fetchConversationsList(cursor: String? = null) {
         try {
             val unreadMap = mutableMapOf<String, Int>()
@@ -822,6 +838,7 @@ fun ChatScreen(
         }
         var isAiThinking by remember { mutableStateOf(false) }
         var aiPollJob by remember { mutableStateOf<Job?>(null) }
+        var messagesCursor by remember { mutableStateOf<String?>(null) }
         val activeConv = conversations.find { it.id == activeConversationId }
         // The viewer is a party of the thread when they are the assigned advisor
         // or the customer. An admin opening someone else's conversation is an
