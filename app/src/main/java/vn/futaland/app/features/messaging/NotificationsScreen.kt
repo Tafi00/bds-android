@@ -165,12 +165,14 @@ private fun demoNotifications(): List<NotificationModel> = listOf(
 )
 
 private fun parseNotification(item: JSONValue): NotificationModel {
-    val targetRoute = item["route"].string.ifEmpty { item["link"].string.ifEmpty { item["data"]["route"].string } }.takeIf { it.isNotEmpty() }
+    val storedRoute = item["route"].string.ifEmpty { item["link"].string.ifEmpty { item["data"]["route"].string } }
+    val isAppointment = item["type"].string.startsWith("viewing_appointment.")
+    val targetRoute = (if (isAppointment && storedRoute.startsWith("/chat")) "/notifications" else storedRoute).takeIf { it.isNotEmpty() }
     val rawCat = item["category"].string.ifEmpty { item["type"].string.ifEmpty { "system" } }
     val itemTitle = item["title"].string.ifEmpty { "Thông báo hệ thống" }
     val itemBody = item["body"].string.ifEmpty { item["message"].string.ifEmpty { item["content"].string } }
 
-    val normalizedCat = normalizeNotificationCategory(
+    val normalizedCat = if (isAppointment) "leads" else normalizeNotificationCategory(
         raw = rawCat,
         route = targetRoute ?: "",
         title = itemTitle,

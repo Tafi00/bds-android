@@ -80,7 +80,8 @@ class FutaMessagingService : FirebaseMessagingService() {
         if (targetUserId.isNotEmpty() && targetUserId != currentUserId) return
         val title = message.notification?.title ?: data["title"] ?: "FutaLand"
         val body = message.notification?.body ?: data["body"] ?: "Bạn có tin nhắn mới"
-        val route = data["route"] ?: data["url"]
+        val storedRoute = data["route"] ?: data["url"]
+        val route = if (data["type"]?.startsWith("viewing_appointment.") == true && storedRoute?.startsWith("/chat") == true) "/notifications" else storedRoute
         val notificationId = data["notificationId"]
         data["unreadCount"]?.toIntOrNull()?.let { ChatUnreadBadge.set(it) }
         inboxRevision.value += 1
