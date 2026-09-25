@@ -40,9 +40,11 @@ data class WorkspaceModuleItem(
     val requiredPermissions: List<String> = emptyList(),
     val requiresAdmin: Boolean = false,
     val requiresStaff: Boolean = false,
-    val hideIfStaff: Boolean = false
+    val hideIfStaff: Boolean = false,
+    val allowedRoles: Set<String>? = null
 ) {
     fun isVisible(session: AppSession): Boolean {
+        if (allowedRoles != null && (!session.isAuthenticated || session.role !in allowedRoles)) return false
         if (requiresAdmin && session.role != "admin") return false
         if (requiresStaff && !session.isInternalStaff && session.role != "admin") return false
         if (hideIfStaff && session.isInternalStaff) return false
@@ -262,6 +264,16 @@ fun WorkspaceScreen(
                 group = "Quản lý bán hàng",
                 route = FutaDestinations.ADMIN_CONTRACTS,
                 requiredPermissions = listOf("contracts:view")
+            ),
+            WorkspaceModuleItem(
+                id = "appointments",
+                title = "Lịch hẹn xem nhà",
+                subtitle = "Xác nhận, đổi giờ & theo dõi buổi dẫn khách",
+                vectorIcon = Icons.Default.EventAvailable,
+                badgeColor = Color(0xFF2563EB),
+                group = "Quản lý bán hàng",
+                route = FutaDestinations.STAFF_APPOINTMENTS,
+                allowedRoles = STAFF_APPOINTMENT_ROLES
             ),
             WorkspaceModuleItem(
                 id = "proposals",

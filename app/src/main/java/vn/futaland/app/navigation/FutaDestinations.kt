@@ -81,6 +81,9 @@ object FutaDestinations {
     const val MY_LISTINGS = "my_listings"
     const val VIEW_HISTORY = "view_history"
     const val VIEWING_APPOINTMENTS = "viewing_appointments"
+    const val STAFF_APPOINTMENTS = "staff_appointments"
+    const val STAFF_APPOINTMENT_DETAIL = "staff_appointment_detail/{id}"
+    fun staffAppointmentDetail(id: String) = "staff_appointment_detail/${android.net.Uri.encode(id)}"
     // Admin & Advisor Modules
     const val ADMIN_DASHBOARD = "admin_dashboard"
     const val ADMIN_INVENTORY = "admin_inventory"

@@ -75,6 +75,8 @@ import vn.futaland.app.features.account.BillingScreen
 import vn.futaland.app.features.properties.MyListingsScreen
 import vn.futaland.app.features.properties.ViewHistoryScreen
 import vn.futaland.app.features.account.ViewingAppointmentsScreen
+import vn.futaland.app.features.account.StaffViewingAppointmentsScreen
+import vn.futaland.app.features.account.StaffViewingAppointmentDetailScreen
 import vn.futaland.app.features.discovery.ProjectDetailScreen
 import vn.futaland.app.features.messaging.NotificationsScreen
 import vn.futaland.app.features.messaging.ChatUnreadBadge
@@ -160,6 +162,11 @@ class MainActivity : ComponentActivity() {
                         }
                     }
 
+                    // /admin/appointments[/id], /advisor/appointments[/id] (push routes from the backend).
+                    fun openAppointments(id: String?) = safeNavigate(
+                        if (id.isNullOrEmpty()) FutaDestinations.STAFF_APPOINTMENTS
+                        else FutaDestinations.staffAppointmentDetail(id)
+                    )
                     when (first) {
                         "" -> navController.navigate(FutaDestinations.DISCOVER) { popUpTo(0) }
                         "login-admin", "admin-login", "auth", "login", "dang-nhap", "signin", "auth-password" ->
@@ -247,12 +254,14 @@ class MainActivity : ComponentActivity() {
                                 )
                             )
                             segments.getOrNull(1) == "proposals" -> safeNavigate(FutaDestinations.ADVISOR_PROPOSALS)
+                            segments.getOrNull(1) == "appointments" -> openAppointments(segments.getOrNull(2))
                             segments.contains("registrations") -> safeNavigate(FutaDestinations.ADMIN_REGISTRATIONS)
                             else -> safeNavigate(FutaDestinations.ADVISOR)
                         }
                         "advisor-products" -> safeNavigate(FutaDestinations.ADVISOR_PRODUCTS)
                         "proposals", "de-xuat" -> safeNavigate(FutaDestinations.ADVISOR_PROPOSALS)
                         "registrations" -> safeNavigate(FutaDestinations.ADMIN_REGISTRATIONS)
+                        "appointments" -> openAppointments(segments.getOrNull(1))
                         "my-listings" -> safeNavigate(FutaDestinations.MY_LISTINGS)
                         "history", "view-history", "tin-da-xem" -> safeNavigate(FutaDestinations.VIEW_HISTORY)
                         "billing" -> safeNavigate(FutaDestinations.BILLING)
@@ -269,6 +278,7 @@ class MainActivity : ComponentActivity() {
                         "guide", "huong-dan", "docs" -> safeNavigate(FutaDestinations.GUIDE)
                         "admin" -> when (segments.getOrNull(1).orEmpty()) {
                             "dashboard" -> safeNavigate(FutaDestinations.ADMIN_DASHBOARD)
+                            "appointments" -> openAppointments(segments.getOrNull(2))
                             "projects" -> safeNavigate(FutaDestinations.ADMIN_PROJECTS)
                             "campaigns", "sales-campaigns" -> safeNavigate(FutaDestinations.ADMIN_CAMPAIGNS)
                             "inventory", "product-inventory" -> safeNavigate(FutaDestinations.ADMIN_INVENTORY)
@@ -693,6 +703,22 @@ class MainActivity : ComponentActivity() {
                             }
                             composable(FutaDestinations.VIEWING_APPOINTMENTS) {
                                 ViewingAppointmentsScreen(
+                                    onBack = { navController.popBackStack() },
+                                    onNavigate = { route -> safeNavigate(route) }
+                                )
+                            }
+                            composable(FutaDestinations.STAFF_APPOINTMENTS) {
+                                StaffViewingAppointmentsScreen(
+                                    onBack = { navController.popBackStack() },
+                                    onOpenDetail = { id -> safeNavigate(FutaDestinations.staffAppointmentDetail(id)) }
+                                )
+                            }
+                            composable(
+                                route = FutaDestinations.STAFF_APPOINTMENT_DETAIL,
+                                arguments = listOf(navArgument("id") { type = NavType.StringType })
+                            ) { backStack ->
+                                StaffViewingAppointmentDetailScreen(
+                                    appointmentId = backStack.arguments?.getString("id").orEmpty(),
                                     onBack = { navController.popBackStack() },
                                     onNavigate = { route -> safeNavigate(route) }
                                 )

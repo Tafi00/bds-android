@@ -305,7 +305,13 @@ fun AccountScreen(
                         AccountMenuItem(
                             iconRes = R.drawable.sf_acc_history,
                             title = "Lịch hẹn xem nhà",
-                            onClick = { onNavigate(FutaDestinations.VIEWING_APPOINTMENTS) }
+                            onClick = {
+                                // Staff manage the appointments assigned to them; customers see their bookings.
+                                onNavigate(
+                                    if (AppSession.shared.role in STAFF_APPOINTMENT_ROLES) FutaDestinations.STAFF_APPOINTMENTS
+                                    else FutaDestinations.VIEWING_APPOINTMENTS
+                                )
+                            }
                         )
 
                         AccountDivider()

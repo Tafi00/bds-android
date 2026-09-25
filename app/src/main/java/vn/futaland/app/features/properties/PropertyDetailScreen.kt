@@ -801,6 +801,218 @@ fun PropertyDetailScreen(
                         }
                     )
                 }
+                // Advisors sit right under the price table so buyers find them fast.
+                item {
+                    val availableList = property["availableAdvisors"].array
+                    val advisors = if (availableList.isNotEmpty()) {
+                        availableList.distinctBy { it["id"].string.ifEmpty { it["advisorId"].string } }
+                    } else {
+                        val advId = property["advisorId"].string.ifEmpty { property["advisor"]["id"].string.ifEmpty { property["createdBy"]["id"].string } }
+                        val advName = property["advisor"]["name"].string.ifEmpty { property["createdBy"]["name"].string }.ifEmpty { property["ownerName"].string.ifEmpty { "Chuyên viên tư vấn FUTA Land" } }
+                        val advPhone = property["advisor"]["phone"].string.ifEmpty { property["createdBy"]["phone"].string }.ifEmpty { property["ownerPhone"].string.ifEmpty { "02363575757" } }
+                        val advAvatar = property["advisor"]["avatar"].string.ifEmpty { property["createdBy"]["avatar"].string }
+                        listOf(
+                            JSONValue.parse("""{"id":"$advId","name":"$advName","phone":"$advPhone","avatar":"$advAvatar"}""")
+                        )
+                    }
+
+                    FutaCard(modifier = Modifier.fillMaxWidth()) {
+                        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "TƯ VẤN SẢN PHẨM",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFFF97316),
+                                    letterSpacing = 0.5.sp
+                                )
+                                Surface(
+                                    shape = CircleShape,
+                                    color = Color(0xFFE8F5E9)
+                                ) {
+                                    Text(
+                                        text = if (advisors.size > 1) "${advisors.size} TVV sẵn sàng" else "Chuyên viên sẵn sàng",
+                                        fontSize = 10.5.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = Color(0xFF0E7643),
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                                    )
+                                }
+                            }
+
+                            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                                advisors.forEachIndexed { idx, adv ->
+                                    val advName = adv["name"].string.ifEmpty { "Chuyên viên tư vấn FUTA Land" }
+                                    val advPhone = adv["phone"].string.ifEmpty { "02363575757" }
+                                    val advAvatar = adv["avatar"].string
+                                    val advId = adv["id"].string.ifEmpty { adv["advisorId"].string }
+
+                                    if (idx > 0) {
+                                        HorizontalDivider(color = Color(0xFFE2E8F0))
+                                    }
+
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Surface(
+                                            shape = CircleShape,
+                                            color = Color(0xFFE8F5E9),
+                                            modifier = Modifier.size(48.dp)
+                                        ) {
+                                            if (advAvatar.isNotEmpty()) {
+                                                coil3.compose.AsyncImage(
+                                                    model = advAvatar,
+                                                    contentDescription = advName,
+                                                    contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                                                    modifier = Modifier.fillMaxSize().clip(CircleShape)
+                                                )
+                                            } else {
+                                                Box(contentAlignment = Alignment.Center) {
+                                                    Text(
+                                                        text = advName.take(2).uppercase(),
+                                                        color = Color(0xFF0E7643),
+                                                        fontWeight = FontWeight.Bold,
+                                                        fontSize = 16.sp
+                                                    )
+                                                }
+                                            }
+                                        }
+
+                                        Spacer(Modifier.width(10.dp))
+
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text(
+                                                text = advName,
+                                                fontSize = 14.5.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = FutaColors.Navy
+                                            )
+                                            Text(
+                                                text = if (advisors.size > 1) "TVV phụ trách căn hộ" else "Sẵn sàng hỗ trợ 24/7",
+                                                fontSize = 11.5.sp,
+                                                color = FutaColors.Slate
+                                            )
+                                        }
+
+                                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                            // 1. Phone Call Button
+                                            Surface(
+                                                shape = CircleShape,
+                                                color = Color(0xFFFDF6EE),
+                                                modifier = Modifier
+                                                    .size(40.dp)
+                                                    .clickable {
+                                                        context.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:$advPhone")))
+                                                    }
+                                            ) {
+                                                Box(contentAlignment = Alignment.Center) {
+                                                    Icon(
+                                                        painter = painterResource(id = R.drawable.sf_btn_phone),
+                                                        contentDescription = "Gọi",
+                                                        tint = Color(0xFFF97316),
+                                                        modifier = Modifier.size(15.dp)
+                                                    )
+                                                }
+                                            }
+
+                                            // 2. Zalo Deep Link Button
+                                            Surface(
+                                                shape = CircleShape,
+                                                color = Color(0xFFEFF6FF),
+                                                modifier = Modifier
+                                                    .size(40.dp)
+                                                    .clickable {
+                                                        val zaloUrl = "https://zalo.me/$advPhone"
+                                                        try {
+                                                            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(zaloUrl)))
+                                                        } catch (_: Exception) {
+                                                            ToastCenter.show("Không thể mở Zalo: $zaloUrl")
+                                                        }
+                                                    }
+                                            ) {
+                                                Box(contentAlignment = Alignment.Center) {
+                                                    Text("Zalo", fontSize = 11.sp, fontWeight = FontWeight.Black, color = Color(0xFF0068FF))
+                                                }
+                                            }
+                                            // 3. Native Chat Button — customer-only.
+                                            if (!accountIsStaff) {
+                                                Surface(
+                                                    shape = CircleShape,
+                                                    color = Color(0xFFE8F5E9),
+                                                    modifier = Modifier
+                                                        .size(40.dp)
+                                                        .clickable {
+                                                            onNavigate(
+                                                                FutaDestinations.chat(context = effectiveContext,
+                                                                    advisorId = advId,
+                                                                    advisorName = advName,
+                                                                    propertyId = property.id.ifEmpty { propertyId }
+                                                                )
+                                                            )
+                                                        }
+                                                ) {
+                                                    Box(contentAlignment = Alignment.Center) {
+                                                        Icon(
+                                                            painter = painterResource(id = R.drawable.sf_btn_chat),
+                                                            contentDescription = "Chat",
+                                                            tint = Color(0xFF0E7643),
+                                                            modifier = Modifier.size(15.dp)
+                                                        )
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+
+                            // AI Consult Button (Matching iOS) — customer-only.
+                            if (!accountIsStaff) {
+                                Surface(
+                                    shape = RoundedCornerShape(12.dp),
+                                    color = Color.White,
+                                    border = BorderStroke(1.5.dp, Color(0xFF0E7643)),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable {
+                                            onNavigate(
+                                                FutaDestinations.chat(context = effectiveContext,
+                                                    propertyId = property.id.ifEmpty { propertyId },
+                                                    isAi = true
+                                                )
+                                            )
+                                        }
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(vertical = 11.dp),
+                                        horizontalArrangement = Arrangement.Center,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Icon(
+                                            painter = painterResource(id = R.drawable.sf_tab_chat_active),
+                                            contentDescription = null,
+                                            tint = Color(0xFF0E7643),
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                        Spacer(Modifier.width(8.dp))
+                                        Text(
+                                            text = "Tư vấn với AI (24/7)",
+                                            fontSize = 13.5.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = Color(0xFF0E7643)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
                 // 4B. Townhouse Floor Breakdown (Matching Web & iOS)
                 val isTownhouse = run {
                     val type = property["propertyType"].string.lowercase()
@@ -1092,218 +1304,6 @@ fun PropertyDetailScreen(
                                         Text("Tài liệu tham khảo do FUTA Land xác minh (2.4 MB)", fontSize = 11.5.sp, color = FutaColors.Slate)
                                     }
                                     Icon(Icons.Default.Visibility, "Xem", tint = Color(0xFF0E7643), modifier = Modifier.size(18.dp))
-                                }
-                            }
-                        }
-                    }
-                }
-
-                // 8. Advisor Contact Panel (Matching iOS & Web)
-                item {
-                    val availableList = property["availableAdvisors"].array
-                    val advisors = if (availableList.isNotEmpty()) {
-                        availableList.distinctBy { it["id"].string.ifEmpty { it["advisorId"].string } }
-                    } else {
-                        val advId = property["advisorId"].string.ifEmpty { property["advisor"]["id"].string.ifEmpty { property["createdBy"]["id"].string } }
-                        val advName = property["advisor"]["name"].string.ifEmpty { property["createdBy"]["name"].string }.ifEmpty { property["ownerName"].string.ifEmpty { "Chuyên viên tư vấn FUTA Land" } }
-                        val advPhone = property["advisor"]["phone"].string.ifEmpty { property["createdBy"]["phone"].string }.ifEmpty { property["ownerPhone"].string.ifEmpty { "02363575757" } }
-                        val advAvatar = property["advisor"]["avatar"].string.ifEmpty { property["createdBy"]["avatar"].string }
-                        listOf(
-                            JSONValue.parse("""{"id":"$advId","name":"$advName","phone":"$advPhone","avatar":"$advAvatar"}""")
-                        )
-                    }
-
-                    FutaCard(modifier = Modifier.fillMaxWidth()) {
-                        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    text = "TƯ VẤN SẢN PHẨM",
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color(0xFFF97316),
-                                    letterSpacing = 0.5.sp
-                                )
-                                Surface(
-                                    shape = CircleShape,
-                                    color = Color(0xFFE8F5E9)
-                                ) {
-                                    Text(
-                                        text = if (advisors.size > 1) "${advisors.size} TVV sẵn sàng" else "Chuyên viên sẵn sàng",
-                                        fontSize = 10.5.sp,
-                                        fontWeight = FontWeight.SemiBold,
-                                        color = Color(0xFF0E7643),
-                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
-                                    )
-                                }
-                            }
-
-                            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                                advisors.forEachIndexed { idx, adv ->
-                                    val advName = adv["name"].string.ifEmpty { "Chuyên viên tư vấn FUTA Land" }
-                                    val advPhone = adv["phone"].string.ifEmpty { "02363575757" }
-                                    val advAvatar = adv["avatar"].string
-                                    val advId = adv["id"].string.ifEmpty { adv["advisorId"].string }
-
-                                    if (idx > 0) {
-                                        HorizontalDivider(color = Color(0xFFE2E8F0))
-                                    }
-
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Surface(
-                                            shape = CircleShape,
-                                            color = Color(0xFFE8F5E9),
-                                            modifier = Modifier.size(48.dp)
-                                        ) {
-                                            if (advAvatar.isNotEmpty()) {
-                                                coil3.compose.AsyncImage(
-                                                    model = advAvatar,
-                                                    contentDescription = advName,
-                                                    contentScale = androidx.compose.ui.layout.ContentScale.Crop,
-                                                    modifier = Modifier.fillMaxSize().clip(CircleShape)
-                                                )
-                                            } else {
-                                                Box(contentAlignment = Alignment.Center) {
-                                                    Text(
-                                                        text = advName.take(2).uppercase(),
-                                                        color = Color(0xFF0E7643),
-                                                        fontWeight = FontWeight.Bold,
-                                                        fontSize = 16.sp
-                                                    )
-                                                }
-                                            }
-                                        }
-
-                                        Spacer(Modifier.width(10.dp))
-
-                                        Column(modifier = Modifier.weight(1f)) {
-                                            Text(
-                                                text = advName,
-                                                fontSize = 14.5.sp,
-                                                fontWeight = FontWeight.Bold,
-                                                color = FutaColors.Navy
-                                            )
-                                            Text(
-                                                text = if (advisors.size > 1) "TVV phụ trách căn hộ" else "Sẵn sàng hỗ trợ 24/7",
-                                                fontSize = 11.5.sp,
-                                                color = FutaColors.Slate
-                                            )
-                                        }
-
-                                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                            // 1. Phone Call Button
-                                            Surface(
-                                                shape = CircleShape,
-                                                color = Color(0xFFFDF6EE),
-                                                modifier = Modifier
-                                                    .size(40.dp)
-                                                    .clickable {
-                                                        context.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:$advPhone")))
-                                                    }
-                                            ) {
-                                                Box(contentAlignment = Alignment.Center) {
-                                                    Icon(
-                                                        painter = painterResource(id = R.drawable.sf_btn_phone),
-                                                        contentDescription = "Gọi",
-                                                        tint = Color(0xFFF97316),
-                                                        modifier = Modifier.size(15.dp)
-                                                    )
-                                                }
-                                            }
-
-                                            // 2. Zalo Deep Link Button
-                                            Surface(
-                                                shape = CircleShape,
-                                                color = Color(0xFFEFF6FF),
-                                                modifier = Modifier
-                                                    .size(40.dp)
-                                                    .clickable {
-                                                        val zaloUrl = "https://zalo.me/$advPhone"
-                                                        try {
-                                                            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(zaloUrl)))
-                                                        } catch (_: Exception) {
-                                                            ToastCenter.show("Không thể mở Zalo: $zaloUrl")
-                                                        }
-                                                    }
-                                            ) {
-                                                Box(contentAlignment = Alignment.Center) {
-                                                    Text("Zalo", fontSize = 11.sp, fontWeight = FontWeight.Black, color = Color(0xFF0068FF))
-                                                }
-                                            }
-                                            // 3. Native Chat Button — customer-only.
-                                            if (!accountIsStaff) {
-                                                Surface(
-                                                    shape = CircleShape,
-                                                    color = Color(0xFFE8F5E9),
-                                                    modifier = Modifier
-                                                        .size(40.dp)
-                                                        .clickable {
-                                                            onNavigate(
-                                                                FutaDestinations.chat(context = effectiveContext,
-                                                                    advisorId = advId,
-                                                                    advisorName = advName,
-                                                                    propertyId = property.id.ifEmpty { propertyId }
-                                                                )
-                                                            )
-                                                        }
-                                                ) {
-                                                    Box(contentAlignment = Alignment.Center) {
-                                                        Icon(
-                                                            painter = painterResource(id = R.drawable.sf_btn_chat),
-                                                            contentDescription = "Chat",
-                                                            tint = Color(0xFF0E7643),
-                                                            modifier = Modifier.size(15.dp)
-                                                        )
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-
-                            // AI Consult Button (Matching iOS) — customer-only.
-                            if (!accountIsStaff) {
-                                Surface(
-                                    shape = RoundedCornerShape(12.dp),
-                                    color = Color.White,
-                                    border = BorderStroke(1.5.dp, Color(0xFF0E7643)),
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .clickable {
-                                            onNavigate(
-                                                FutaDestinations.chat(context = effectiveContext,
-                                                    propertyId = property.id.ifEmpty { propertyId },
-                                                    isAi = true
-                                                )
-                                            )
-                                        }
-                                ) {
-                                    Row(
-                                        modifier = Modifier.padding(vertical = 11.dp),
-                                        horizontalArrangement = Arrangement.Center,
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Icon(
-                                            painter = painterResource(id = R.drawable.sf_tab_chat_active),
-                                            contentDescription = null,
-                                            tint = Color(0xFF0E7643),
-                                            modifier = Modifier.size(16.dp)
-                                        )
-                                        Spacer(Modifier.width(8.dp))
-                                        Text(
-                                            text = "Tư vấn với AI (24/7)",
-                                            fontSize = 13.5.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            color = Color(0xFF0E7643)
-                                        )
-                                    }
                                 }
                             }
                         }

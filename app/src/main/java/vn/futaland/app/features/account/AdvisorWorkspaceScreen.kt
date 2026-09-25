@@ -30,6 +30,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
+import vn.futaland.app.core.auth.AppSession
 import vn.futaland.app.core.network.APIClient
 import vn.futaland.app.core.network.JSONValue
 import vn.futaland.app.designsystem.*
@@ -298,6 +299,26 @@ fun AdvisorWorkspaceScreen(
                             onClick = { onNavigate(FutaDestinations.CHAT_CENTER) },
                             modifier = Modifier.weight(1f)
                         )
+                        if (AppSession.shared.role in STAFF_APPOINTMENT_ROLES) {
+                            BusinessQuickCard(
+                                title = "Lịch hẹn xem nhà",
+                                subtitle = "Xác nhận & theo dõi lịch dẫn khách",
+                                icon = Icons.Default.EventAvailable,
+                                color = Color(0xFF2563EB),
+                                onClick = { onNavigate(FutaDestinations.STAFF_APPOINTMENTS) },
+                                modifier = Modifier.weight(1f)
+                            )
+                        } else {
+                            Spacer(Modifier.weight(1f))
+                        }
+                    }
+                }
+
+                item {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
                         BusinessQuickCard(
                             title = "Marketing Zalo OA",
                             subtitle = "Đồng bộ khách hàng & Zalo",
@@ -306,6 +327,7 @@ fun AdvisorWorkspaceScreen(
                             onClick = { onNavigate(FutaDestinations.ADMIN_ZALO) },
                             modifier = Modifier.weight(1f)
                         )
+                        Spacer(Modifier.weight(1f))
                     }
                 }
             }
