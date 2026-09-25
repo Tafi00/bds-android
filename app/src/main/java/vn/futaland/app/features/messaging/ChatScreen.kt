@@ -41,6 +41,8 @@ import vn.futaland.app.core.auth.AppSession
 import vn.futaland.app.core.network.APIClient
 import vn.futaland.app.core.network.JSONValue
 import vn.futaland.app.designsystem.*
+import vn.futaland.app.features.properties.ViewingAppointmentBooking
+import vn.futaland.app.navigation.FutaDestinations
 import coil3.compose.AsyncImage
 
 data class ConversationItem(
@@ -187,6 +189,7 @@ fun ChatScreen(
     // explicit advisor/AI target open the thread directly instead.
     var activeConversationId by remember { mutableStateOf(initialConversationId) }
     var activeConversationName by remember { mutableStateOf(targetAdvisorName ?: "Trợ lý AI FUTA Land") }
+    var showViewingBooking by remember { mutableStateOf(false) }
 
     val focusRequester = remember { FocusRequester() }
     LaunchedEffect(activeConversationId) {
@@ -371,6 +374,22 @@ fun ChatScreen(
 
     val isConnected by ChatWebSocketManager.shared.isConnected.collectAsState()
     val typingUsers by ChatWebSocketManager.shared.typingUsers.collectAsState()
+
+    if (showViewingBooking) {
+        val bookingConversation = conversations.find { it.id == activeConversationId }
+        ViewingAppointmentBooking(
+            propertyId = bookingConversation?.propertyId?.ifBlank { targetPropertyId } ?: targetPropertyId,
+            projectName = bookingConversation?.contextProjectName.orEmpty(),
+            advisorId = bookingConversation?.advisorId?.ifBlank { targetAdvisorId } ?: targetAdvisorId,
+            advisorName = bookingConversation?.advisorName?.ifBlank { activeConversationName } ?: activeConversationName,
+            conversationId = activeConversationId,
+            onDismiss = { showViewingBooking = false },
+            onCreated = {
+                showViewingBooking = false
+                onNavigate(FutaDestinations.VIEWING_APPOINTMENTS)
+            }
+        )
+    }
 
     if (activeConversationId.isNullOrEmpty() && isStaff) {
         // VIEW 1: CONVERSATION LIST (Staff & Advisors only)
@@ -1185,6 +1204,15 @@ fun ChatScreen(
                                         maxLines = 1
                                     )
                                 }
+                            }
+                            if (!isStaff && !activeConversationName.contains("AI", ignoreCase = true)) {
+                                TextButton(onClick = {
+                                    if (AppSession.shared.isAuthenticated && AppSession.shared.role != "guest") {
+                                        showViewingBooking = true
+                                    } else {
+                                        onNavigate(FutaDestinations.AUTH)
+                                    }
+                                }) { Text("Đặt hẹn", maxLines = 1) }
                             }
                         }
 

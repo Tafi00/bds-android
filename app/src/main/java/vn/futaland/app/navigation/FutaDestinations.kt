@@ -80,6 +80,7 @@ object FutaDestinations {
     const val BILLING = "billing"
     const val MY_LISTINGS = "my_listings"
     const val VIEW_HISTORY = "view_history"
+    const val VIEWING_APPOINTMENTS = "viewing_appointments"
     // Admin & Advisor Modules
     const val ADMIN_DASHBOARD = "admin_dashboard"
     const val ADMIN_INVENTORY = "admin_inventory"

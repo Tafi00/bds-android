@@ -304,6 +304,13 @@ fun AccountScreen(
                         AccountDivider()
                         AccountMenuItem(
                             iconRes = R.drawable.sf_acc_history,
+                            title = "Lịch hẹn xem nhà",
+                            onClick = { onNavigate(FutaDestinations.VIEWING_APPOINTMENTS) }
+                        )
+
+                        AccountDivider()
+                        AccountMenuItem(
+                            iconRes = R.drawable.sf_acc_history,
                             title = "Lịch sử đã xem",
                             onClick = { onNavigate(FutaDestinations.VIEW_HISTORY) }
                         )

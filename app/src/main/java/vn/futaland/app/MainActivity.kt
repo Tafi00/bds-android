@@ -74,6 +74,7 @@ import vn.futaland.app.features.account.PoliciesScreen
 import vn.futaland.app.features.account.BillingScreen
 import vn.futaland.app.features.properties.MyListingsScreen
 import vn.futaland.app.features.properties.ViewHistoryScreen
+import vn.futaland.app.features.account.ViewingAppointmentsScreen
 import vn.futaland.app.features.discovery.ProjectDetailScreen
 import vn.futaland.app.features.messaging.NotificationsScreen
 import vn.futaland.app.features.messaging.ChatUnreadBadge
@@ -686,6 +687,12 @@ class MainActivity : ComponentActivity() {
                             }
                             composable(FutaDestinations.VIEW_HISTORY) {
                                 ViewHistoryScreen(
+                                    onBack = { navController.popBackStack() },
+                                    onNavigate = { route -> safeNavigate(route) }
+                                )
+                            }
+                            composable(FutaDestinations.VIEWING_APPOINTMENTS) {
+                                ViewingAppointmentsScreen(
                                     onBack = { navController.popBackStack() },
                                     onNavigate = { route -> safeNavigate(route) }
                                 )

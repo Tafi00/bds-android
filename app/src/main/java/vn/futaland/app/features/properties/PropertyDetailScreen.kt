@@ -251,6 +251,15 @@ fun PropertyDetailScreen(
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f)
                     )
+                    if (effectiveContext == ProductContext.CUSTOMER) {
+                        TextButton(onClick = {
+                            if (AppSession.shared.isAuthenticated && AppSession.shared.role != "guest") {
+                                showBookingSheet = true
+                            } else {
+                                onNavigate(FutaDestinations.AUTH)
+                            }
+                        }) { Text("Hẹn xem", maxLines = 1) }
+                    }
                     IconButton(onClick = {
                         val shareUrl = PropertyFormatters.shareUrl(property, propertyId)
                         val sendIntent = Intent().apply {
@@ -1358,94 +1367,20 @@ fun PropertyDetailScreen(
             }
         }
 
-        // =========================================================================
-        // 1. VISIT BOOKING BOTTOM SHEET (Matching iOS)
-        // =========================================================================
         if (showBookingSheet) {
-            property?.let { property ->
-                FutaBottomSheet(
-                    visible = true,
-                    onDismiss = { showBookingSheet = false },
-                    title = "Đặt lịch xem nhà thực tế"
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .verticalScroll(rememberScrollState()),
-                        verticalArrangement = Arrangement.spacedBy(14.dp)
-                    ) {
-                        Surface(
-                            shape = RoundedCornerShape(12.dp),
-                            color = Color(0xFFF8FAFC),
-                            border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Column(modifier = Modifier.padding(12.dp)) {
-                                Text(property["title"].string, fontSize = 13.5.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
-                                Text("Mã căn: ${property["code"].string.ifEmpty { property["propertyCode"].string }}", fontSize = 11.5.sp, color = FutaColors.BrandGreen)
-                            }
-                        }
-
-                        Text("CHỌN NGÀY XEM", fontSize = 11.5.sp, fontWeight = FontWeight.Bold, color = FutaColors.Slate)
-                        Row(
-                            modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            listOf("Hôm nay", "Ngày mai", "Thứ Bảy", "Chủ Nhật").forEach { d ->
-                                val isSelected = bookingDate == d
-                                Surface(
-                                    shape = CircleShape,
-                                    color = if (isSelected) FutaColors.BrandGreen else Color(0xFFF1F5F9),
-                                    modifier = Modifier.clickable { bookingDate = d }
-                                ) {
-                                    Text(d, fontSize = 12.sp, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal, color = if (isSelected) Color.White else FutaColors.Navy, modifier = Modifier.padding(horizontal = 14.dp, vertical = 7.dp))
-                                }
-                            }
-                        }
-
-                        Text("KHUNG GIỜ THUẬN TIỆN", fontSize = 11.5.sp, fontWeight = FontWeight.Bold, color = FutaColors.Slate)
-                        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                            listOf("Sáng (09:00 - 11:30)", "Chiều (14:00 - 16:30)", "Tối (18:00 - 20:00)").forEach { slot ->
-                                val isSelected = bookingSlot == slot
-                                Surface(
-                                    shape = RoundedCornerShape(10.dp),
-                                    color = if (isSelected) Color(0xFFE8F5E9) else Color.White,
-                                    border = BorderStroke(1.dp, if (isSelected) FutaColors.BrandGreen else Color(0xFFE2E8F0)),
-                                    modifier = Modifier.fillMaxWidth().clickable { bookingSlot = slot }
-                                ) {
-                                    Text(slot, fontSize = 12.5.sp, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal, color = if (isSelected) FutaColors.BrandGreen else FutaColors.Navy, modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp))
-                                }
-                            }
-                        }
-
-                        Text("THÔNG TIN KHÁCH HÀNG", fontSize = 11.5.sp, fontWeight = FontWeight.Bold, color = FutaColors.Slate)
-                        FutaInput(
-                            value = bookingName,
-                            onValueChange = { bookingName = it },
-                            placeholder = "Họ và tên của bạn",
-                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next)
-                        )
-                        FutaInput(
-                            value = bookingPhone,
-                            onValueChange = { bookingPhone = it },
-                            placeholder = "Số điện thoại liên hệ",
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone, imeAction = ImeAction.Done)
-                        )
-
-                        Spacer(Modifier.height(4.dp))
-                        FutaButton(
-                            text = "Xác nhận gửi yêu cầu",
-                            variant = FutaButtonVariant.PRIMARY,
-                            onClick = {
-                                showBookingSheet = false
-                                ToastCenter.show("Đã gửi lịch xem nhà! Chuyên viên FUTA sẽ gọi xác nhận trong 15 phút.")
-                            },
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                        Spacer(Modifier.height(10.dp))
-                    }
+            ViewingAppointmentBooking(
+                propertyId = property?.id?.ifBlank { propertyId },
+                projectName = property?.get("projectName")?.string.orEmpty(),
+                advisorId = property?.get("advisorId")?.string?.ifBlank { property?.get("advisor")?.get("id")?.string },
+                advisorName = property?.get("advisor")?.get("name")?.string.orEmpty(),
+                conversationId = null,
+                onDismiss = { showBookingSheet = false },
+                onCreated = {
+                    showBookingSheet = false
+                    ToastCenter.show("Đã gửi yêu cầu xem nhà")
+                    onNavigate(FutaDestinations.VIEWING_APPOINTMENTS)
                 }
-            }
+            )
         }
 
         // =========================================================================

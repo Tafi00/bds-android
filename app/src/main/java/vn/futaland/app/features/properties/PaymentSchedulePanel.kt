@@ -12,9 +12,11 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -44,6 +46,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import vn.futaland.app.core.network.APIClient
@@ -128,7 +131,9 @@ fun PaymentSchedulePanel(
                     Column(
                         modifier = Modifier
                             .clickable { selectedPolicyIndex = index }
-                            .padding(horizontal = 4.dp),
+                            .widthIn(max = 180.dp)
+                            .heightIn(min = 48.dp)
+                            .padding(horizontal = 8.dp, vertical = 4.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         Text(
@@ -136,6 +141,9 @@ fun PaymentSchedulePanel(
                             fontSize = 13.sp,
                             fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
                             color = if (isSelected) FutaColors.Navy else Color(0xFF8492A2),
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                            textAlign = TextAlign.Center,
                             modifier = Modifier.padding(bottom = 8.dp)
                         )
                         Box(
