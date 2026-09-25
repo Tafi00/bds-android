@@ -2,19 +2,14 @@ package vn.futaland.app.features.discovery
 
 import android.content.Intent
 import android.net.Uri
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -27,17 +22,14 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Dialog
 import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
 import coil3.request.transformations
 import coil3.compose.LocalPlatformContext
-import kotlinx.coroutines.launch
 import vn.futaland.app.core.network.APIClient
 import vn.futaland.app.core.network.JSONValue
 import vn.futaland.app.designsystem.*
-import vn.futaland.app.features.properties.FutaPropertyCard
-import vn.futaland.app.navigation.FutaDestinations
+import vn.futaland.app.features.properties.PropertyFormatters
 
 @Composable
 fun ProjectDetailScreen(
@@ -46,27 +38,17 @@ fun ProjectDetailScreen(
     onNavigate: (String) -> Unit
 ) {
     val context = LocalContext.current
-    val scope = rememberCoroutineScope()
     var project by remember { mutableStateOf<JSONValue?>(null) }
-    var properties by remember { mutableStateOf<List<JSONValue>>(emptyList()) }
     var loading by remember { mutableStateOf(true) }
-    var selectedSubNav by remember { mutableStateOf("overview") }
-    var showZoomPlan by remember { mutableStateOf(false) }
-    var inventoryFilterBed by remember { mutableStateOf("all") }
-    val listState = rememberLazyListState()
 
     LaunchedEffect(projectId) {
-        scope.launch {
-            loading = true
-            try {
-                val pRes = APIClient.get().request("/projects/$projectId")
-                project = pRes["data"]
-                val propertyRes = APIClient.get().request("/apartments", query = mapOf("projectId" to projectId, "limit" to "50"))
-                properties = propertyRes["data"].array
-            } catch (_: Exception) {
-            } finally {
-                loading = false
-            }
+        loading = true
+        try {
+            val pRes = APIClient.get().request("/projects/$projectId")
+            project = pRes["data"]
+        } catch (_: Exception) {
+        } finally {
+            loading = false
         }
     }
     Scaffold(
@@ -80,7 +62,7 @@ fun ProjectDetailScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowBack, null, tint = FutaColors.Navy)
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, null, tint = FutaColors.Navy)
                     }
                     Text(
                         text = project?.get("displayName")?.string?.ifEmpty { project?.get("name")?.string } ?: "Chi tiết dự án",
@@ -108,19 +90,15 @@ fun ProjectDetailScreen(
         bottomBar = {
             FutaStickyActionBar {
                 FutaButton(
-                    text = "Hotline",
-                    variant = FutaButtonVariant.CREAM,
-                    icon = Icons.Default.Phone,
-                    onClick = {
-                        val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:02363575757"))
-                        context.startActivity(intent)
-                    }
-                )
-                FutaButton(
-                    text = "TƯ VẤN DỰ ÁN",
+                    text = "Xem chi tiết trên website",
                     variant = FutaButtonVariant.PRIMARY,
-                    icon = Icons.Default.Chat,
-                    onClick = { onNavigate(FutaDestinations.INBOX) },
+                    icon = Icons.AutoMirrored.Filled.OpenInNew,
+                    onClick = {
+                        project?.let { p ->
+                            val url = PropertyFormatters.projectWebsiteUrl(p)
+                            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+                        }
+                    },
                     modifier = Modifier.weight(1f)
                 )
             }
@@ -141,377 +119,58 @@ fun ProjectDetailScreen(
         } else {
             val p = project!!
             val title = p["displayName"].string.ifEmpty { p["name"].string }
-            val banner = p["bannerImage"].string.ifEmpty { p["image"].string }
+            val banner = PropertyFormatters.resolveProjectBanner(p)
             val location = p["address"].string.ifEmpty { p["location"].string }.ifEmpty { p["province"].string }
             val developer = p["developer"].string
-            val totalUnits = p["totalUnits"].int
-            val desc = p["description"].string.ifEmpty { p["overview"].string }
-            val listState = rememberLazyListState()
-            val filteredProperties = remember(properties, inventoryFilterBed) {
-                if (inventoryFilterBed == "all") properties
-                else properties.filter { it["bedrooms"].int.toString() == inventoryFilterBed || it["bedroomCount"].int.toString() == inventoryFilterBed }
-            }
 
-            LazyColumn(
-                state = listState,
+            Column(
                 modifier = Modifier
                     .fillMaxSize()
                     .background(FutaColors.PageBg)
-                    .padding(padding),
-                contentPadding = PaddingValues(bottom = 24.dp)
+                    .padding(padding)
+                    .verticalScroll(rememberScrollState())
+                    .padding(bottom = 24.dp)
             ) {
-                item {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp)
-                            .height(230.dp)
-                            .clip(RoundedCornerShape(18.dp))
-                            .background(Color(0xFFE2E8F0))
-                    ) {
-                        AsyncImage(
-                            model = ImageRequest.Builder(LocalPlatformContext.current)
-                                .data(banner)
-                                .transformations(ProjectBannerTransformation())
-                                .build(),
-                            contentDescription = title,
-                            contentScale = ContentScale.Crop,
-                            modifier = Modifier.fillMaxSize()
-                        )
-                    }
-                }
-
-                // Sticky Sub-Nav Tabs (Matching iOS ProjectsView)
-                item {
-                    val tabs = listOf(
-                        "overview" to "Tổng quan",
-                        "masterplan" to "Mặt bằng",
-                        "inventory" to "Bảng hàng",
-                        "amenities" to "Tiện ích"
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp)
+                        .height(230.dp)
+                        .clip(RoundedCornerShape(18.dp))
+                        .background(Color(0xFFE2E8F0))
+                ) {
+                    AsyncImage(
+                        model = ImageRequest.Builder(LocalPlatformContext.current)
+                            .data(banner)
+                            .transformations(ProjectBannerTransformation())
+                            .build(),
+                        contentDescription = title,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize()
                     )
-                    Surface(
-                        color = Color.White,
-                        border = BorderStroke(1.dp, Color(0xFFF1F5F9)),
-                        shadowElevation = 1.dp,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
+                }
+
+                FutaCard(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp)
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
                         Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .horizontalScroll(rememberScrollState())
-                                .padding(horizontal = 16.dp, vertical = 6.dp),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            tabs.forEach { (tabKey, tabLabel) ->
-                                val isSelected = selectedSubNav == tabKey
-                                Surface(
-                                    shape = CircleShape,
-                                    color = if (isSelected) FutaColors.BrandGreen else Color(0xFFF8FAFC),
-                                    modifier = Modifier.clickable {
-                                        selectedSubNav = tabKey
-                                        scope.launch {
-                                            val targetIdx = when (tabKey) {
-                                                "overview" -> 1
-                                                "masterplan" -> 3
-                                                "inventory" -> 5
-                                                "amenities" -> 6
-                                                else -> 0
-                                            }
-                                            listState.animateScrollToItem(targetIdx)
-                                        }
-                                    }
-                                ) {
-                                    Text(
-                                        text = tabLabel,
-                                        fontSize = 12.5.sp,
-                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                        color = if (isSelected) Color.White else FutaColors.Navy,
-                                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 7.dp)
-                                    )
-                                }
-                            }
+                            FutaStatusBadge(title = p["status"].string.ifEmpty { "Đang mở bán" })
+                            Text(developer, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = FutaColors.Slate)
                         }
-                    }
-                    Spacer(Modifier.height(14.dp))
-                }
-                item {
-                    FutaCard(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp)
-                    ) {
-                        Column(modifier = Modifier.padding(16.dp)) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                FutaStatusBadge(title = p["status"].string.ifEmpty { "Đang mở bán" })
-                                Text(developer, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = FutaColors.Slate)
-                            }
-                            Spacer(Modifier.height(10.dp))
-                            Text(title, fontSize = 20.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
-                            Spacer(Modifier.height(6.dp))
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(Icons.Default.LocationOn, null, tint = FutaColors.BrandGreen, modifier = Modifier.size(15.dp))
-                                Spacer(Modifier.width(4.dp))
-                                Text(location, fontSize = 12.5.sp, color = FutaColors.Slate)
-                            }
-
-                            Spacer(Modifier.height(14.dp))
-                            HorizontalDivider(color = FutaColors.RowDivider)
-                            Spacer(Modifier.height(14.dp))
-
-                            // Key Metrics
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceAround
-                            ) {
-                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                    Text("Quy mô", fontSize = 11.5.sp, color = FutaColors.Slate)
-                                    Text(if (totalUnits > 0) "$totalUnits căn" else "Nhiều phân khu", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
-                                }
-                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                    Text("Loại hình", fontSize = 11.5.sp, color = FutaColors.Slate)
-                                    Text(p["projectType"].string.ifEmpty { "Căn hộ & Liền kề" }, fontSize = 15.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
-                                }
-                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                    Text("Pháp lý", fontSize = 11.5.sp, color = FutaColors.Slate)
-                                    Text("Sổ hồng lâu dài", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = FutaColors.BrandGreen)
-                                }
-                            }
-                        }
-                    }
-                    Spacer(Modifier.height(16.dp))
-                }
-
-                // 3. Description Section
-                if (desc.isNotEmpty()) {
-                    item {
-                        FutaCard(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 16.dp)
-                        ) {
-                            Column(modifier = Modifier.padding(16.dp)) {
-                                Text("GIỚI THIỆU DỰ ÁN", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
-                                Spacer(Modifier.height(8.dp))
-                                Text(desc, fontSize = 13.sp, color = FutaColors.Body, lineHeight = 19.sp)
-                            }
-                        }
-                        Spacer(Modifier.height(16.dp))
-                    }
-                }
-
-                // 3.5 Bank Deposit Account Info (Tài khoản nhận cọc dự án)
-                val depositAccount = p["depositAccountNumber"].string
-                val depositBank = p["depositBankName"].string.ifEmpty { p["depositBankCode"].string }
-                val depositHolder = p["depositAccountHolder"].string
-                val depositPrefix = p["depositTransferSyntaxPrefix"].string.ifEmpty { "FUTA" }
-                val depositAmount = p["depositDefaultAmount"].double
-
-                if (depositAccount.isNotEmpty()) {
-                    item {
-                        FutaCard(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 16.dp)
-                        ) {
-                            Column(modifier = Modifier.padding(16.dp)) {
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Text("TÀI KHOẢN NHẬN CỌC DỰ ÁN", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
-                                    Surface(
-                                        shape = RoundedCornerShape(6.dp),
-                                        color = Color(0xFFECFDF5)
-                                    ) {
-                                        Text("STK riêng", fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = FutaColors.BrandGreen, modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp))
-                                    }
-                                }
-                                Spacer(Modifier.height(10.dp))
-                                if (depositBank.isNotEmpty()) {
-                                    Text("Ngân hàng: $depositBank", fontSize = 13.sp, color = FutaColors.Navy, fontWeight = FontWeight.Medium)
-                                    Spacer(Modifier.height(4.dp))
-                                }
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Text("Số tài khoản: ", fontSize = 13.sp, color = FutaColors.Slate)
-                                    Text(depositAccount, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = FutaColors.BrandGreen)
-                                }
-                                if (depositHolder.isNotEmpty()) {
-                                    Spacer(Modifier.height(4.dp))
-                                    Text("Chủ tài khoản: $depositHolder", fontSize = 13.sp, color = FutaColors.Navy)
-                                }
-                                Spacer(Modifier.height(4.dp))
-                                Text("Cú pháp chuyển khoản: $depositPrefix [MÃ CĂN] [MÃ PHIẾU]", fontSize = 12.sp, color = FutaColors.Slate)
-                                if (depositAmount > 0) {
-                                    Spacer(Modifier.height(4.dp))
-                                    val formattedAmount = java.text.NumberFormat.getCurrencyInstance(java.util.Locale("vi", "VN")).format(depositAmount)
-                                    Text("Tiền cọc mặc định: $formattedAmount", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = FutaColors.BrandGreen)
-                                }
-                            }
-                        }
-                        Spacer(Modifier.height(16.dp))
-                    }
-                }
-
-                // 4. Master Plan / Sơ đồ tổng thể
-                item {
-                    FutaCard(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp)
-                    ) {
-                        Column(modifier = Modifier.padding(16.dp)) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text("MẶT BẰNG TỔNG THỂ", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
-                                TextButton(onClick = { showZoomPlan = true }) {
-                                    Text("Phóng to", fontSize = 12.sp, color = FutaColors.BrandGreen, fontWeight = FontWeight.Bold)
-                                }
-                            }
-                            Spacer(Modifier.height(8.dp))
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(180.dp)
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .background(Color(0xFFE2E8F0))
-                                    .clickable { showZoomPlan = true }
-                            ) {
-                                AsyncImage(
-                                    model = p["masterPlanUrl"].string.ifEmpty { banner },
-                                    contentDescription = "Mặt bằng",
-                                    contentScale = ContentScale.Crop,
-                                    modifier = Modifier.fillMaxSize()
-                                )
-                            }
-                        }
-                    }
-                    Spacer(Modifier.height(16.dp))
-                }
-
-                // 5. Amenities Section (Tiện ích chuẩn 5 sao)
-                item {
-                    FutaCard(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp)
-                    ) {
-                        Column(modifier = Modifier.padding(16.dp)) {
-                            Text("TIỆN ÍCH DỰ ÁN", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
-                            Spacer(Modifier.height(12.dp))
-                            val serverAmenities = p["amenities"].array.map { it.string }.filter { it.isNotEmpty() }
-                            val amenities = if (serverAmenities.isNotEmpty()) serverAmenities else listOf(
-                                "Bể bơi vô cực", "Công viên cây xanh", "Trung tâm thương mại",
-                                "Phòng Gym & Yoga", "Nhà trẻ quốc tế", "An ninh 24/7"
-                            )
-                            val half = (amenities.size + 1) / 2
-                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    amenities.take(half).forEach { a ->
-                                        Row(verticalAlignment = Alignment.CenterVertically) {
-                                            Icon(Icons.Default.CheckCircle, null, tint = FutaColors.BrandGreen, modifier = Modifier.size(15.dp))
-                                            Spacer(Modifier.width(6.dp))
-                                            Text(a, fontSize = 12.5.sp, color = FutaColors.Navy)
-                                        }
-                                    }
-                                }
-                                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    amenities.drop(half).forEach { a ->
-                                        Row(verticalAlignment = Alignment.CenterVertically) {
-                                            Icon(Icons.Default.CheckCircle, null, tint = FutaColors.BrandGreen, modifier = Modifier.size(15.dp))
-                                            Spacer(Modifier.width(6.dp))
-                                            Text(a, fontSize = 12.5.sp, color = FutaColors.Navy)
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    Spacer(Modifier.height(16.dp))
-                }
-
-                // 6. Linked Properties Section with Filter
-                if (filteredProperties.isNotEmpty()) {
-                    item {
-                        Column(modifier = Modifier.padding(horizontal = 16.dp)) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    text = "BẢNG HÀNG (${filteredProperties.size} CĂN)",
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = FutaColors.Slate
-                                )
-                                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                    listOf("all" to "Tất cả", "1" to "1 PN", "2" to "2 PN", "3" to "3 PN").forEach { (bedKey, bedLabel) ->
-                                        val isSelected = inventoryFilterBed == bedKey
-                                        Surface(
-                                            shape = CircleShape,
-                                            color = if (isSelected) FutaColors.BrandGreen else Color(0xFFF1F5F9),
-                                            modifier = Modifier.clickable { inventoryFilterBed = bedKey }
-                                        ) {
-                                            Text(
-                                                text = bedLabel,
-                                                fontSize = 11.sp,
-                                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                                                color = if (isSelected) Color.White else FutaColors.Navy,
-                                                modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp)
-                                            )
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                        Spacer(Modifier.height(8.dp))
-                    }
-
-                    itemsIndexed(filteredProperties, key = { idx, item -> (item.id.ifEmpty { "proj-prop" }) + "-$idx" }) { _, property ->
-                        Box(modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
-                            FutaPropertyCard(
-                                property = property,
-                                onCallClick = {
-                                    val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:02363575757"))
-                                    context.startActivity(intent)
-                                },
-                                onChatClick = { onNavigate(FutaDestinations.INBOX) },
-                                onClick = { onNavigate(FutaDestinations.propertyDetail(property.id)) }
-                            )
-                        }
-                    }
-                }
-            }
-
-            // Full-screen Zoom Plan Dialog
-            if (showZoomPlan) {
-                Dialog(onDismissRequest = { showZoomPlan = false }) {
-                    Surface(
-                        shape = RoundedCornerShape(16.dp),
-                        color = Color.Black,
-                        modifier = Modifier.fillMaxWidth().height(420.dp)
-                    ) {
-                        Box(modifier = Modifier.fillMaxSize()) {
-                            AsyncImage(
-                                model = p["masterPlanUrl"].string.ifEmpty { banner },
-                                contentDescription = "Mặt bằng phóng to",
-                                contentScale = ContentScale.Fit,
-                                modifier = Modifier.fillMaxSize()
-                            )
-                            IconButton(
-                                onClick = { showZoomPlan = false },
-                                modifier = Modifier.align(Alignment.TopEnd).padding(8.dp)
-                            ) {
-                                Icon(Icons.Default.Close, null, tint = Color.White)
-                            }
+                        Spacer(Modifier.height(10.dp))
+                        Text(title, fontSize = 20.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
+                        Spacer(Modifier.height(6.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.LocationOn, null, tint = FutaColors.BrandGreen, modifier = Modifier.size(15.dp))
+                            Spacer(Modifier.width(4.dp))
+                            Text(location, fontSize = 12.5.sp, color = FutaColors.Slate)
                         }
                     }
                 }

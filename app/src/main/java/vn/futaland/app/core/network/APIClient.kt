@@ -60,7 +60,6 @@ class APIClient private constructor(context: Context) {
 
     val effectiveToken: String?
         get() = tokenStorage.accessToken?.takeIf { it.isNotEmpty() }
-            ?: tokenStorage.guestToken?.takeIf { it.isNotEmpty() }
 
     suspend fun request(
         path: String,

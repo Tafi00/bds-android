@@ -36,11 +36,17 @@ import androidx.compose.animation.core.*
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.serialization.json.add
+import kotlinx.serialization.json.addJsonObject
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
+import kotlinx.serialization.json.putJsonArray
 import vn.futaland.app.R
 import vn.futaland.app.core.auth.AppSession
 import vn.futaland.app.core.network.APIClient
 import vn.futaland.app.core.network.JSONValue
 import vn.futaland.app.designsystem.*
+import vn.futaland.app.features.properties.PropertyFormatters
 import vn.futaland.app.features.properties.ViewingAppointmentBooking
 import vn.futaland.app.navigation.FutaDestinations
 import coil3.compose.AsyncImage
@@ -176,6 +182,10 @@ fun ChatScreen(
     onBack: (() -> Unit)? = null
 ) {
     val scope = rememberCoroutineScope()
+    val sessionUser by AppSession.shared.currentUser.collectAsState()
+    // Guests get a fully transient AI chat: no guest account, no socket, no
+    // persisted conversations — everything below stays signed-in only.
+    val isLoggedIn = sessionUser != null && AppSession.shared.isAuthenticated
     val accountIsStaff = AppSession.shared.role != "customer" && AppSession.shared.role != "guest"
     // Staff only have the advisor inbox — staff-to-staff chat was removed.
     val isStaff = staffContext && accountIsStaff
@@ -186,8 +196,11 @@ fun ChatScreen(
     }
 
     // A null id shows the conversation list (the entry screen). Deep links and an
-    // explicit advisor/AI target open the thread directly instead.
-    var activeConversationId by remember { mutableStateOf(initialConversationId) }
+    // explicit advisor/AI target open the thread directly instead — "ai_agent" is
+    // the placeholder for the AI thread before its conversation exists.
+    var activeConversationId by remember {
+        mutableStateOf(initialConversationId ?: if (isAiChat && !accountIsStaff) "ai_agent" else null)
+    }
     var activeConversationName by remember { mutableStateOf(targetAdvisorName ?: "Trợ lý AI FUTA Land") }
     var showViewingBooking by remember { mutableStateOf(false) }
 
@@ -306,11 +319,10 @@ fun ChatScreen(
         } catch (_: Exception) {}
     }
 
-    // Ensure guest session & connect WebSocket on launch
-    LaunchedEffect(Unit) {
-        if (!AppSession.shared.isAuthenticated) {
-            AppSession.shared.ensureGuest()
-        }
+    // Signed-in only: connect the socket and load conversations. Guests never
+    // reach the real chat backend — they get the transient public AI chat view.
+    LaunchedEffect(isLoggedIn) {
+        if (!isLoggedIn) return@LaunchedEffect
         ChatWebSocketManager.shared.connect()
         fetchConversationsList()
 
@@ -334,41 +346,39 @@ fun ChatScreen(
                         activeConversationName = advName
                     }
                 }
-            } else if (isAiChat && !accountIsStaff) {
-                val aiConv = conversations.find { it.isAi }
-                if (aiConv != null) {
+            } else if (activeConversationId == "ai_agent") {
+                // Explicit AI entry point (chat?isAi=true): pin the placeholder
+                // to the existing AI conversation so history loads, or leave it
+                // for lazy creation on the first message.
+                conversations.find { it.isAi }?.let { aiConv ->
                     activeConversationId = aiConv.id
                     activeConversationName = aiConv.name
-                } else {
-                    val createRes = APIClient.get().request("/chat/conversations", method = "POST", bodyJson = conversationBody())
-                    val newConv = createRes["data"]
-                    if (!newConv.id.isEmpty()) {
-                        conversations.add(0, ConversationItem(newConv.id, "Trợ lý AI FUTA Land", "Bắt đầu cuộc trò chuyện...", "Bây giờ", 0, true, true, ""))
-                        activeConversationId = newConv.id
-                        activeConversationName = "Trợ lý AI FUTA Land"
-                    }
                 }
-            } else if (!accountIsStaff && activeConversationId.isNullOrEmpty()) {
-                // Ensure the AI conversation always exists so it appears in the list.
-                if (conversations.none { it.isAi }) {
+            }
+        } catch (_: Exception) {}
+    }
+
+    // Opens the customer's AI thread — the pinned list row, the header bot
+    // button and the switcher pill all go through here. Creates the
+    // conversation lazily on first use, like the web.
+    fun openAiConversation() {
+        val aiConv = conversations.find { it.isAi }
+        if (aiConv != null) {
+            activeConversationId = aiConv.id
+            activeConversationName = aiConv.name
+        } else {
+            scope.launch {
+                try {
                     val createRes = APIClient.get().request("/chat/conversations", method = "POST", bodyJson = conversationBody())
                     val newConv = createRes["data"]
                     if (!newConv.id.isEmpty()) {
                         conversations.add(ConversationItem(newConv.id, "Trợ lý AI FUTA Land", "Bắt đầu cuộc trò chuyện...", "Bây giờ", 0, true, true, ""))
+                        activeConversationId = newConv.id
+                        activeConversationName = "Trợ lý AI FUTA Land"
                     }
-                }
-                // Open the AI thread directly only when there is no advisor chat yet.
-                // Once the customer has several conversations, show the list instead.
-                val hasAdvisorConv = conversations.any { !it.isAi }
-                if (!hasAdvisorConv) {
-                    val aiConv = conversations.find { it.isAi } ?: conversations.firstOrNull()
-                    if (aiConv != null) {
-                        activeConversationId = aiConv.id
-                        activeConversationName = aiConv.name
-                    }
-                }
+                } catch (_: Exception) {}
             }
-        } catch (_: Exception) {}
+        }
     }
 
 
@@ -391,8 +401,16 @@ fun ChatScreen(
         )
     }
 
-    if (activeConversationId.isNullOrEmpty() && isStaff) {
-        // VIEW 1: CONVERSATION LIST (Staff & Advisors only)
+    if (!isLoggedIn) {
+        // VIEW 0: TRANSIENT AI CHAT — anonymous users only. Everything stays in
+        // memory: no guest token, no WebSocket, no /chat/* endpoints, nothing
+        // persisted — the replies come from POST /chatbot/public-chat.
+        GuestAiChatView(
+            onBack = onBack,
+            onNavigate = onNavigate,
+            productContext = productContext
+        )
+    } else if (activeConversationId.isNullOrEmpty() && isStaff) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -625,7 +643,7 @@ fun ChatScreen(
             }
         }
     } else if (activeConversationId.isNullOrEmpty()) {
-        // VIEW 3: CONVERSATION LIST (Customer & guest) — shown instead of the thread
+        // VIEW 3: CONVERSATION LIST (Customer) — shown instead of the thread
         // so a customer with many chats can find them again without swiping pills.
         Column(
             modifier = Modifier
@@ -687,25 +705,7 @@ fun ChatScreen(
                             color = FutaColors.BrandGreen,
                             modifier = Modifier
                                 .size(36.dp)
-                                .clickable {
-                                    val aiConv = conversations.find { it.isAi }
-                                    if (aiConv != null) {
-                                        activeConversationId = aiConv.id
-                                        activeConversationName = aiConv.name
-                                    } else {
-                                        scope.launch {
-                                            try {
-                                                val createRes = APIClient.get().request("/chat/conversations", method = "POST", bodyJson = conversationBody())
-                                                val newConv = createRes["data"]
-                                                if (!newConv.id.isEmpty()) {
-                                                    conversations.add(ConversationItem(newConv.id, "Trợ lý AI FUTA Land", "Bắt đầu cuộc trò chuyện...", "Bây giờ", 0, true, true, ""))
-                                                    activeConversationId = newConv.id
-                                                    activeConversationName = "Trợ lý AI FUTA Land"
-                                                }
-                                            } catch (_: Exception) {}
-                                        }
-                                    }
-                                }
+                                .clickable { openAiConversation() }
                         ) {
                             Box(contentAlignment = Alignment.Center) {
                                 Icon(painterResource(R.drawable.ic_lucide_bot), "Trợ lý AI", tint = Color.White, modifier = Modifier.size(20.dp))
@@ -724,15 +724,29 @@ fun ChatScreen(
                 }
             }
 
+            // Fixed pinned AI assistant row — always first, even before any AI
+            // conversation exists; tapping creates or opens the thread.
+            val pinnedAiConv = conversations.find { it.isAi }
+            ConversationRowCard(
+                conv = pinnedAiConv ?: ConversationItem(
+                    id = "ai_agent",
+                    name = "Trợ lý AI FUTA Land",
+                    lastMessage = "Trợ lý AI 24/7 • Sẵn sàng hỗ trợ",
+                    time = "",
+                    isAi = true
+                ),
+                onClick = { openAiConversation() },
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
+            )
+
             LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(16.dp),
+                modifier = Modifier.weight(1f),
+                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                val sorted = conversations.withIndex()
-                    .sortedWith(compareBy({ if (it.value.isAi) 0 else 1 }, { it.index }))
-                    .map { it.value }
-                val filtered = sorted.filter {
+                // The AI thread is represented by the fixed pinned row above —
+                // the list below shows real advisor conversations only.
+                val filtered = conversations.filter { !it.isAi }.filter {
                     search.isEmpty() || it.name.contains(search, ignoreCase = true) || it.lastMessage.contains(search, ignoreCase = true)
                 }
 
@@ -751,105 +765,18 @@ fun ChatScreen(
                 }
 
                 itemsIndexed(filtered, key = { _, conv -> conv.id }) { _, conv ->
-                    FutaCard(
-                        modifier = Modifier.fillMaxWidth(),
+                    ConversationRowCard(
+                        conv = conv,
                         onClick = {
                             activeConversationId = conv.id
                             activeConversationName = conv.name
                         }
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(14.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Surface(
-                                shape = CircleShape,
-                                color = if (conv.isAi) FutaColors.BrandGreen else FutaColors.MintBg,
-                                modifier = Modifier.size(46.dp)
-                            ) {
-                                Box(contentAlignment = Alignment.Center) {
-                                    if (conv.isAi) {
-                                        Icon(painterResource(R.drawable.ic_lucide_bot), null, tint = Color.White, modifier = Modifier.size(22.dp))
-                                    } else {
-                                        Text(
-                                            text = conv.name.take(1).uppercase(),
-                                            fontWeight = FontWeight.Bold,
-                                            color = FutaColors.BrandGreen,
-                                            fontSize = 15.sp
-                                        )
-                                    }
-                                }
-                            }
-
-                            Spacer(Modifier.width(12.dp))
-
-                            Column(modifier = Modifier.weight(1f)) {
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                        Text(
-                                            text = conv.name,
-                                            fontSize = 14.5.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            color = FutaColors.Navy,
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis
-                                        )
-                                        if (conv.badge.isNotEmpty()) {
-                                            Surface(shape = CircleShape, color = Color(0xFFEFF6FF)) {
-                                                Text(
-                                                    text = conv.badge,
-                                                    color = Color(0xFF1D4ED8),
-                                                    fontSize = 10.sp,
-                                                    fontWeight = FontWeight.Bold,
-                                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                                                )
-                                            }
-                                        }
-                                    }
-                                    Text(text = conv.time, fontSize = 11.sp, color = FutaColors.Muted)
-                                }
-
-                                Spacer(Modifier.height(4.dp))
-
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Text(
-                                        text = conv.lastMessage,
-                                        fontSize = 12.5.sp,
-                                        color = if (conv.unreadCount > 0) FutaColors.Navy else FutaColors.Slate,
-                                        fontWeight = if (conv.unreadCount > 0) FontWeight.SemiBold else FontWeight.Normal,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis,
-                                        modifier = Modifier.weight(1f)
-                                    )
-
-                                    if (conv.unreadCount > 0) {
-                                        Surface(shape = CircleShape, color = Color(0xFFFF8D28), modifier = Modifier.padding(start = 6.dp)) {
-                                            Text(
-                                                text = if (conv.unreadCount > 99) "99+" else conv.unreadCount.toString(),
-                                                color = Color.White,
-                                                fontSize = 10.sp,
-                                                fontWeight = FontWeight.Bold,
-                                                modifier = Modifier.padding(horizontal = 6.5.dp, vertical = 2.dp)
-                                            )
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
+                    )
                 }
             }
         }
     } else {
-        // VIEW 2: ACTIVE CONVERSATION THREAD (Default for customer & guest, matching web)
+        // VIEW 2: ACTIVE CONVERSATION THREAD (customer & staff, matching web)
         val listState = rememberLazyListState()
         var messageText by remember { mutableStateOf("") }
         val messages = remember {
@@ -1415,101 +1342,12 @@ fun ChatScreen(
                     val activeConv = conversations.find { it.id == activeConversationId }
                     val contextProjectName = activeConv?.contextProjectName.orEmpty()
                     val contextCode = activeConv?.contextCode.orEmpty()
-                    val suggestions = buildList {
-                        if (contextProjectName.isNotEmpty()) {
-                            if (contextCode.isNotEmpty()) {
-                                add("Căn $contextCode thuộc $contextProjectName còn chính sách ưu đãi nào?")
-                            }
-                            add("$contextProjectName còn những căn nào đang mở bán?")
-                        } else {
-                            add("Những dự án nào đang mở bán tại Đà Nẵng?")
-                        }
-                        add("Tư vấn bảng tính dòng tiền và lãi suất vay")
-                        add("Chính sách ưu đãi và chiết khấu thanh toán")
-                        add("Kết nối với tư vấn viên phụ trách")
-                    }.take(4)
                     item {
-                        Surface(
-                            shape = RoundedCornerShape(16.dp),
-                            color = Color.White,
-                            border = BorderStroke(1.dp, Color(0xFFCBD5E1)),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Column(
-                                modifier = Modifier.padding(16.dp),
-                                horizontalAlignment = Alignment.CenterHorizontally
-                            ) {
-                                Icon(
-                                    painter = painterResource(R.drawable.ic_lucide_bot),
-                                    contentDescription = null,
-                                    tint = FutaColors.BrandGreen,
-                                    modifier = Modifier.size(26.dp)
-                                )
-                                Spacer(Modifier.height(8.dp))
-                                Text(
-                                    text = when {
-                                        contextCode.isNotEmpty() -> "Trợ lý AI FUTA Land đang hỗ trợ căn $contextCode"
-                                        contextProjectName.isNotEmpty() -> "Trợ lý AI FUTA Land đang hỗ trợ dự án $contextProjectName"
-                                        else -> "Bạn đang trò chuyện với Trợ lý AI FUTA Land"
-                                    },
-                                    fontSize = 14.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = FutaColors.Navy,
-                                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                                )
-                                Spacer(Modifier.height(4.dp))
-                                Text(
-                                    text = if (contextProjectName.isNotEmpty()) {
-                                        "Trợ lý AI sẵn sàng giải đáp 24/7 về $contextProjectName: bảng hàng, tiến độ mở bán, chính sách ưu đãi và dòng tiền."
-                                    } else {
-                                        "Trợ lý AI sẵn sàng giải đáp 24/7 về thông tin dự án, tiến độ mở bán và chính sách căn hộ."
-                                    },
-                                    fontSize = 12.sp,
-                                    color = Color(0xFF64748B),
-                                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                                    lineHeight = 17.sp
-                                )
-                                Spacer(Modifier.height(14.dp))
-                                Text(
-                                    text = "CÂU HỎI GỢI Ý",
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = FutaColors.BrandGreen
-                                )
-                                Spacer(Modifier.height(8.dp))
-                                suggestions.forEach { prompt ->
-                                    Surface(
-                                        shape = RoundedCornerShape(20.dp),
-                                        color = Color(0xFFEAF8F1),
-                                        border = BorderStroke(1.dp, Color(0xFF0E7643).copy(alpha = 0.3f)),
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(vertical = 3.dp)
-                                            .clickable { sendMessage(prompt) }
-                                    ) {
-                                        Row(
-                                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 9.dp),
-                                            verticalAlignment = Alignment.CenterVertically,
-                                            horizontalArrangement = Arrangement.SpaceBetween
-                                        ) {
-                                            Text(
-                                                text = prompt,
-                                                fontSize = 12.sp,
-                                                fontWeight = FontWeight.Medium,
-                                                color = FutaColors.BrandGreen,
-                                                modifier = Modifier.weight(1f)
-                                            )
-                                            Icon(
-                                                Icons.AutoMirrored.Filled.ArrowForward,
-                                                contentDescription = null,
-                                                tint = FutaColors.BrandGreen,
-                                                modifier = Modifier.size(14.dp)
-                                            )
-                                        }
-                                    }
-                                }
-                            }
-                        }
+                        AiAssistantWelcomeCard(
+                            contextProjectName = contextProjectName,
+                            contextCode = contextCode,
+                            onPromptClick = { sendMessage(it) }
+                        )
                     }
                 }
                 itemsIndexed(messages, key = { _, msg -> msg.id }) { index, msg ->
@@ -1557,6 +1395,482 @@ fun ChatScreen(
         }
     }
 
+}
+
+/**
+ * Conversation row used by the customer list — shared between the fixed pinned
+ * AI assistant row and the advisor conversations below it.
+ */
+@Composable
+private fun ConversationRowCard(
+    conv: ConversationItem,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    FutaCard(
+        modifier = modifier.fillMaxWidth(),
+        onClick = onClick
+    ) {
+        Row(
+            modifier = Modifier.padding(14.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Surface(
+                shape = CircleShape,
+                color = if (conv.isAi) FutaColors.BrandGreen else FutaColors.MintBg,
+                modifier = Modifier.size(46.dp)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    if (conv.isAi) {
+                        Icon(painterResource(R.drawable.ic_lucide_bot), null, tint = Color.White, modifier = Modifier.size(22.dp))
+                    } else {
+                        Text(
+                            text = conv.name.take(1).uppercase(),
+                            fontWeight = FontWeight.Bold,
+                            color = FutaColors.BrandGreen,
+                            fontSize = 15.sp
+                        )
+                    }
+                }
+            }
+
+            Spacer(Modifier.width(12.dp))
+
+            Column(modifier = Modifier.weight(1f)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text(
+                            text = conv.name,
+                            fontSize = 14.5.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = FutaColors.Navy,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        if (conv.badge.isNotEmpty()) {
+                            Surface(shape = CircleShape, color = Color(0xFFEFF6FF)) {
+                                Text(
+                                    text = conv.badge,
+                                    color = Color(0xFF1D4ED8),
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                )
+                            }
+                        }
+                    }
+                    Text(text = conv.time, fontSize = 11.sp, color = FutaColors.Muted)
+                }
+
+                Spacer(Modifier.height(4.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = conv.lastMessage,
+                        fontSize = 12.5.sp,
+                        color = if (conv.unreadCount > 0) FutaColors.Navy else FutaColors.Slate,
+                        fontWeight = if (conv.unreadCount > 0) FontWeight.SemiBold else FontWeight.Normal,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f)
+                    )
+
+                    if (conv.unreadCount > 0) {
+                        Surface(shape = CircleShape, color = Color(0xFFFF8D28), modifier = Modifier.padding(start = 6.dp)) {
+                            Text(
+                                text = if (conv.unreadCount > 99) "99+" else conv.unreadCount.toString(),
+                                color = Color.White,
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(horizontal = 6.5.dp, vertical = 2.dp)
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * AI assistant welcome card with suggested questions — shown at the top of an
+ * empty AI thread (both signed-in and transient guest chat).
+ */
+@Composable
+private fun AiAssistantWelcomeCard(
+    contextProjectName: String,
+    contextCode: String,
+    onPromptClick: (String) -> Unit
+) {
+    val suggestions = buildList {
+        if (contextProjectName.isNotEmpty()) {
+            if (contextCode.isNotEmpty()) {
+                add("Căn $contextCode thuộc $contextProjectName còn chính sách ưu đãi nào?")
+            }
+            add("$contextProjectName còn những căn nào đang mở bán?")
+        } else {
+            add("Những dự án nào đang mở bán tại Đà Nẵng?")
+        }
+        add("Tư vấn bảng tính dòng tiền và lãi suất vay")
+        add("Chính sách ưu đãi và chiết khấu thanh toán")
+        add("Kết nối với tư vấn viên phụ trách")
+    }.take(4)
+
+    Surface(
+        shape = RoundedCornerShape(16.dp),
+        color = Color.White,
+        border = BorderStroke(1.dp, Color(0xFFCBD5E1)),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Icon(
+                painter = painterResource(R.drawable.ic_lucide_bot),
+                contentDescription = null,
+                tint = FutaColors.BrandGreen,
+                modifier = Modifier.size(26.dp)
+            )
+            Spacer(Modifier.height(8.dp))
+            Text(
+                text = when {
+                    contextCode.isNotEmpty() -> "Trợ lý AI FUTA Land đang hỗ trợ căn $contextCode"
+                    contextProjectName.isNotEmpty() -> "Trợ lý AI FUTA Land đang hỗ trợ dự án $contextProjectName"
+                    else -> "Bạn đang trò chuyện với Trợ lý AI FUTA Land"
+                },
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Bold,
+                color = FutaColors.Navy,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+            )
+            Spacer(Modifier.height(4.dp))
+            Text(
+                text = if (contextProjectName.isNotEmpty()) {
+                    "Trợ lý AI sẵn sàng giải đáp 24/7 về $contextProjectName: bảng hàng, tiến độ mở bán, chính sách ưu đãi và dòng tiền."
+                } else {
+                    "Trợ lý AI sẵn sàng giải đáp 24/7 về thông tin dự án, tiến độ mở bán và chính sách căn hộ."
+                },
+                fontSize = 12.sp,
+                color = Color(0xFF64748B),
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                lineHeight = 17.sp
+            )
+            Spacer(Modifier.height(14.dp))
+            Text(
+                text = "CÂU HỎI GỢI Ý",
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Bold,
+                color = FutaColors.BrandGreen
+            )
+            Spacer(Modifier.height(8.dp))
+            suggestions.forEach { prompt ->
+                Surface(
+                    shape = RoundedCornerShape(20.dp),
+                    color = Color(0xFFEAF8F1),
+                    border = BorderStroke(1.dp, Color(0xFF0E7643).copy(alpha = 0.3f)),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 3.dp)
+                        .clickable { onPromptClick(prompt) }
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 9.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            text = prompt,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = FutaColors.BrandGreen,
+                            modifier = Modifier.weight(1f)
+                        )
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowForward,
+                            contentDescription = null,
+                            tint = FutaColors.BrandGreen,
+                            modifier = Modifier.size(14.dp)
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Anonymous, fully in-memory AI chat. Mirrors the signed-in AI thread visually,
+ * but sends every message through the public chatbot endpoint and keeps no
+ * history anywhere — leaving the screen or relaunching wipes it.
+ */
+@Composable
+private fun GuestAiChatView(
+    onBack: (() -> Unit)?,
+    onNavigate: (String) -> Unit,
+    productContext: vn.futaland.app.core.sales.ProductContext
+) {
+    val scope = rememberCoroutineScope()
+    val listState = rememberLazyListState()
+    var messageText by remember { mutableStateOf("") }
+    val messages = remember { mutableStateListOf<ChatMessage>() }
+    var isAiThinking by remember { mutableStateOf(false) }
+
+    fun sendMessage(customText: String? = null) {
+        val textToSend = (customText ?: messageText).trim()
+        if (textToSend.isEmpty() || isAiThinking) return
+        messages.add(
+            ChatMessage(
+                id = nextLocalMessageId(),
+                senderId = "me",
+                senderName = "Tôi",
+                content = textToSend,
+                isMe = true,
+                time = "Bây giờ"
+            )
+        )
+        if (customText == null) messageText = ""
+        isAiThinking = true
+        scope.launch {
+            listState.animateScrollToItem(messages.size - 1)
+            try {
+                // Rolling history, capped at 30 messages per the public-chat contract.
+                val history = messages.takeLast(30)
+                val bodyJson = buildJsonObject {
+                    putJsonArray("messages") {
+                        for (m in history) {
+                            addJsonObject {
+                                put("role", if (m.isMe) "user" else "assistant")
+                                put("content", m.content)
+                            }
+                        }
+                    }
+                }.toString()
+                val res = APIClient.get().request(
+                    "/chatbot/public-chat",
+                    method = "POST",
+                    bodyJson = bodyJson
+                )
+                val data = res["data"]
+                val cards = data["matchedApartments"].array
+                messages.add(
+                    ChatMessage(
+                        id = nextLocalMessageId(),
+                        senderId = "ai",
+                        senderName = "Trợ lý AI FUTA Land",
+                        content = data["reply"].string.ifEmpty { "Xin lỗi, mình chưa có câu trả lời phù hợp." },
+                        isMe = false,
+                        time = "Vừa xong",
+                        propertyCard = cards.firstOrNull(),
+                        propertyCards = cards
+                    )
+                )
+            } catch (_: Exception) {
+                messages.add(
+                    ChatMessage(
+                        id = nextLocalMessageId(),
+                        senderId = "ai",
+                        senderName = "Trợ lý AI FUTA Land",
+                        content = "Hiện chưa kết nối được Trợ lý AI. Vui lòng thử lại sau ít phút hoặc gọi hotline 0236 357 5757 để được hỗ trợ.",
+                        isMe = false,
+                        time = "Vừa xong"
+                    )
+                )
+            } finally {
+                isAiThinking = false
+            }
+            scope.launch { listState.animateScrollToItem(messages.size - 1) }
+        }
+    }
+
+    Scaffold(
+        topBar = {
+            Surface(color = Color.White, shadowElevation = 1.dp) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .statusBarsPadding()
+                        .padding(horizontal = 8.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    if (onBack != null) {
+                        Surface(
+                            shape = CircleShape,
+                            color = Color.White,
+                            border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                            modifier = Modifier
+                                .size(36.dp)
+                                .clickable { onBack.invoke() }
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(Icons.AutoMirrored.Filled.ArrowBack, "Quay lại", tint = FutaColors.Navy, modifier = Modifier.size(16.dp))
+                            }
+                        }
+                        Spacer(Modifier.width(10.dp))
+                    }
+                    Surface(
+                        shape = CircleShape,
+                        color = FutaColors.BrandGreen,
+                        modifier = Modifier.size(36.dp)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(painterResource(R.drawable.ic_lucide_bot), null, tint = Color.White, modifier = Modifier.size(20.dp))
+                        }
+                    }
+                    Spacer(Modifier.width(10.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Trợ lý AI FUTA Land",
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = FutaColors.Navy,
+                            maxLines = 1
+                        )
+                        Spacer(Modifier.height(1.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Box(modifier = Modifier.size(6.dp).background(Color(0xFF22C55E), CircleShape))
+                            Text(
+                                text = "Trợ lý AI 24/7 • Sẵn sàng hỗ trợ",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = Color(0xFF16A34A),
+                                maxLines = 1
+                            )
+                        }
+                    }
+                }
+            }
+        },
+        bottomBar = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    // See the signed-in composer: the IME must be padded manually.
+                    .windowInsetsPadding(WindowInsets.ime.union(WindowInsets.navigationBars))
+                    .background(Color.White)
+            ) {
+                if (!isAiThinking) {
+                    val aiSuggestions = listOf(
+                        "🔍 Tìm căn 2PN giá tốt",
+                        "🏢 Dự án đang mở bán",
+                        "💰 Chính sách thanh toán",
+                        "📋 Thủ tục đặt cọc & pháp lý"
+                    )
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState())
+                            .padding(horizontal = 12.dp, vertical = 6.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        aiSuggestions.forEach { suggestion ->
+                            Surface(
+                                shape = RoundedCornerShape(16.dp),
+                                color = Color(0xFFF0FDF4),
+                                border = BorderStroke(1.dp, Color(0xFFBBF7D0)),
+                                modifier = Modifier.clickable { sendMessage(suggestion.substringAfter(" ")) }
+                            ) {
+                                Text(
+                                    text = suggestion,
+                                    fontSize = 11.5.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    color = Color(0xFF166534),
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+
+                Surface(
+                    color = Color.White,
+                    border = BorderStroke(1.dp, FutaColors.LightBlueBorder),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 10.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        FutaInput(
+                            value = messageText,
+                            onValueChange = { messageText = it },
+                            placeholder = "Nhập câu hỏi và nhu cầu",
+                            modifier = Modifier.weight(1f),
+                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
+                            keyboardActions = KeyboardActions(onSend = { sendMessage() })
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        val canSend = messageText.isNotBlank() && !isAiThinking
+                        Surface(
+                            shape = RoundedCornerShape(12.dp),
+                            color = if (canSend) FutaColors.BrandGreen else Color(0xFFE2E8F0),
+                            modifier = Modifier
+                                .size(38.dp)
+                                .clickable(enabled = canSend) { sendMessage() }
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(Icons.AutoMirrored.Filled.Send, "Gửi", tint = Color.White, modifier = Modifier.size(17.dp))
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    ) { padding ->
+        LazyColumn(
+            state = listState,
+            modifier = Modifier
+                .fillMaxSize()
+                .background(FutaColors.PageBg)
+                .padding(padding),
+            contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 12.dp, bottom = 28.dp),
+            verticalArrangement = Arrangement.spacedBy(0.dp)
+        ) {
+            if (messages.isEmpty()) {
+                item {
+                    AiAssistantWelcomeCard(
+                        contextProjectName = "",
+                        contextCode = "",
+                        onPromptClick = { sendMessage(it) }
+                    )
+                }
+            }
+            itemsIndexed(messages, key = { _, msg -> msg.id }) { index, msg ->
+                val prev = if (index > 0) messages[index - 1] else null
+                val next = if (index < messages.size - 1) messages[index + 1] else null
+                val isPrevSame = prev != null && prev.isMe == msg.isMe && prev.senderId == msg.senderId
+                val isNextSame = next != null && next.isMe == msg.isMe && next.senderId == msg.senderId
+                val position = when {
+                    !isPrevSame && isNextSame -> BubbleGroupPosition.FIRST
+                    isPrevSame && isNextSame -> BubbleGroupPosition.MIDDLE
+                    isPrevSame && !isNextSame -> BubbleGroupPosition.LAST
+                    else -> BubbleGroupPosition.SINGLE
+                }
+                MessageBubble(
+                    msg = msg,
+                    position = position,
+                    onOpenProperty = { id -> onNavigate(FutaDestinations.propertyDetail(id, productContext)) }
+                )
+            }
+            if (isAiThinking) {
+                item(key = "guest_typing_indicator") {
+                    Box(modifier = Modifier.padding(top = 12.dp)) {
+                        TypingIndicatorBubble(senderName = "Trợ lý AI FUTA Land", isAi = true)
+                    }
+                }
+            }
+        }
+    }
 }
 
 @Composable
@@ -1675,7 +1989,8 @@ private fun MessageBubble(
                         val title = card["title"].string.ifEmpty { "Căn hộ ${card["propertyCode"].string}" }
                         val projectName = card["zone"].string
                         val price = card["price"].double
-                        val imgUrl = card["imageUrl"].string
+                        val imgUrl = PropertyFormatters.resolveImageUrl(card["imageUrl"].string)
+                            .ifEmpty { PropertyFormatters.resolveImage(card) }
 
                         Surface(
                             shape = RoundedCornerShape(12.dp),

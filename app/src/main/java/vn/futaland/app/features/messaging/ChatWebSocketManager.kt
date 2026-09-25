@@ -54,24 +54,17 @@ class ChatWebSocketManager private constructor() {
         if (webSocket != null) return
         isManualDisconnect = false
 
-        val token = APIClient.get().effectiveToken ?: ""
-        val wsUrl = if (token.isNotEmpty()) {
-            "wss://bds.futaland.vn/ws/chat?token=$token"
-        } else {
-            "wss://bds.futaland.vn/ws/chat"
-        }
+        // No anonymous chat sessions — guests get the transient AI chat instead,
+        // so a missing token means "not allowed to connect", not "connect blank".
+        val token = APIClient.get().effectiveToken
+        if (token.isNullOrEmpty()) return
+        val wsUrl = "wss://bds.futaland.vn/ws/chat?token=$token"
 
-        val requestBuilder = Request.Builder()
+        val request = Request.Builder()
             .url(wsUrl)
-
-        if (token.isNotEmpty()) {
-            requestBuilder.header("Authorization", "Bearer $token")
-            requestBuilder.header("Sec-WebSocket-Protocol", "futaland-chat, auth.$token")
-        } else {
-            requestBuilder.header("Sec-WebSocket-Protocol", "futaland-chat")
-        }
-
-        val request = requestBuilder.build()
+            .header("Authorization", "Bearer $token")
+            .header("Sec-WebSocket-Protocol", "futaland-chat, auth.$token")
+            .build()
 
         webSocket = client.newWebSocket(request, object : WebSocketListener() {
             override fun onOpen(webSocket: WebSocket, response: Response) {

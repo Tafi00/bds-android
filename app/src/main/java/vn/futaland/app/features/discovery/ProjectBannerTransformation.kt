@@ -10,14 +10,21 @@ class ProjectBannerTransformation : Transformation() {
 
     override suspend fun transform(input: Bitmap, size: Size): Bitmap {
         if (!input.hasAlpha()) return input
-        var left = input.width
-        var top = input.height
+        // Coil decodes network images as HARDWARE on API 26+, and getPixels()
+        // throws on them — copy to a software ARGB_8888 bitmap first.
+        val source = if (input.config == Bitmap.Config.HARDWARE) {
+            input.copy(Bitmap.Config.ARGB_8888, false) ?: input
+        } else {
+            input
+        }
+        var left = source.width
+        var top = source.height
         var right = -1
         var bottom = -1
-        val row = IntArray(input.width)
-        for (y in 0 until input.height) {
-            input.getPixels(row, 0, input.width, 0, y, input.width, 1)
-            for (x in 0 until input.width) {
+        val row = IntArray(source.width)
+        for (y in 0 until source.height) {
+            source.getPixels(row, 0, source.width, 0, y, source.width, 1)
+            for (x in 0 until source.width) {
                 if (row[x] ushr 24 >= 250) {
                     if (x < left) left = x
                     if (x > right) right = x
@@ -30,10 +37,10 @@ class ProjectBannerTransformation : Transformation() {
             right < left ||
             bottom < top ||
             top == 0 ||
-            bottom == input.height - 1
+            bottom == source.height - 1
         ) {
-            return input
+            return source
         }
-        return Bitmap.createBitmap(input, left, top, right - left + 1, bottom - top + 1)
+        return Bitmap.createBitmap(source, left, top, right - left + 1, bottom - top + 1)
     }
 }

@@ -133,22 +133,4 @@ class AppSession private constructor() {
         _permissions.value = emptySet()
         vn.futaland.app.features.messaging.ChatWebSocketManager.shared.disconnect()
     }
-    suspend fun ensureGuest(): Boolean {
-        if (isAuthenticated) return true
-        val currentToken = APIClient.get().tokenStorage.accessToken
-        if (!currentToken.isNullOrEmpty()) return true
-        return try {
-            val res = APIClient.get().request("/auth/guest", method = "POST", bodyJson = "{}")
-            val data = res["data"]
-            val token = data["accessToken"].string
-            if (token.isNotEmpty()) {
-                APIClient.get().tokenStorage.accessToken = token
-                APIClient.get().tokenStorage.guestToken = token
-                FcmRegistrar.ensureRegistered(APIClient.get().appContext)
-                true
-            } else false
-        } catch (_: Exception) {
-            false
-        }
-    }
 }

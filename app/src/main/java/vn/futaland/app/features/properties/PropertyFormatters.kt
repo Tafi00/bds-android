@@ -84,25 +84,54 @@ object PropertyFormatters {
                 "https://bds.futaland.vn/images/figma-data/projects/exact/futa-kim-phat.png"
             projectName.contains("hampton") || projectName.contains("võ nguyên giáp") || projectName.contains("vo-nguyen-giap") ->
                 "https://bds.futaland.vn/images/figma-data/projects/exact/hampton-vo-nguyen-giap.png"
+            projectName.contains("hilton") || projectName.contains("mũi né") || projectName.contains("mui ne") ->
+                "https://bds.futaland.vn/images/figma-data/projects/exact/hilton-mui-ne.png"
             else ->
                 "https://bds.futaland.vn/images/figma-data/projects/exact/times-square.png"
         }
     }
 
     fun resolveProjectBanner(project: JSONValue): String {
-        val mobBanner = project["bannerImageMobile"].string.trim()
-        if (mobBanner.isNotEmpty() && mobBanner != "null") {
-            return if (mobBanner.startsWith("http://") || mobBanner.startsWith("https://")) mobBanner else "https://bds.futaland.vn/${mobBanner.removePrefix("/")}"
-        }
-        val banner = project["bannerImage"].string.trim()
-        if (banner.isNotEmpty() && banner != "null") {
-            return if (banner.startsWith("http://") || banner.startsWith("https://")) banner else "https://bds.futaland.vn/${banner.removePrefix("/")}"
-        }
-        val img = project["image"].string.trim()
-        if (img.isNotEmpty() && img != "null") {
-            return if (img.startsWith("http://") || img.startsWith("https://")) img else "https://bds.futaland.vn/${img.removePrefix("/")}"
-        }
+        val mobBanner = resolveImageUrl(project["bannerImageMobile"].string)
+        if (mobBanner.isNotEmpty()) return mobBanner
+        val banner = resolveImageUrl(project["bannerImage"].string)
+        if (banner.isNotEmpty()) return banner
+        val img = resolveImageUrl(project["image"].string)
+        if (img.isNotEmpty()) return img
         return resolveImage(project)
+    }
+
+    /** Prepends the public web origin to relative `/images/...` paths; absolute
+     *  URLs and empty/"null" placeholders pass through untouched. */
+    fun resolveImageUrl(raw: String): String {
+        val clean = raw.trim()
+        if (clean.isEmpty() || clean == "null") return ""
+        if (clean.startsWith("http://") || clean.startsWith("https://")) return clean
+        return "https://bds.futaland.vn/${clean.removePrefix("/")}"
+    }
+
+    /** Public marketing site for a project — mirrors the web
+     *  `getProjectWebsiteUrl` mapping (bds-clone/src/lib/project-website.ts). */
+    fun projectWebsiteUrl(project: JSONValue): String {
+        val websiteUrl = project["websiteUrl"].string.trim()
+        if (websiteUrl.isNotEmpty()) return websiteUrl
+        val haystack = listOf(
+            project["name"].string,
+            project["displayName"].string,
+            project["title"].string,
+            project["id"].string,
+            project["code"].string
+        ).joinToString(" ").lowercase()
+        return when {
+            haystack.contains("kim an") || haystack.contains("kim-an") || haystack.contains("futa-ka") ->
+                "https://futakiman.vn/"
+            haystack.contains("kim phát") || haystack.contains("kim phat") || haystack.contains("kim-phat") || haystack.contains("futa-kp") ->
+                "https://futakimphat.com.vn/"
+            haystack.contains("times square") || haystack.contains("times-square") || haystack.contains("times-sq") ||
+                haystack.contains("residence") || haystack.contains("dnts") || haystack.contains("dts") ->
+                "https://futaresidence.vn/"
+            else -> "https://www.futaland.vn"
+        }
     }
 
     private fun extractRawImage(value: JSONValue): String {

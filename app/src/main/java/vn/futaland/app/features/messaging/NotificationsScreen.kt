@@ -34,6 +34,7 @@ import kotlinx.coroutines.launch
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import vn.futaland.app.core.auth.AppSession
 import vn.futaland.app.core.network.APIClient
 import vn.futaland.app.core.network.JSONValue
 import vn.futaland.app.designsystem.*
@@ -109,60 +110,6 @@ private fun formatRelativeTimeString(raw: String): String {
     }
 }
 
-private fun demoNotifications(): List<NotificationModel> = listOf(
-    NotificationModel(
-        id = "demo-1",
-        title = "Cập nhật tiến độ dự án Times Square",
-        body = "Dự án đã hoàn thành cất nóc phân khu A, chuẩn bị mở bán đợt 2.",
-        time = "10 phút trước",
-        isRead = false,
-        category = "system",
-        categoryLabel = "HỆ THỐNG",
-        categoryTextColor = Color(0xFF475569),
-        categoryBgColor = Color(0xFFF1F5F9),
-        icon = Icons.Default.Notifications,
-        iconColor = Color(0xFF475569)
-    ),
-    NotificationModel(
-        id = "demo-2",
-        title = "Xác nhận giữ chỗ căn hộ thành công",
-        body = "Phiếu giữ chỗ mã LK4B-503 đã được hệ thống ERP ghi nhận.",
-        time = "2 giờ trước",
-        isRead = true,
-        category = "holding",
-        categoryLabel = "GIỮ CHỖ & CỌC",
-        categoryTextColor = Color(0xFFD97706),
-        categoryBgColor = Color(0xFFFFFBEB),
-        icon = Icons.Default.Lock,
-        iconColor = Color(0xFFD97706)
-    ),
-    NotificationModel(
-        id = "demo-3",
-        title = "Tin nhắn mới từ chuyên viên tư vấn",
-        body = "Chào anh/chị, em đã gửi thông tin bảng hàng mới nhất cho anh/chị.",
-        time = "Hôm qua",
-        isRead = false,
-        category = "chat",
-        categoryLabel = "TIN NHẮN",
-        categoryTextColor = Color(0xFF2563EB),
-        categoryBgColor = Color(0xFFEFF6FF),
-        icon = Icons.Default.Email,
-        iconColor = Color(0xFF2563EB)
-    ),
-    NotificationModel(
-        id = "demo-4",
-        title = "Hợp đồng mua bán đã sẵn sàng ký",
-        body = "Hợp đồng điện tử số HĐMB-2026/09 đã hoàn tất thẩm định và sẵn sàng ký duyệt.",
-        time = "3 ngày trước",
-        isRead = true,
-        category = "contracts",
-        categoryLabel = "HỢP ĐỒNG",
-        categoryTextColor = Color(0xFF9333EA),
-        categoryBgColor = Color(0xFFFAF5FF),
-        icon = Icons.Default.Receipt,
-        iconColor = Color(0xFF9333EA)
-    )
-)
 
 private fun parseNotification(item: JSONValue): NotificationModel {
     val storedRoute = item["route"].string.ifEmpty { item["link"].string.ifEmpty { item["data"]["route"].string } }
@@ -207,6 +154,9 @@ fun NotificationsScreen(
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    // Notifications are per-account — a guest sees a login prompt, never data.
+    val sessionUser by AppSession.shared.currentUser.collectAsState()
+    val isLoggedIn = sessionUser != null && AppSession.shared.isAuthenticated
     var selectedCategory by remember { mutableStateOf("all") }
     var notifications by remember { mutableStateOf<List<NotificationModel>>(emptyList()) }
     var serverUnreadCount by remember { mutableIntStateOf(0) }
@@ -232,6 +182,13 @@ fun NotificationsScreen(
     val hasMore = notifications.size < total
 
     suspend fun fetchPage(requestedPage: Int, append: Boolean) {
+        if (!isLoggedIn) {
+            notifications = emptyList()
+            serverUnreadCount = 0
+            serverUnreadByCategory = emptyMap()
+            total = 0
+            return
+        }
         try {
             val category = if (selectedCategory == "all" || selectedCategory == "unread") "all" else selectedCategory
             val read = when {
@@ -265,10 +222,10 @@ fun NotificationsScreen(
                 val existing = notifications.map { it.id }.toSet()
                 notifications + parsed.filter { it.id !in existing }
             } else {
-                parsed.ifEmpty { if (requestedPage == 1 && searchQuery.isBlank() && selectedCategory == "all" && readFilter == "all") demoNotifications() else emptyList() }
+                parsed
             }
         } catch (_: Exception) {
-            if (!append) notifications = demoNotifications()
+            if (!append) notifications = emptyList()
         }
     }
 
@@ -303,7 +260,6 @@ fun NotificationsScreen(
             serverUnreadCount++
             serverUnreadByCategory = serverUnreadByCategory + (item.category to (serverUnreadByCategory[item.category] ?: 0) + 1)
         }
-        if (item.id.startsWith("demo-")) return
         scope.launch {
             try {
                 APIClient.get().request("/notifications/${item.id}/read", method = "PATCH", bodyJson = "{\"isRead\":$isRead}")
@@ -333,15 +289,11 @@ fun NotificationsScreen(
         }
         total = maxOf(0, total - 1)
         scope.launch {
-            if (!item.id.startsWith("demo-")) {
-                try {
-                    APIClient.get().request("/notifications/${item.id}", method = "DELETE")
-                    ToastCenter.show("Đã xóa thông báo")
-                } catch (e: Exception) {
-                    ToastCenter.show("Không xóa được thông báo: ${e.message}", isError = true)
-                }
-            } else {
+            try {
+                APIClient.get().request("/notifications/${item.id}", method = "DELETE")
                 ToastCenter.show("Đã xóa thông báo")
+            } catch (e: Exception) {
+                ToastCenter.show("Không xóa được thông báo: ${e.message}", isError = true)
             }
             mutating = false
         }
@@ -430,126 +382,132 @@ fun NotificationsScreen(
                             color = FutaColors.Navy,
                             modifier = Modifier.weight(1f)
                         )
-                        // Filter (iOS parity: slider sheet)
-                        IconButton(onClick = { showFilterSheet = true }) {
+                        if (isLoggedIn) {
+                            // Filter (iOS parity: slider sheet)
+                            IconButton(onClick = { showFilterSheet = true }) {
+                                Box {
+                                    Icon(Icons.Default.FilterList, "Bộ lọc", tint = FutaColors.Navy, modifier = Modifier.size(20.dp))
+                                    if (activeFilterCount > 0) {
+                                        Box(
+                                            modifier = Modifier
+                                                .align(Alignment.TopEnd)
+                                                .size(8.dp)
+                                                .background(FutaColors.BrandGreen, CircleShape)
+                                        )
+                                    }
+                                }
+                            }
+                            // Settings (iOS parity: per-category push preferences)
+                            IconButton(onClick = { showSettingsSheet = true }) {
+                                Icon(Icons.Default.Settings, "Cài đặt thông báo", tint = FutaColors.Navy, modifier = Modifier.size(20.dp))
+                            }
+                            // Overflow menu (iOS parity: mark-all-read / clear-all)
                             Box {
-                                Icon(Icons.Default.FilterList, "Bộ lọc", tint = FutaColors.Navy, modifier = Modifier.size(20.dp))
-                                if (activeFilterCount > 0) {
-                                    Box(
-                                        modifier = Modifier
-                                            .align(Alignment.TopEnd)
-                                            .size(8.dp)
-                                            .background(FutaColors.BrandGreen, CircleShape)
-                                    )
+                                IconButton(onClick = { menuForItemId = "topbar" }) {
+                                    Icon(Icons.Default.MoreVert, "Tùy chọn", tint = FutaColors.Navy, modifier = Modifier.size(20.dp))
                                 }
-                            }
-                        }
-                        // Settings (iOS parity: per-category push preferences)
-                        IconButton(onClick = { showSettingsSheet = true }) {
-                            Icon(Icons.Default.Settings, "Cài đặt thông báo", tint = FutaColors.Navy, modifier = Modifier.size(20.dp))
-                        }
-                        // Overflow menu (iOS parity: mark-all-read / clear-all)
-                        Box {
-                            IconButton(onClick = { menuForItemId = "topbar" }) {
-                                Icon(Icons.Default.MoreVert, "Tùy chọn", tint = FutaColors.Navy, modifier = Modifier.size(20.dp))
-                            }
-                            DropdownMenu(
-                                expanded = menuForItemId == "topbar",
-                                onDismissRequest = { menuForItemId = null }
-                            ) {
-                                DropdownMenuItem(
-                                    text = { Text("Đánh dấu tất cả đã đọc") },
-                                    enabled = serverUnreadCount > 0 && !mutating,
-                                    onClick = {
-                                        menuForItemId = null
-                                        markAllRead()
-                                    }
-                                )
-                                DropdownMenuItem(
-                                    text = { Text("Xóa toàn bộ", color = Color(0xFFDC2626)) },
-                                    enabled = notifications.isNotEmpty() && !mutating,
-                                    onClick = {
-                                        menuForItemId = null
-                                        showClearConfirm = true
-                                    }
-                                )
-                            }
-                        }
-                    }
-
-                    // Search bar (iOS parity: server-side q)
-                    Box(modifier = Modifier.padding(horizontal = 16.dp)) {
-                        FutaInput(
-                            value = searchQuery,
-                            onValueChange = { searchQuery = it },
-                            placeholder = "Tìm theo tiêu đề hoặc nội dung…",
-                            leadingIcon = Icons.Default.Search,
-                            trailingIcon = if (searchQuery.isNotEmpty()) {
-                                {
-                                    Icon(
-                                        Icons.Default.Close,
-                                        contentDescription = "Xóa",
-                                        modifier = Modifier
-                                            .size(18.dp)
-                                            .clickable { searchQuery = "" },
-                                        tint = FutaColors.Slate
-                                    )
-                                }
-                            } else null,
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                    }
-
-                    // 8 Standardized Category Tabs matching Web & iOS
-                    val categories = listOf(
-                        "all" to "Tất cả",
-                        "unread" to "Chưa đọc",
-                        "chat" to "Tin nhắn",
-                        "leads" to "Khách hàng",
-                        "contracts" to "Hợp đồng",
-                        "holding" to "Giữ chỗ & Cọc",
-                        "listings" to "Tin đăng",
-                        "system" to "Hệ thống"
-                    )
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .horizontalScroll(rememberScrollState())
-                            .padding(horizontal = 16.dp, vertical = 8.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        categories.forEach { (catKey, catLabel) ->
-                            val isSelected = selectedCategory == catKey
-                            val badgeCount = if (catKey == "all") 0 else getCategoryUnreadCount(catKey)
-
-                            Surface(
-                                shape = CircleShape,
-                                color = if (isSelected) FutaColors.BrandGreen else Color(0xFFF1F5F9),
-                                modifier = Modifier.clickable { selectedCategory = catKey }
-                            ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp)
+                                DropdownMenu(
+                                    expanded = menuForItemId == "topbar",
+                                    onDismissRequest = { menuForItemId = null }
                                 ) {
-                                    Text(
-                                        text = catLabel,
-                                        fontSize = 12.sp,
-                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                        color = if (isSelected) Color.White else FutaColors.Navy
+                                    DropdownMenuItem(
+                                        text = { Text("Đánh dấu tất cả đã đọc") },
+                                        enabled = serverUnreadCount > 0 && !mutating,
+                                        onClick = {
+                                            menuForItemId = null
+                                            markAllRead()
+                                        }
                                     )
-                                    if (badgeCount > 0) {
-                                        Spacer(Modifier.width(6.dp))
-                                        Surface(
-                                            shape = CircleShape,
-                                            color = if (isSelected) Color.White.copy(alpha = 0.25f) else if (catKey == "unread") Color(0xFFFEF3C7) else Color(0xFFD1FAE5)
-                                        ) {
-                                            Text(
-                                                text = "$badgeCount",
-                                                fontSize = 10.5.sp,
-                                                fontWeight = FontWeight.Bold,
-                                                color = if (isSelected) Color.White else if (catKey == "unread") Color(0xFF92400E) else Color(0xFF065F46),
-                                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 1.dp)
-                                            )
+                                    DropdownMenuItem(
+                                        text = { Text("Xóa toàn bộ", color = Color(0xFFDC2626)) },
+                                        enabled = notifications.isNotEmpty() && !mutating,
+                                        onClick = {
+                                            menuForItemId = null
+                                            showClearConfirm = true
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    if (isLoggedIn) {
+                        // Search bar (iOS parity: server-side q)
+                        Box(modifier = Modifier.padding(horizontal = 16.dp)) {
+                            FutaInput(
+                                value = searchQuery,
+                                onValueChange = { searchQuery = it },
+                                placeholder = "Tìm theo tiêu đề hoặc nội dung…",
+                                leadingIcon = Icons.Default.Search,
+                                trailingIcon = if (searchQuery.isNotEmpty()) {
+                                    {
+                                        Icon(
+                                            Icons.Default.Close,
+                                            contentDescription = "Xóa",
+                                            modifier = Modifier
+                                                .size(18.dp)
+                                                .clickable { searchQuery = "" },
+                                            tint = FutaColors.Slate
+                                        )
+                                    }
+                                } else null,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
+                    }
+
+                    if (isLoggedIn) {
+                        // 8 Standardized Category Tabs matching Web & iOS
+                        val categories = listOf(
+                            "all" to "Tất cả",
+                            "unread" to "Chưa đọc",
+                            "chat" to "Tin nhắn",
+                            "leads" to "Khách hàng",
+                            "contracts" to "Hợp đồng",
+                            "holding" to "Giữ chỗ & Cọc",
+                            "listings" to "Tin đăng",
+                            "system" to "Hệ thống"
+                        )
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .horizontalScroll(rememberScrollState())
+                                .padding(horizontal = 16.dp, vertical = 8.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            categories.forEach { (catKey, catLabel) ->
+                                val isSelected = selectedCategory == catKey
+                                val badgeCount = if (catKey == "all") 0 else getCategoryUnreadCount(catKey)
+
+                                Surface(
+                                    shape = CircleShape,
+                                    color = if (isSelected) FutaColors.BrandGreen else Color(0xFFF1F5F9),
+                                    modifier = Modifier.clickable { selectedCategory = catKey }
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp)
+                                    ) {
+                                        Text(
+                                            text = catLabel,
+                                            fontSize = 12.sp,
+                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                            color = if (isSelected) Color.White else FutaColors.Navy
+                                        )
+                                        if (badgeCount > 0) {
+                                            Spacer(Modifier.width(6.dp))
+                                            Surface(
+                                                shape = CircleShape,
+                                                color = if (isSelected) Color.White.copy(alpha = 0.25f) else if (catKey == "unread") Color(0xFFFEF3C7) else Color(0xFFD1FAE5)
+                                            ) {
+                                                Text(
+                                                    text = "$badgeCount",
+                                                    fontSize = 10.5.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = if (isSelected) Color.White else if (catKey == "unread") Color(0xFF92400E) else Color(0xFF065F46),
+                                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 1.dp)
+                                                )
+                                            }
                                         }
                                     }
                                 }
@@ -560,7 +518,27 @@ fun NotificationsScreen(
             }
         }
     ) { padding ->
-        if (loading) {
+        if (!isLoggedIn) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding),
+                contentAlignment = Alignment.Center
+            ) {
+                FutaEmptyState(
+                    icon = Icons.Default.Notifications,
+                    title = "Đăng nhập để xem thông báo",
+                    message = "Thông báo về dự án, tin nhắn, hợp đồng và ưu đãi chỉ hiển thị khi bạn đã đăng nhập.",
+                    actionButton = {
+                        FutaButton(
+                            text = "Đăng nhập",
+                            variant = FutaButtonVariant.PRIMARY,
+                            onClick = { onNavigate("/auth") }
+                        )
+                    }
+                )
+            }
+        } else if (loading) {
             Column(
                 modifier = Modifier
                     .fillMaxSize()

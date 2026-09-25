@@ -36,7 +36,7 @@ object FcmRegistrar {
     }
 
     fun ensureRegistered(context: Context) {
-        // Skip until a session token exists (user or guest) — otherwise the register call is rejected.
+        // Skip until a session token exists — otherwise the register call is rejected.
         if (APIClient.get().effectiveToken.isNullOrEmpty()) return
         FirebaseMessaging.getInstance().token
             .addOnCompleteListener { task ->

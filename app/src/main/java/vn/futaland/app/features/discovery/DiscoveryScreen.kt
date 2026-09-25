@@ -447,8 +447,7 @@ private fun HeroCarouselSection(
                     .fillMaxSize()
                     .clickable { onProjectClick(proj.id) }
             ) {
-                val banner = proj["bannerImage"].string
-                val displayImg = if (banner.isNotEmpty()) banner else proj["image"].string
+                val displayImg = PropertyFormatters.resolveProjectBanner(proj)
                 AsyncImage(
                     model = ImageRequest.Builder(LocalPlatformContext.current)
                         .data(displayImg)

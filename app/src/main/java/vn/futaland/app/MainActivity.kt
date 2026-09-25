@@ -342,8 +342,8 @@ class MainActivity : ComponentActivity() {
                             // 3. Inbox Tab & Direct Chat
                             composable(FutaDestinations.INBOX) {
                                 // Staff land on the advisor chat center (same as the
-                                // bottom-bar chat button); customers/guests keep the
-                                // buyer-side AI + advisor chat list.
+                                // bottom-bar chat button); customers get the
+                                // conversation list, guests the transient AI chat.
                                 val isStaffRole = AppSession.shared.isAuthenticated &&
                                     AppSession.shared.role != "customer" && AppSession.shared.role != "guest"
                                 ChatScreen(

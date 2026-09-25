@@ -54,8 +54,4 @@ class TokenStorage(context: Context) {
     var refreshToken: String?
         get() = get("refresh_token")
         set(value) = set("refresh_token", value)
-
-    var guestToken: String?
-        get() = get("guest_token")
-        set(value) = set("guest_token", value)
 }
