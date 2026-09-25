@@ -413,17 +413,6 @@ fun ChatScreen(
                             }
                         }
 
-                        Surface(
-                            shape = CircleShape,
-                            color = FutaColors.BrandGreen,
-                            modifier = Modifier
-                                .size(36.dp)
-                                .clickable { showingNewChatDialog = true }
-                        ) {
-                            Box(contentAlignment = Alignment.Center) {
-                                Icon(Icons.Default.Add, "Tạo hội thoại mới", tint = Color.White, modifier = Modifier.size(20.dp))
-                            }
-                        }
                     }
 
 
@@ -1523,64 +1512,6 @@ fun ChatScreen(
         }
     }
 
-    if (showingNewChatDialog) {
-        AlertDialog(
-            onDismissRequest = { showingNewChatDialog = false },
-            title = { Text("Tạo cuộc trò chuyện mới", fontWeight = FontWeight.Bold, color = FutaColors.Navy) },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Nhập số điện thoại khách hàng để bắt đầu tư vấn:", fontSize = 13.sp, color = FutaColors.Slate)
-                    FutaInput(
-                        value = newCustomerPhone,
-                        onValueChange = { newCustomerPhone = it },
-                        placeholder = "Ví dụ: 0912345678",
-                        keyboardOptions = KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Phone)
-                    )
-                }
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        val phone = newCustomerPhone.trim()
-                        if (phone.isNotEmpty()) {
-                            scope.launch {
-                                isCreatingConv = true
-                                try {
-                                    val res = APIClient.get().request(
-                                        "/chat/conversations",
-                                        method = "POST",
-                                        bodyJson = """{"customerPhone":"$phone"}"""
-                                    )
-                                    val newConv = res["data"]
-                                    if (!newConv.id.isEmpty()) {
-                                        val cName = newConv["customer"]["customerName"].string.ifEmpty { phone }
-                                        conversations.add(0, ConversationItem(newConv.id, cName, "Bắt đầu cuộc trò chuyện...", "Bây giờ", 0, true, false, ""))
-                                        activeConversationId = newConv.id
-                                        activeConversationName = cName
-                                        showingNewChatDialog = false
-                                        newCustomerPhone = ""
-                                    }
-                                } catch (e: Exception) {
-                                    ToastCenter.show("Lỗi tạo hội thoại: ${e.message}")
-                                } finally {
-                                    isCreatingConv = false
-                                }
-                            }
-                        }
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = FutaColors.BrandGreen),
-                    enabled = newCustomerPhone.isNotBlank() && !isCreatingConv
-                ) {
-                    Text(if (isCreatingConv) "Đang tạo…" else "Bắt đầu chat", color = Color.White)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showingNewChatDialog = false }) {
-                    Text("Hủy", color = FutaColors.Slate)
-                }
-            }
-        )
-    }
 }
 
 @Composable
@@ -2048,4 +1979,3 @@ private fun formatChatDateTime(dateStr: String): String {
         dateStr.take(16).replace("T", " ")
     }
 }
-
