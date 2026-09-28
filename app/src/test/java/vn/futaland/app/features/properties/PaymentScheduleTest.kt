@@ -227,4 +227,38 @@ class PaymentScheduleTest {
         assertEquals("30 ngày kể từ ngày hoàn tất đợt 1", result.rows[1].timing)
         assertEquals("Chuyển sang Hợp đồng Mua bán chính thức", result.rows[1].note)
     }
+
+    @Test
+    fun `uses listed price not pre-VAT value as calculation base`() {
+        val raw = """
+        {
+            "sellPrice": 10000000000.0,
+            "price": 10000000000.0,
+            "pricingBreakdown": [ { "key": "netPriceBeforeVat", "value": 9090909091.0 } ],
+            "paymentPolicies": [
+                {
+                    "id": "fast",
+                    "name": "Thanh toán nhanh",
+                    "discountPercent": 10.0,
+                    "depositAmount": 100000000.0,
+                    "installments": [
+                        { "name": "Đợt 1", "percent": 95.0 },
+                        { "name": "Đợt 2", "percent": 5.0 }
+                    ]
+                }
+            ]
+        }
+        """
+        val property = json(raw)
+        val policies = PaymentScheduleEngine.parsePolicies(property)
+        val basePrice = PaymentScheduleEngine.resolveDefaultBasePrice(property, policies)
+        assertEquals(10_000_000_000L, basePrice)
+
+        val result = PaymentScheduleEngine.calculate(policies[0], basePrice)
+        assertEquals(1_000_000_000L, result.discountAmount)
+        assertEquals(9_000_000_000L, result.netPrice)
+        assertEquals(8_550_000_000L, result.rows[0].amount)
+        assertTrue(result.rows[0].includesDeposit)
+        assertEquals(450_000_000L, result.rows[1].amount)
+    }
 }

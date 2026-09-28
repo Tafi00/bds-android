@@ -226,18 +226,21 @@ object PaymentScheduleEngine {
         return title.ifEmpty { "—" }
     }
 
+    /**
+     * Gốc tính duy nhất của bảng tính: GIÁ NIÊM YẾT (giá đang hiển thị trên sản phẩm,
+     * đã gồm VAT). Không dùng "Giá trị căn bán chưa VAT" (netPriceBeforeVat).
+     * Giữ đúng thứ tự với web `resolveListedPrice` (bds-clone/src/lib/payment-policy.ts):
+     * sellPrice → price → erpPriceTable.basis.listPrice → tổng tiền ERP.
+     */
     fun resolveDefaultBasePrice(property: JSONValue, policies: List<PaymentSchedulePolicy>): Long {
-        val beforeVat = property["pricingBreakdown"].array
-            .firstOrNull { it["key"].string == "netPriceBeforeVat" }?.get("value")?.double
-        if (beforeVat != null && beforeVat.isFinite() && beforeVat > 0) return beforeVat.roundToLong()
-        val basisPrice = property["erpPriceTable"]["basis"]["listPrice"].double
-        if (basisPrice > 0) return basisPrice.roundToLong()
-
         val sellPrice = property["sellPrice"].double
-        if (sellPrice > 0) return sellPrice.roundToLong()
+        if (sellPrice.isFinite() && sellPrice > 0) return sellPrice.roundToLong()
 
         val price = property["price"].double
-        if (price > 0) return price.roundToLong()
+        if (price.isFinite() && price > 0) return price.roundToLong()
+
+        val basisPrice = property["erpPriceTable"]["basis"]["listPrice"].double
+        if (basisPrice.isFinite() && basisPrice > 0) return basisPrice.roundToLong()
 
         policies.firstOrNull()?.defaultAmount?.let {
             if (it > 0L) return it
