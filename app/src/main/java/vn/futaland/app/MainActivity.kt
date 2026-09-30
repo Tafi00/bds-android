@@ -731,7 +731,6 @@ class MainActivity : ComponentActivity() {
                     AppUpdateDialog(
                         visible = PlayStoreUpdateManager.shouldShowAlert.value,
                         installedVersionName = PlayStoreUpdateManager.installedVersionName.value,
-                        availableVersionCode = PlayStoreUpdateManager.availableVersionCode.value,
                         onUpdate = { PlayStoreUpdateManager.actOnUpdate(this@MainActivity) },
                         onLater = { PlayStoreUpdateManager.dismiss(this@MainActivity) }
                     )
@@ -751,6 +750,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun handleIncomingIntent(intent: Intent?) {
+        PlayStoreUpdateManager.previewIfRequested(this, intent)
         val authToken = intent?.getStringExtra("auth_token")
         if (!authToken.isNullOrEmpty()) {
             APIClient.get().tokenStorage.accessToken = authToken
