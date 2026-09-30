@@ -30,6 +30,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
+import org.json.JSONObject
 import vn.futaland.app.core.auth.AppSession
 import vn.futaland.app.core.network.APIClient
 import vn.futaland.app.core.network.JSONValue
@@ -52,6 +53,7 @@ fun AdvisorWorkspaceScreen(
     var showProfileSheet by remember { mutableStateOf(false) }
     var showExamSheet by remember { mutableStateOf(false) }
     var showVerificationSheet by remember { mutableStateOf(false) }
+    var showCommissionSheet by remember { mutableStateOf(false) }
 
     fun loadWorkspace() {
         scope.launch {
@@ -226,6 +228,34 @@ fun AdvisorWorkspaceScreen(
                     }
                 }
 
+                // 2b. Commission account: editable at any profile status (no re-approval)
+                item {
+                    FutaCard(modifier = Modifier.fillMaxWidth(), onClick = { showCommissionSheet = true }) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Surface(
+                                shape = RoundedCornerShape(10.dp),
+                                color = FutaColors.MintBg,
+                                modifier = Modifier.size(38.dp)
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Icon(Icons.Default.AccountBalance, null, tint = FutaColors.BrandGreen, modifier = Modifier.size(20.dp))
+                                }
+                            }
+                            Spacer(Modifier.width(12.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text("Tài khoản nhận hoa hồng", fontSize = 13.5.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
+                                Text("Số tài khoản, ngân hàng và mã số thuế cá nhân", fontSize = 11.5.sp, color = FutaColors.Slate)
+                            }
+                            Icon(Icons.Default.ChevronRight, null, tint = FutaColors.Slate, modifier = Modifier.size(18.dp))
+                        }
+                    }
+                }
+
                 // 3. Business Workspace Quick Links
                 item {
                     Text(
@@ -353,6 +383,14 @@ fun AdvisorWorkspaceScreen(
                 showProfileSheet = false
                 loadWorkspace()
             }
+        )
+    }
+
+    // Commission account sheet (works for approved profiles too)
+    if (showCommissionSheet) {
+        AdvisorCommissionAccountSheet(
+            onDismiss = { showCommissionSheet = false },
+            onSuccess = { showCommissionSheet = false }
         )
     }
 
@@ -656,6 +694,119 @@ private fun AdvisorProfileSheet(
                         } catch (e: Exception) {
                             ToastCenter.show("Đã lưu hồ sơ TVV thành công!")
                             onSuccess()
+                        } finally {
+                            isSubmitting = false
+                        }
+                    }
+                },
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+    }
+}
+
+// -------------------------------------------------------------
+// Commission account: PATCH /advisor/me/commission-account
+// Works at every profile status, including approved (no re-approval needed).
+// -------------------------------------------------------------
+@Composable
+private fun AdvisorCommissionAccountSheet(
+    onDismiss: () -> Unit,
+    onSuccess: () -> Unit
+) {
+    val scope = rememberCoroutineScope()
+    var loading by remember { mutableStateOf(true) }
+    var loadFailed by remember { mutableStateOf(false) }
+    var isSubmitting by remember { mutableStateOf(false) }
+    var bankAccount by remember { mutableStateOf("") }
+    var bankName by remember { mutableStateOf("") }
+    var taxCode by remember { mutableStateOf("") }
+    var saved by remember { mutableStateOf(Triple("", "", "")) }
+
+    LaunchedEffect(Unit) {
+        try {
+            val profile = APIClient.get().request("/advisor/me")["data"]["profile"]
+            bankAccount = profile["bankAccount"].string
+            bankName = profile["bankName"].string
+            taxCode = profile["taxCode"].string
+            saved = Triple(bankAccount.trim(), bankName.trim(), taxCode.trim())
+        } catch (e: Exception) {
+            // Never allow saving after a failed load: it would overwrite the stored values with blanks.
+            loadFailed = true
+            ToastCenter.show(e.message ?: "Không tải được tài khoản nhận hoa hồng", isError = true)
+        } finally {
+            loading = false
+        }
+    }
+
+    val dirty = Triple(bankAccount.trim(), bankName.trim(), taxCode.trim()) != saved
+    val inputsEnabled = !loading && !loadFailed && !isSubmitting
+
+    FutaBottomSheet(
+        visible = true,
+        onDismiss = onDismiss,
+        title = "Tài khoản nhận hoa hồng"
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+                .padding(bottom = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Text("Số tài khoản nhận hoa hồng", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
+            FutaInput(
+                value = bankAccount,
+                onValueChange = { bankAccount = it },
+                placeholder = "Nhập số tài khoản",
+                enabled = inputsEnabled,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next)
+            )
+
+            Text("Tên ngân hàng thụ hưởng", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
+            FutaInput(
+                value = bankName,
+                onValueChange = { bankName = it },
+                placeholder = "VietinBank, Vietcombank...",
+                enabled = inputsEnabled,
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next)
+            )
+
+            Text("Mã số thuế cá nhân", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
+            FutaInput(
+                value = taxCode,
+                onValueChange = { taxCode = it },
+                placeholder = "Nhập mã số thuế cá nhân",
+                enabled = inputsEnabled,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done)
+            )
+
+            Text(
+                "Bạn có thể cập nhật tài khoản hoa hồng bất cứ lúc nào, không cần duyệt lại hồ sơ.",
+                fontSize = 11.5.sp,
+                color = FutaColors.Slate
+            )
+
+            Spacer(Modifier.height(4.dp))
+
+            FutaButton(
+                text = if (isSubmitting) "Đang lưu..." else "Lưu tài khoản hoa hồng",
+                variant = FutaButtonVariant.PRIMARY,
+                enabled = inputsEnabled && dirty,
+                onClick = {
+                    scope.launch {
+                        isSubmitting = true
+                        try {
+                            val body = JSONObject()
+                                .put("bankAccount", bankAccount.trim())
+                                .put("bankName", bankName.trim())
+                                .put("taxCode", taxCode.trim())
+                                .toString()
+                            APIClient.get().request("/advisor/me/commission-account", method = "PATCH", bodyJson = body)
+                            ToastCenter.show("Đã cập nhật tài khoản hoa hồng")
+                            onSuccess()
+                        } catch (e: Exception) {
+                            ToastCenter.show(e.message ?: "Không thể lưu tài khoản hoa hồng", isError = true)
                         } finally {
                             isSubmitting = false
                         }
