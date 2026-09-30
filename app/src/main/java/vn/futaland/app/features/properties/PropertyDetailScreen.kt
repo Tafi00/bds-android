@@ -1055,7 +1055,7 @@ fun PropertyDetailScreen(
                                         Text("Tiền hoa hồng ước tính", fontSize = 11.5.sp, color = FutaColors.Slate)
                                         val commAmount = property["commission"]["amount"].double
                                         Text(
-                                            text = if (property["commission"]["amount"].isNull) "Đang cập nhật" else PropertyFormatters.formatPrice(commAmount),
+                                            text = if (property["commission"]["amount"].isNull) "Đang cập nhật" else PropertyFormatters.formatCommission(commAmount),
                                             fontSize = 17.sp,
                                             fontWeight = FontWeight.Bold,
                                             color = Color(0xFFF97316)

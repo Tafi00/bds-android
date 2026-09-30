@@ -60,7 +60,7 @@ class SalesPolicyTest {
     fun `every registration state has its own label`() {
         assertEquals("Chưa đăng ký", SalesPolicy.registrationLabel("not_registered"))
         assertEquals("Chờ duyệt", SalesPolicy.registrationLabel("pending"))
-        assertEquals("Đã được cấp quyền bán", SalesPolicy.registrationLabel("active"))
+        assertEquals("Đang bán", SalesPolicy.registrationLabel("active"))
         assertEquals("Hết suất", SalesPolicy.registrationLabel("full"))
         assertEquals("Hết hạn", SalesPolicy.registrationLabel("expired"))
         assertEquals("Đã thu hồi", SalesPolicy.registrationLabel("revoked"))

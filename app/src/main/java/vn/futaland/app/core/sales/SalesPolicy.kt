@@ -22,7 +22,7 @@ object SalesPolicy {
     fun registrationLabel(state: String) = when (state) {
         "not_registered" -> "Chưa đăng ký"
         "pending" -> "Chờ duyệt"
-        "active" -> "Đã được cấp quyền bán"
+        "active" -> "Đang bán"
         "full" -> "Hết suất"
         "expired" -> "Hết hạn"
         "revoked" -> "Đã thu hồi"

@@ -26,8 +26,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
-import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
+import vn.futaland.app.core.network.JSONValue
+import vn.futaland.app.core.sales.RegistrationPresentation
 import vn.futaland.app.core.network.APIClient
 import vn.futaland.app.core.sales.SalesPolicy
 import vn.futaland.app.designsystem.*
@@ -50,6 +51,7 @@ data class SellingItem(
     val imgUrl: String,
     val status: String, // available, pending, active, expired, rejected, revoked
     val expiresAt: String,
+    val isOpenForSale: Boolean = false,
     val isAvailableProduct: Boolean = false
 )
 
@@ -77,6 +79,8 @@ fun MyListingsScreen(
 
     var items by remember { mutableStateOf<List<SellingItem>>(emptyList()) }
     var loading by remember { mutableStateOf(true) }
+    var sellingQuota by remember { mutableStateOf(JSONValue.Null) }
+    var loadGeneration by remember { mutableIntStateOf(0) }
     var registeringProperty by remember { mutableStateOf<SellingItem?>(null) }
     var isRegistering by remember { mutableStateOf(false) }
 
@@ -98,38 +102,23 @@ fun MyListingsScreen(
         "active" to "Đang bán",
         "expired" to "Đã hết hạn",
         "rejected" to "Từ chối duyệt",
-        "revoked" to "Đã thu hồi"
+        "deposited" to "Đã thu cọc",
+        "sold" to "Đã bán"
     )
 
     fun loadData() {
+        val generation = ++loadGeneration
         scope.launch {
             loading = true
             try {
-                val invList = try {
-                    val invRes = APIClient.get().request("/sales/inventory", query = mapOf("page" to "1", "limit" to "200"))
-                    val dataVal = invRes["data"]
-                    if (dataVal.array.isNotEmpty()) dataVal.array
-                    else if (dataVal["data"].array.isNotEmpty()) dataVal["data"].array
-                    else invRes.array
-                } catch (_: Exception) {
-                    try {
-                        val propertyRes = APIClient.get().request("/apartments?limit=50")
-                        val dataVal = propertyRes["data"]
-                        if (dataVal.array.isNotEmpty()) dataVal.array else propertyRes.array
-                    } catch (_: Exception) {
-                        emptyList()
-                    }
-                }
-
-                val regList = try {
-                    val regRes = APIClient.get().request("/sales/registrations")
-                    val dataVal = regRes["data"]
-                    if (dataVal.array.isNotEmpty()) dataVal.array
-                    else if (dataVal["data"].array.isNotEmpty()) dataVal["data"].array
-                    else regRes.array
-                } catch (_: Exception) {
-                    emptyList()
-                }
+                // Failed requests must not turn registered units into available products.
+                val invRes = APIClient.get().request("/sales/inventory", query = mapOf("page" to "1", "limit" to "200"))
+                val invList = if (invRes["data"].array.isNotEmpty()) invRes["data"].array
+                    else invRes["data"]["data"].array
+                val regRes = APIClient.get().request("/sales/registrations")
+                val regList = if (regRes["data"].array.isNotEmpty()) regRes["data"].array
+                    else regRes["data"]["data"].array
+                val quota = regRes["quota"]
 
                 val campaignList = try {
                     val cRes = APIClient.get().request("/sales/campaigns")
@@ -146,13 +135,15 @@ fun MyListingsScreen(
                 val merged = mutableListOf<SellingItem>()
                 val registeredIds = mutableSetOf<String>()
 
+                val openForSaleIds = invList.map { it.id }.toSet()
                 for (reg in regList) {
+                    if (!RegistrationPresentation.isVisible(reg)) continue
                     val propertyId = reg["property"]["id"].string.ifEmpty {
                         reg["propertyId"].string.ifEmpty {
                             reg["property"]["propertyCode"].string
                         }
                     }
-                    if (propertyId.isNotEmpty()) registeredIds.add(propertyId)
+                    if (propertyId.isNotEmpty() && !registeredIds.add(propertyId)) continue
                     val unitCode = reg["unitCode"].string.ifEmpty { reg["property"]["propertyCode"].string }
                     if (unitCode.isNotEmpty()) registeredIds.add(unitCode)
 
@@ -173,7 +164,7 @@ fun MyListingsScreen(
                     else reg["property"]["price"].double
                     val area = if (reg["area"].double > 0) reg["area"].double else reg["property"]["size_m2"].double
                     val imgUrl = PropertyFormatters.resolveImage(reg)
-                    val status = reg["status"].string.lowercase()
+                    val status = RegistrationPresentation.category(reg)
 
                     merged.add(
                         SellingItem(
@@ -193,13 +184,14 @@ fun MyListingsScreen(
                             imgUrl = imgUrl,
                             status = status,
                             expiresAt = reg["expiresAt"].string,
+                            isOpenForSale = propertyId in openForSaleIds,
                             isAvailableProduct = false
                         )
                     )
                 }
 
                 for (property in invList) {
-                    val recId = property["id"].string
+                    val recId = property.id
                     val pCode = property["propertyCode"].string
                     if (!registeredIds.contains(recId) && !registeredIds.contains(pCode)) {
                         val rawPrice = if (property["sellPrice"].double > 0) property["sellPrice"].double else property["price"].double
@@ -233,24 +225,23 @@ fun MyListingsScreen(
                                 imgUrl = imgUrl,
                                 status = "available",
                                 expiresAt = "",
+                                isOpenForSale = true,
                                 isAvailableProduct = true
                             )
                         )
                     }
                 }
 
-                if (merged.isNotEmpty()) {
+                if (generation == loadGeneration) {
                     items = merged
-                } else if (items.isEmpty()) {
-                    items = emptyList()
+                    sellingQuota = quota
                 }
             } catch (e: Exception) {
-                if (items.isEmpty()) {
-                    items = emptyList()
+                if (generation == loadGeneration) {
+                    ToastCenter.show("Không thể làm mới danh sách: ${e.message}", isError = true)
                 }
-                ToastCenter.show("Không thể làm mới danh sách: ${e.message}", isError = true)
             } finally {
-                loading = false
+                if (generation == loadGeneration) loading = false
             }
         }
     }
@@ -324,7 +315,7 @@ fun MyListingsScreen(
                 "active" -> !item.isAvailableProduct && (item.status == "active" || item.status == "approved")
                 "expired" -> !item.isAvailableProduct && item.status == "expired"
                 "rejected" -> !item.isAvailableProduct && item.status == "rejected"
-                "revoked" -> !item.isAvailableProduct && item.status == "revoked"
+                "deposited", "sold" -> !item.isAvailableProduct && item.status == selectedTab
                 else -> true
             }
 
@@ -573,6 +564,8 @@ fun MyListingsScreen(
                                     "available" -> RegistrationBadge("Chưa đăng ký", Color(0xFF2563EB), Color(0xFFEFF6FF))
                                     "pending" -> RegistrationBadge("Chờ duyệt", Color(0xFFD97706), Color(0xFFFEF3C7))
                                     "active", "approved" -> RegistrationBadge("Đang bán", FutaColors.BrandGreen, Color(0xFFECFDF5))
+                                    "sold" -> RegistrationBadge("Đã bán", Color(0xFF7C3AED), Color(0xFFF5F3FF))
+                                    "deposited" -> RegistrationBadge("Đã thu cọc", Color(0xFFD97706), Color(0xFFFEF3C7))
                                     "rejected" -> RegistrationBadge("Từ chối", Color(0xFFDC2626), Color(0xFFFEE2E2))
                                     else -> RegistrationBadge("Hết hạn", Color.Gray, Color(0xFFF1F5F9))
                                 }
@@ -623,10 +616,21 @@ fun MyListingsScreen(
                                             color = FutaColors.Slate
                                         )
                                     }
+                                    "sold", "deposited" -> Text(
+                                        if (item.status == "sold") "Giao dịch thành công" else "Đã thu cọc",
+                                        fontSize = 12.sp, color = FutaColors.Slate
+                                    )
                                     else -> {
-                                        // Available or Expired: allow Registering to sell!
                                         Spacer(Modifier.weight(1f))
-                                        Button(
+                                        if (!item.isOpenForSale) {
+                                            Text("Căn chưa mở bán lại", fontSize = 12.sp, color = FutaColors.Slate)
+                                        } else if (!RegistrationPresentation.canRegister(sellingQuota)) {
+                                            Text(
+                                                if (sellingQuota.isNull) "Vui lòng làm mới danh sách"
+                                                else "Đã đạt giới hạn ${sellingQuota["maxProductsPerAdvisor"].int} căn",
+                                                fontSize = 12.sp, color = FutaColors.Slate
+                                            )
+                                        } else Button(
                                             onClick = { registeringProperty = item },
                                             colors = ButtonDefaults.buttonColors(containerColor = FutaColors.BrandGreen),
                                             shape = CircleShape,

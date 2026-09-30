@@ -10,6 +10,14 @@ import vn.futaland.app.core.network.JSONValue
  */
 class PropertyFormattersTest {
 
+    @Test
+    fun `commission uses million infix with correct rounding`() {
+        assertEquals("91M6 VND", PropertyFormatters.formatCommission(91_621_715.0))
+        assertEquals("91M VND", PropertyFormatters.formatCommission(91_000_000.0))
+        assertEquals("92M VND", PropertyFormatters.formatCommission(91_990_000.0))
+        assertEquals(PropertyFormatters.formatPrice(500_000.0), PropertyFormatters.formatCommission(500_000.0))
+    }
+
     private fun access(json: String) = JSONValue.parse(json)
 
     @Test

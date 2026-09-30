@@ -21,6 +21,13 @@ object PropertyFormatters {
         return "${"%,d".format(value.toLong()).replace(",", ".")} đ"
     }
 
+    fun formatCommission(value: Double): String {
+        if (!value.isFinite() || value < 1_000_000 || value >= 1_000_000_000) return formatPrice(value)
+        val tenths = kotlin.math.floor(value / 100_000 + 0.5).toLong()
+        val fraction = tenths % 10
+        return "${tenths / 10}M${if (fraction == 0L) "" else fraction.toString()} VND"
+    }
+
     fun listingPrice(property: JSONValue): String {
         val listingType = property["listingType"].string.lowercase()
         val isSell = listingType == "sell" || listingType == "bán" || listingType == "mua bán"
