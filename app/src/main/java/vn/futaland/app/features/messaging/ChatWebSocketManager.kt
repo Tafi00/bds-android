@@ -9,7 +9,14 @@ import vn.futaland.app.core.network.APIClient
 import vn.futaland.app.core.network.JSONValue
 import java.util.concurrent.TimeUnit
 
-class ChatWebSocketManager private constructor() {
+/**
+ * [tokenProvider] defaults to the signed-in session; the in-memory guest
+ * advisor chat creates its own instance with the guest token so it never
+ * touches the shared connection.
+ */
+class ChatWebSocketManager(
+    private val tokenProvider: () -> String? = { APIClient.get().effectiveToken }
+) {
 
     companion object {
         val shared = ChatWebSocketManager()
@@ -56,7 +63,7 @@ class ChatWebSocketManager private constructor() {
 
         // No anonymous chat sessions — guests get the transient AI chat instead,
         // so a missing token means "not allowed to connect", not "connect blank".
-        val token = APIClient.get().effectiveToken
+        val token = tokenProvider()
         if (token.isNullOrEmpty()) return
         val wsUrl = "wss://bds.futaland.vn/ws/chat?token=$token"
 

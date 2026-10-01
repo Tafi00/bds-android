@@ -65,23 +65,26 @@ class APIClient private constructor(context: Context) {
         path: String,
         method: String = "GET",
         bodyJson: String? = null,
-        query: Map<String, String> = emptyMap()
+        query: Map<String, String> = emptyMap(),
+        // An explicit token (the in-memory guest advisor chat) replaces the
+        // stored session and skips the refresh/expiry handling below.
+        bearerToken: String? = null
     ): JSONValue = withContext(Dispatchers.IO) {
         val fullUrl = buildUrl(path, query)
         val requestBuilder = Request.Builder().url(fullUrl)
 
-        effectiveToken?.let { token ->
+        (bearerToken ?: effectiveToken)?.let { token ->
             requestBuilder.addHeader("Authorization", "Bearer $token")
         }
 
         val requestBody = bodyJson?.toRequestBody("application/json; charset=utf-8".toMediaType())
         requestBuilder.method(method, requestBody)
 
-        val wasAuthenticated = effectiveToken != null
+        val wasAuthenticated = bearerToken == null && effectiveToken != null
         var response = okHttpClient.newCall(requestBuilder.build()).execute()
 
         // Handle 401 and attempt refresh token
-        if (response.code == 401 && tokenStorage.refreshToken != null) {
+        if (response.code == 401 && bearerToken == null && tokenStorage.refreshToken != null) {
             response.close()
             val refreshed = refreshAccessToken()
             if (refreshed) {

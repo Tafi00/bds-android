@@ -13,6 +13,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.input.ImeAction
@@ -44,6 +45,7 @@ import kotlinx.serialization.json.putJsonArray
 import vn.futaland.app.R
 import vn.futaland.app.core.auth.AppSession
 import vn.futaland.app.core.network.APIClient
+import vn.futaland.app.core.network.APIError
 import vn.futaland.app.core.network.JSONValue
 import vn.futaland.app.designsystem.*
 import vn.futaland.app.features.properties.PropertyFormatters
@@ -401,7 +403,19 @@ fun ChatScreen(
         )
     }
 
-    if (!isLoggedIn) {
+    if (!isLoggedIn && !targetAdvisorId.isNullOrBlank() && !isAiChat) {
+        // VIEW 0a: GUEST ADVISOR CHAT — a signed-out visitor who tapped a
+        // specific advisor leaves name + phone first, then chats with that
+        // advisor on an in-memory guest token. Leaving the screen forgets it.
+        GuestAdvisorChatView(
+            advisorId = targetAdvisorId,
+            advisorName = targetAdvisorName.orEmpty(),
+            propertyId = targetPropertyId.orEmpty(),
+            onBack = onBack,
+            onNavigate = onNavigate,
+            productContext = productContext
+        )
+    } else if (!isLoggedIn) {
         // VIEW 0: TRANSIENT AI CHAT — anonymous users only. Everything stays in
         // memory: no guest token, no WebSocket, no /chat/* endpoints, nothing
         // persisted — the replies come from POST /chatbot/public-chat.
@@ -1869,6 +1883,527 @@ private fun GuestAiChatView(
                     }
                 }
             }
+        }
+    }
+}
+
+/** Mirrors the backend `normalizeVietnamesePhone`; empty means invalid. */
+private fun normalizeGuestPhone(raw: String): String {
+    val digits = raw.filter { it.isDigit() }
+    return when {
+        digits.startsWith("84") -> {
+            val local = digits.drop(2).trimStart('0')
+            if (local.length == 9) "0$local" else ""
+        }
+        digits.startsWith("0") -> if (digits.length == 10) digits else ""
+        digits.length == 9 -> "0$digits"
+        else -> ""
+    }
+}
+
+private val guestEmailRegex = Regex("^[^\\s@]+@[^\\s@]+\\.[^\\s@]{2,}$")
+
+/**
+ * Signed-out visitors who tap "chat with advisor" first leave their name and
+ * phone (email optional). That creates a guest lead on the server
+ * (`POST /auth/guest`), and the chat with the advisor then runs on a guest token
+ * held only in this composable's state — never in token storage. Backing out of
+ * the screen drops the token and the history, so the next visit starts from the
+ * form again and nothing leaks into a later session.
+ */
+@Composable
+private fun GuestAdvisorChatView(
+    advisorId: String,
+    advisorName: String,
+    propertyId: String,
+    onBack: (() -> Unit)?,
+    onNavigate: (String) -> Unit,
+    productContext: vn.futaland.app.core.sales.ProductContext
+) {
+    val scope = rememberCoroutineScope()
+    val listState = rememberLazyListState()
+    val displayName = advisorName.ifBlank { "Chuyên viên FUTA" }
+
+    var name by remember { mutableStateOf("") }
+    var phone by remember { mutableStateOf("") }
+    var email by remember { mutableStateOf("") }
+    var showValidation by remember { mutableStateOf(false) }
+    var starting by remember { mutableStateOf(false) }
+
+    var guestToken by remember { mutableStateOf<String?>(null) }
+    var conversationId by remember { mutableStateOf("") }
+    val messages = remember { mutableStateListOf<ChatMessage>() }
+    var messageText by remember { mutableStateOf("") }
+    var sending by remember { mutableStateOf(false) }
+    var socket by remember { mutableStateOf<ChatWebSocketManager?>(null) }
+
+    val nameError = if (name.trim().length < 2) "Vui lòng nhập họ và tên (ít nhất 2 ký tự)" else null
+    val normalizedPhone = normalizeGuestPhone(phone)
+    val phoneError = when {
+        phone.isBlank() -> "Vui lòng nhập số điện thoại"
+        normalizedPhone.isEmpty() -> "Số điện thoại không hợp lệ (ví dụ: 0901234567)"
+        else -> null
+    }
+    val emailError = if (email.isNotBlank() && !guestEmailRegex.matches(email.trim())) "Email không hợp lệ" else null
+
+    fun toChatMessage(m: JSONValue): ChatMessage {
+        // The guest is the only customer in this thread.
+        val isMe = m["senderType"].string == "customer"
+        val cards = parseChatPropertyCards(m["metadata"])
+        return ChatMessage(
+            id = m.id.ifEmpty { nextLocalMessageId() },
+            senderId = m["senderId"].string,
+            senderName = if (isMe) "Tôi" else m["senderName"].string.ifEmpty { displayName },
+            content = m["content"].string,
+            isMe = isMe,
+            time = formatChatTime(m["createdAt"].string),
+            propertyCard = cards.firstOrNull(),
+            propertyCards = cards,
+            createdAt = m["createdAt"].string,
+            readAt = m["readAt"].string
+        )
+    }
+
+    fun mergeServerMessages(list: List<JSONValue>) {
+        list.forEach { mergeIncomingChatMessage(messages, toChatMessage(it)) }
+        val sorted = messages.sortedBy { it.createdAt.ifEmpty { "￿" } }
+        if (sorted != messages.toList()) {
+            messages.clear()
+            messages.addAll(sorted)
+        }
+    }
+
+    suspend fun loadMessages() {
+        val token = guestToken ?: return
+        if (conversationId.isEmpty()) return
+        try {
+            val res = APIClient.get().request(
+                "/chat/conversations/$conversationId/messages",
+                query = mapOf("limit" to "50"),
+                bearerToken = token
+            )
+            mergeServerMessages(res["data"].array)
+        } catch (_: Exception) {}
+    }
+
+    fun start() {
+        if (starting) return
+        showValidation = true
+        if (nameError != null || phoneError != null || emailError != null) return
+        starting = true
+        scope.launch {
+            try {
+                val profile = buildJsonObject {
+                    put("name", name.trim())
+                    put("phone", normalizedPhone)
+                    if (email.isNotBlank()) put("email", email.trim())
+                }.toString()
+                val session = APIClient.get().request("/auth/guest", method = "POST", bodyJson = profile)
+                val token = session["data"]["accessToken"].string
+                if (token.isEmpty()) throw APIError(0, "Không thể bắt đầu phiên trò chuyện. Vui lòng thử lại.")
+
+                val convBody = buildJsonObject {
+                    put("advisorId", advisorId)
+                    if (propertyId.isNotEmpty()) put("propertyId", propertyId)
+                }.toString()
+                val conv = APIClient.get().request(
+                    "/chat/conversations",
+                    method = "POST",
+                    bodyJson = convBody,
+                    bearerToken = token
+                )
+                val convId = conv["data"].id
+                if (convId.isEmpty()) throw APIError(0, "Không thể bắt đầu phiên trò chuyện. Vui lòng thử lại.")
+
+                guestToken = token
+                conversationId = convId
+                loadMessages()
+
+                val ws = ChatWebSocketManager(tokenProvider = { token })
+                ws.onNewMessage = { msg ->
+                    if (msg["conversationId"].string == convId) mergeServerMessages(listOf(msg))
+                }
+                socket = ws
+                ws.connect()
+                ws.join(convId)
+            } catch (e: Exception) {
+                ToastCenter.show(e.message ?: "Không thể bắt đầu phiên trò chuyện. Vui lòng thử lại.", isError = true)
+            } finally {
+                starting = false
+            }
+        }
+    }
+
+    fun sendMessage() {
+        val token = guestToken ?: return
+        val text = messageText.trim()
+        if (text.isEmpty() || sending || conversationId.isEmpty()) return
+        messageText = ""
+        sending = true
+        val localId = nextLocalMessageId()
+        messages.add(
+            ChatMessage(
+                id = localId,
+                senderId = "me",
+                senderName = "Tôi",
+                content = text,
+                isMe = true,
+                time = "Bây giờ",
+                pending = true
+            )
+        )
+        scope.launch {
+            try {
+                val body = buildJsonObject { put("content", text) }.toString()
+                val res = APIClient.get().request(
+                    "/chat/conversations/$conversationId/messages",
+                    method = "POST",
+                    bodyJson = body,
+                    bearerToken = token
+                )
+                val saved = toChatMessage(res["data"])
+                val localIndex = messages.indexOfFirst { it.id == localId }
+                when {
+                    messages.any { it.id == saved.id } -> if (localIndex >= 0) messages.removeAt(localIndex)
+                    localIndex >= 0 -> messages[localIndex] = saved
+                    else -> messages.add(saved)
+                }
+            } catch (e: Exception) {
+                val localIndex = messages.indexOfFirst { it.id == localId }
+                if (localIndex >= 0) messages[localIndex] = messages[localIndex].copy(pending = false, failed = true)
+                ToastCenter.show("Lỗi gửi tin nhắn: ${e.message.orEmpty()}", isError = true)
+            } finally {
+                sending = false
+            }
+        }
+    }
+
+    // Leaving the screen ends the guest session: close its socket. The token
+    // and messages live only in this composition and are dropped with it.
+    DisposableEffect(Unit) {
+        onDispose { socket?.disconnect() }
+    }
+
+    // Safety net for a dropped socket: re-sync while the thread is on screen.
+    LaunchedEffect(conversationId) {
+        if (conversationId.isEmpty()) return@LaunchedEffect
+        while (true) {
+            delay(10_000)
+            loadMessages()
+        }
+    }
+
+    LaunchedEffect(messages.size) {
+        if (messages.isNotEmpty()) listState.animateScrollToItem(messages.size)
+    }
+
+    val noTyping = remember { kotlinx.coroutines.flow.MutableStateFlow(emptyMap<String, String>()) }
+    val typingUsers by (socket?.typingUsers ?: noTyping).collectAsState()
+    val advisorTyping = conversationId.isNotEmpty() && typingUsers.containsKey(conversationId)
+    val inChat = guestToken != null && conversationId.isNotEmpty()
+
+    Scaffold(
+        topBar = {
+            Surface(color = Color.White, shadowElevation = 1.dp) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .statusBarsPadding()
+                        .padding(horizontal = 8.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    if (onBack != null) {
+                        Surface(
+                            shape = CircleShape,
+                            color = Color.White,
+                            border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                            modifier = Modifier
+                                .size(36.dp)
+                                .clickable { onBack.invoke() }
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(Icons.AutoMirrored.Filled.ArrowBack, "Quay lại", tint = FutaColors.Navy, modifier = Modifier.size(16.dp))
+                            }
+                        }
+                        Spacer(Modifier.width(10.dp))
+                    }
+                    Surface(
+                        shape = CircleShape,
+                        color = FutaColors.BrandGreen.copy(alpha = 0.12f),
+                        modifier = Modifier.size(36.dp)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Text(displayName.take(1).uppercase(), color = FutaColors.BrandGreen, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                        }
+                    }
+                    Spacer(Modifier.width(10.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = displayName,
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = FutaColors.Navy,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Text(
+                            text = "Tư vấn viên",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = Color(0xFF16A34A),
+                            maxLines = 1
+                        )
+                    }
+                }
+            }
+        },
+        bottomBar = {
+            if (inChat) {
+                Surface(
+                    color = Color.White,
+                    border = BorderStroke(1.dp, FutaColors.LightBlueBorder),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .windowInsetsPadding(WindowInsets.ime.union(WindowInsets.navigationBars))
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 10.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        FutaInput(
+                            value = messageText,
+                            onValueChange = {
+                                messageText = it
+                                if (it.isNotEmpty()) socket?.sendTyping(conversationId)
+                            },
+                            placeholder = "Nhập tin nhắn gửi tư vấn viên...",
+                            modifier = Modifier.weight(1f),
+                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
+                            keyboardActions = KeyboardActions(onSend = { sendMessage() })
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        val canSend = messageText.isNotBlank() && !sending
+                        Surface(
+                            shape = RoundedCornerShape(12.dp),
+                            color = if (canSend) FutaColors.BrandGreen else Color(0xFFE2E8F0),
+                            modifier = Modifier
+                                .size(38.dp)
+                                .clickable(enabled = canSend) { sendMessage() }
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                if (sending) {
+                                    CircularProgressIndicator(color = Color.White, strokeWidth = 2.dp, modifier = Modifier.size(16.dp))
+                                } else {
+                                    Icon(Icons.AutoMirrored.Filled.Send, "Gửi", tint = Color.White, modifier = Modifier.size(17.dp))
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    ) { padding ->
+        if (!inChat) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(FutaColors.PageBg)
+                    .padding(padding)
+                    .windowInsetsPadding(WindowInsets.ime)
+                    .verticalScroll(rememberScrollState())
+                    .padding(16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Surface(
+                    shape = CircleShape,
+                    color = FutaColors.BrandGreen.copy(alpha = 0.12f),
+                    modifier = Modifier.size(56.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Text(displayName.take(1).uppercase(), color = FutaColors.BrandGreen, fontWeight = FontWeight.Bold, fontSize = 22.sp)
+                    }
+                }
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    "Trò chuyện với $displayName",
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = FutaColors.Navy,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                )
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    "Vui lòng để lại thông tin để tư vấn viên có thể hỗ trợ và liên hệ lại với bạn.",
+                    fontSize = 12.5.sp,
+                    color = Color(0xFF64748B),
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                )
+                Spacer(Modifier.height(16.dp))
+                Surface(
+                    shape = RoundedCornerShape(16.dp),
+                    color = Color.White,
+                    border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                        GuestIntakeField(
+                            label = "Họ và tên *",
+                            value = name,
+                            onValueChange = { name = it },
+                            placeholder = "Nguyễn Văn A",
+                            error = if (showValidation) nameError else null,
+                            keyboardOptions = KeyboardOptions(
+                                capitalization = androidx.compose.ui.text.input.KeyboardCapitalization.Words,
+                                imeAction = ImeAction.Next
+                            )
+                        )
+                        GuestIntakeField(
+                            label = "Số điện thoại *",
+                            value = phone,
+                            onValueChange = { phone = it },
+                            placeholder = "0901234567",
+                            error = if (showValidation) phoneError else null,
+                            keyboardOptions = KeyboardOptions(
+                                keyboardType = androidx.compose.ui.text.input.KeyboardType.Phone,
+                                imeAction = ImeAction.Next
+                            )
+                        )
+                        GuestIntakeField(
+                            label = "Email (không bắt buộc)",
+                            value = email,
+                            onValueChange = { email = it },
+                            placeholder = "email@example.com",
+                            error = if (showValidation) emailError else null,
+                            keyboardOptions = KeyboardOptions(
+                                keyboardType = androidx.compose.ui.text.input.KeyboardType.Email,
+                                imeAction = ImeAction.Go
+                            ),
+                            keyboardActions = KeyboardActions(onGo = { start() })
+                        )
+                    }
+                }
+                Spacer(Modifier.height(16.dp))
+                Button(
+                    onClick = { start() },
+                    enabled = !starting,
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = FutaColors.BrandGreen,
+                        disabledContainerColor = FutaColors.BrandGreen.copy(alpha = 0.6f)
+                    ),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(48.dp)
+                ) {
+                    if (starting) {
+                        CircularProgressIndicator(color = Color.White, strokeWidth = 2.dp, modifier = Modifier.size(18.dp))
+                    } else {
+                        Text("Bắt đầu trò chuyện", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                    }
+                }
+                Spacer(Modifier.height(12.dp))
+                Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Icon(Icons.Default.Info, null, tint = Color(0xFF64748B), modifier = Modifier.size(14.dp))
+                    Text(
+                        "Lịch sử trò chuyện sẽ không được lưu sau khi bạn rời khỏi màn hình này.",
+                        fontSize = 11.5.sp,
+                        color = Color(0xFF64748B)
+                    )
+                }
+            }
+        } else {
+            LazyColumn(
+                state = listState,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(FutaColors.PageBg)
+                    .padding(padding),
+                contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 12.dp, bottom = 28.dp)
+            ) {
+                item(key = "guest_advisor_intro") {
+                    Surface(
+                        shape = RoundedCornerShape(16.dp),
+                        color = Color.White,
+                        border = BorderStroke(1.dp, Color(0xFFCBD5E1)),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp)
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text(
+                                "Bạn đang trò chuyện với $displayName",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = FutaColors.Navy,
+                                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                            )
+                            Spacer(Modifier.height(4.dp))
+                            Text(
+                                "Tư vấn viên sẽ phản hồi sớm nhất có thể. Lịch sử trò chuyện sẽ không được lưu sau khi bạn rời khỏi màn hình này.",
+                                fontSize = 11.sp,
+                                color = Color(0xFF64748B),
+                                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                                lineHeight = 15.sp
+                            )
+                        }
+                    }
+                }
+                itemsIndexed(messages, key = { _, msg -> msg.id }) { index, msg ->
+                    val prev = if (index > 0) messages[index - 1] else null
+                    val next = if (index < messages.size - 1) messages[index + 1] else null
+                    val isPrevSame = prev != null && prev.isMe == msg.isMe && prev.senderId == msg.senderId
+                    val isNextSame = next != null && next.isMe == msg.isMe && next.senderId == msg.senderId
+                    val position = when {
+                        !isPrevSame && isNextSame -> BubbleGroupPosition.FIRST
+                        isPrevSame && isNextSame -> BubbleGroupPosition.MIDDLE
+                        isPrevSame && !isNextSame -> BubbleGroupPosition.LAST
+                        else -> BubbleGroupPosition.SINGLE
+                    }
+                    MessageBubble(
+                        msg = msg,
+                        position = position,
+                        onOpenProperty = { id -> onNavigate(FutaDestinations.propertyDetail(id, productContext)) }
+                    )
+                }
+                if (advisorTyping) {
+                    item(key = "guest_advisor_typing") {
+                        Box(modifier = Modifier.padding(top = 12.dp)) {
+                            TypingIndicatorBubble(senderName = displayName, isAi = false)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun GuestIntakeField(
+    label: String,
+    value: String,
+    onValueChange: (String) -> Unit,
+    placeholder: String,
+    error: String?,
+    keyboardOptions: KeyboardOptions,
+    keyboardActions: KeyboardActions = KeyboardActions.Default
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text(label, fontSize = 12.5.sp, fontWeight = FontWeight.SemiBold, color = FutaColors.Navy)
+        FutaInput(
+            value = value,
+            onValueChange = onValueChange,
+            placeholder = placeholder,
+            modifier = Modifier.fillMaxWidth(),
+            keyboardOptions = keyboardOptions,
+            keyboardActions = keyboardActions
+        )
+        if (error != null) {
+            Text(error, fontSize = 11.5.sp, color = Color(0xFFDC2626))
         }
     }
 }
