@@ -85,6 +85,7 @@ class FutaMessagingService : FirebaseMessagingService() {
         val notificationId = data["notificationId"]
         data["unreadCount"]?.toIntOrNull()?.let { ChatUnreadBadge.set(it) }
         inboxRevision.value += 1
+        scope.launch { NotificationUnreadBadge.refresh() }
         showNotification(title, body, route, targetUserId, notificationId)
     }
 

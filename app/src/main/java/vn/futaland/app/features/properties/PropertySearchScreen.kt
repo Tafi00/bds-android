@@ -65,14 +65,42 @@ fun PropertySearchScreen(
     var minArea by remember { mutableStateOf("") }
     var maxArea by remember { mutableStateOf("") }
 
+    // Voice search (iOS VoiceSearch): speech → /speech/parse-filters (local fallback) → review → apply.
+    var voiceTranscript by remember { mutableStateOf<String?>(null) }
+    var voiceParsed by remember { mutableStateOf<ParsedVoiceFilters?>(null) }
+    var voiceParsing by remember { mutableStateOf(false) }
+
+    fun parseVoice(text: String) {
+        voiceTranscript = text
+        voiceParsed = null
+        voiceParsing = true
+        scope.launch {
+            voiceParsed = parseVoiceFilters(text)
+            voiceParsing = false
+        }
+    }
+
     val speechLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
     ) { result ->
         if (result.resultCode == Activity.RESULT_OK) {
             val spoken = result.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)?.firstOrNull()
             if (!spoken.isNullOrBlank()) {
-                keyword = spoken
+                parseVoice(spoken)
             }
+        }
+    }
+
+    fun startSpeech() {
+        val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE, "vi-VN")
+            putExtra(RecognizerIntent.EXTRA_PROMPT, tr("Tìm kiếm bất động sản FUTA Land..."))
+        }
+        try {
+            speechLauncher.launch(intent)
+        } catch (_: Exception) {
+            ToastCenter.show(tr("Thiết bị không hỗ trợ nhận diện giọng nói"), isError = true)
         }
     }
     var showFilterSheet by remember { mutableStateOf(false) }
@@ -258,18 +286,7 @@ fun PropertySearchScreen(
                                         tint = FutaColors.BrandGreen,
                                         modifier = Modifier
                                             .size(20.dp)
-                                            .clickable {
-                                                val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
-                                                    putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-                                                    putExtra(RecognizerIntent.EXTRA_LANGUAGE, "vi-VN")
-                                                    putExtra(RecognizerIntent.EXTRA_PROMPT, "Tìm kiếm bất động sản FUTA Land...")
-                                                }
-                                                try {
-                                                    speechLauncher.launch(intent)
-                                                } catch (_: Exception) {
-                                                    ToastCenter.show("Thiết bị không hỗ trợ nhận diện giọng nói", isError = true)
-                                                }
-                                            }
+                                            .clickable { startSpeech() }
                                     )
                                 }
                             },
@@ -437,15 +454,9 @@ fun PropertySearchScreen(
                     itemsIndexed(results, key = { idx, property -> (property.id.ifEmpty { "search" }) + "-$idx" }) { _, property ->
                         FutaPropertyCard(
                             property = property,
-                            isFavorited = false,
                             onFavoriteClick = {
                                 if (AppSession.shared.isAuthenticated) {
-                                    scope.launch {
-                                        try {
-                                            APIClient.get().request("/favorites/${property.id}", method = "POST")
-                                            ToastCenter.show("Đã cập nhật yêu thích")
-                                        } catch (_: Exception) {}
-                                    }
+                                    scope.launch { vn.futaland.app.core.auth.FavoritesStore.toggle(property.id) }
                                 } else {
                                     onNavigate(FutaDestinations.AUTH)
                                 }
@@ -772,6 +783,38 @@ fun PropertySearchScreen(
 
             Spacer(Modifier.height(10.dp))
         }
+    }
+
+    voiceTranscript?.let { transcript ->
+        VoiceFilterReviewSheet(
+            parsing = voiceParsing,
+            parsed = voiceParsed,
+            transcript = transcript,
+            onReparse = { parseVoice(it) },
+            onApply = { parsed ->
+                // Reset first so stale criteria never contradict the spoken request (iOS applyVoiceFilters).
+                keyword = parsed.searchText.orEmpty()
+                listingType = "sell"
+                propertyType = parsed.propertyType.firstOrNull().orEmpty()
+                zone = ""
+                hasVideo = false
+                has360 = false
+                bedrooms = parsed.bedrooms.firstOrNull().orEmpty()
+                direction = parsed.direction.firstOrNull().orEmpty()
+                furniture = parsed.furniture.firstOrNull().orEmpty()
+                minPrice = parsed.priceMin?.toLong()?.toString().orEmpty()
+                maxPrice = parsed.priceMax?.toLong()?.toString().orEmpty()
+                minArea = parsed.areaMin?.toInt()?.toString().orEmpty()
+                maxArea = parsed.areaMax?.toInt()?.toString().orEmpty()
+                voiceTranscript = null
+                search(1)
+            },
+            onSpeakAgain = {
+                voiceTranscript = null
+                startSpeech()
+            },
+            onDismiss = { voiceTranscript = null }
+        )
     }
 }
 

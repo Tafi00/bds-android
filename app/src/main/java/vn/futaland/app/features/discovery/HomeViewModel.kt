@@ -219,9 +219,7 @@ class HomeViewModel : ViewModel() {
     }
     fun toggleFavorite(propertyId: String) {
         viewModelScope.launch {
-            try {
-                APIClient.get().request("/favorites/$propertyId", method = "POST")
-            } catch (_: Exception) {}
+            vn.futaland.app.core.auth.FavoritesStore.toggle(propertyId)
         }
     }
 }

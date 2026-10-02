@@ -4,7 +4,15 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import vn.futaland.app.core.network.APIClient
 import vn.futaland.app.core.network.JSONValue
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
+import vn.futaland.app.features.messaging.ChatUnreadBadge
 import vn.futaland.app.features.messaging.FcmRegistrar
+import vn.futaland.app.features.messaging.NotificationUnreadBadge
 
 class AppSession private constructor() {
 
@@ -37,6 +45,8 @@ class AppSession private constructor() {
             }
         }
     }
+
+    private val backgroundScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     private val _currentUser = MutableStateFlow<JSONValue?>(null)
     val currentUser = _currentUser.asStateFlow()
@@ -74,6 +84,8 @@ class AppSession private constructor() {
     }
 
     suspend fun restore() {
+        // Revocations queued by an earlier sign-out that could not reach the server.
+        FcmRegistrar.retryPendingRevocations(APIClient.get().appContext)
         val token = APIClient.get().tokenStorage.accessToken
         if (token.isNullOrEmpty()) {
             _currentUser.value = null
@@ -88,6 +100,8 @@ class AppSession private constructor() {
                 _currentUser.value = userData
                 fetchPermissions()
                 FcmRegistrar.ensureRegistered(APIClient.get().appContext)
+                NotificationUnreadBadge.refresh()
+                FavoritesStore.load(force = true)
                 vn.futaland.app.features.messaging.ChatWebSocketManager.shared.connect()
             } else {
                 logout()
@@ -125,12 +139,56 @@ class AppSession private constructor() {
         _currentUser.value = userData
         FcmRegistrar.ensureRegistered(APIClient.get().appContext)
         vn.futaland.app.features.messaging.ChatWebSocketManager.shared.connect()
+        backgroundScope.launch {
+            NotificationUnreadBadge.refresh()
+            ChatUnreadBadge.refresh()
+            FavoritesStore.load(force = true)
+        }
     }
 
+    /**
+     * Full sign-out (iOS AppSession.signOut): clears the local identity immediately,
+     * revokes this device's push registration and invalidates the refresh token server-side.
+     * Both network calls are best effort and never block the sign-out.
+     */
+    suspend fun signOut() {
+        val refreshToken = APIClient.get().tokenStorage.refreshToken
+        // logout() also starts the device revocation (POST /devices/revoke).
+        logout()
+        if (!refreshToken.isNullOrEmpty()) {
+            try {
+                // Only `refreshToken` is accepted: the backend logout schema is strict.
+                val body = buildJsonObject { put("refreshToken", refreshToken) }.toString()
+                APIClient.get().request("/auth/logout", method = "POST", bodyJson = body)
+            } catch (_: Exception) {
+                // The refresh token expires on its own; local sign-out already happened.
+            }
+        }
+    }
+
+    /** Permanently deletes the signed-in account (DELETE /auth/me), then clears the local identity. */
+    suspend fun deleteAccount() {
+        APIClient.get().request("/auth/me", method = "DELETE")
+        logout()
+    }
+
+    /**
+     * Clears the local identity synchronously (also used when the session expires):
+     * tokens, user, permissions, badges, OS notifications, and queues the device revocation.
+     */
     fun logout() {
+        val context = APIClient.get().appContext
+        FcmRegistrar.queueCurrentRevocation(context)
         APIClient.get().tokenStorage.clear()
         _currentUser.value = null
         _permissions.value = emptySet()
+        ChatUnreadBadge.clear()
+        NotificationUnreadBadge.clear()
+        FavoritesStore.reset()
+        try {
+            androidx.core.app.NotificationManagerCompat.from(context).cancelAll()
+        } catch (_: Exception) {}
         vn.futaland.app.features.messaging.ChatWebSocketManager.shared.disconnect()
+        backgroundScope.launch { FcmRegistrar.retryPendingRevocations(context) }
     }
 }

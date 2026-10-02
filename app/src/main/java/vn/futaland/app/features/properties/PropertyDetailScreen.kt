@@ -138,7 +138,10 @@ fun PropertyDetailScreen(
     }
     var similarProperties by remember(scopeKey) { mutableStateOf<List<JSONValue>>(emptyList()) }
     var loading by remember(scopeKey) { mutableStateOf(true) }
-    var isFavorite by remember(scopeKey) { mutableStateOf(false) }
+    // Heart state comes from the shared favorites store (same as the property cards).
+    val favoriteIds by vn.futaland.app.core.auth.FavoritesStore.ids.collectAsState()
+    val favoriteKey = property?.id?.takeIf { it.isNotEmpty() } ?: propertyId
+    val isFavorite = favoriteIds.contains(favoriteKey) || favoriteIds.contains(propertyId)
     var isDescriptionExpanded by remember(scopeKey) { mutableStateOf(false) }
 
     // Media mode tab: "photos", "video", "flycam", "tour"
@@ -265,7 +268,12 @@ fun PropertyDetailScreen(
                             putExtra(Intent.EXTRA_SUBJECT, PropertyFormatters.propertyTitle(property))
                             type = "text/plain"
                         }
-                        context.startActivity(Intent.createChooser(sendIntent, "Chia sẻ sản phẩm"))
+                        context.startActivity(Intent.createChooser(sendIntent, tr("Chia sẻ sản phẩm")))
+                        scope.launch {
+                            try {
+                                APIClient.get().request("/apartments/${android.net.Uri.encode(favoriteKey)}/track-share", method = "POST")
+                            } catch (_: Exception) {}
+                        }
                     }) {
                         Icon(
                             painter = painterResource(id = R.drawable.sf_card_share),
@@ -623,7 +631,16 @@ fun PropertyDetailScreen(
                                             .clip(RoundedCornerShape(10.dp))
                                             .background(Color(0xFFF8FAFC))
                                             .border(1.dp, Color(0xFFE2E8F0), RoundedCornerShape(10.dp))
-                                            .clickable { isFavorite = !isFavorite },
+                                            .clickable {
+                                                if (!AppSession.shared.isAuthenticated) {
+                                                    onNavigate(FutaDestinations.AUTH)
+                                                } else {
+                                                    scope.launch {
+                                                        val next = vn.futaland.app.core.auth.FavoritesStore.toggle(favoriteKey)
+                                                        if (next != null) ToastCenter.show(if (next) "Đã lưu vào danh sách yêu thích" else "Đã bỏ lưu khỏi danh sách yêu thích")
+                                                    }
+                                                }
+                                            },
                                         contentAlignment = Alignment.Center
                                     ) {
                                         Icon(
@@ -648,7 +665,13 @@ fun PropertyDetailScreen(
                                                     putExtra(Intent.EXTRA_SUBJECT, PropertyFormatters.propertyTitle(property))
                                                     type = "text/plain"
                                                 }
-                                                context.startActivity(Intent.createChooser(sendIntent, "Chia sẻ sản phẩm"))
+                                                context.startActivity(Intent.createChooser(sendIntent, tr("Chia sẻ sản phẩm")))
+                                                // Share activity log for the CRM (POST /apartments/{id}/track-share, best effort).
+                                                scope.launch {
+                                                    try {
+                                                        APIClient.get().request("/apartments/${android.net.Uri.encode(favoriteKey)}/track-share", method = "POST")
+                                                    } catch (_: Exception) {}
+                                                }
                                             },
                                         contentAlignment = Alignment.Center
                                     ) {
@@ -1224,87 +1247,7 @@ fun PropertyDetailScreen(
                 }
                 // 8. Legal Documents Section (Matching iOS)
                 item {
-                    FutaCard(modifier = Modifier.fillMaxWidth()) {
-                        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    text = "HỒ SƠ PHÁP LÝ & TÀI LIỆU DỰ ÁN",
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = FutaColors.Navy,
-                                    letterSpacing = 0.5.sp
-                                )
-                                Surface(
-                                    shape = CircleShape,
-                                    color = Color(0xFFECFDF5)
-                                ) {
-                                    Row(modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
-                                        Icon(Icons.Default.CheckCircle, null, tint = Color(0xFF0E7643), modifier = Modifier.size(13.dp))
-                                        Spacer(Modifier.width(4.dp))
-                                        Text("Đã xác minh", fontSize = 10.5.sp, fontWeight = FontWeight.Bold, color = Color(0xFF0E7643))
-                                    }
-                                }
-                            }
-
-                            Surface(
-                                shape = RoundedCornerShape(12.dp),
-                                color = Color.White,
-                                border = BorderStroke(1.dp, Color(0xFFD7DCE2)),
-                                modifier = Modifier
-                                    .clickable {
-                                        val legalDocs = property["legalDocuments"].array
-                                        val docUrl = legalDocs.firstOrNull()?.get("url")?.string.orEmpty()
-                                            .ifEmpty { property["documentUrl"].string }
-                                        if (docUrl.isNotEmpty()) {
-                                            try {
-                                                val browserIntent = Intent(Intent.ACTION_VIEW, Uri.parse(docUrl))
-                                                context.startActivity(browserIntent)
-                                            } catch (_: Exception) {
-                                                ToastCenter.show(tr("Không thể mở tài liệu: {0}", docUrl), isError = true)
-                                            }
-                                        } else {
-                                            ToastCenter.show("Tài liệu pháp lý đang được cập nhật bản scan số.")
-                                        }
-                                    }
-                            ) {
-                                Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                                    Surface(
-                                        shape = RoundedCornerShape(10.dp),
-                                        color = Color(0xFFFFF1F0),
-                                        modifier = Modifier.size(44.dp)
-                                    ) {
-                                        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-                                            Icon(Icons.Default.Description, null, tint = Color(0xFFDF5D57), modifier = Modifier.size(18.dp))
-                                            Text(
-                                                text = "PDF",
-                                                fontSize = 7.5.sp,
-                                                fontWeight = FontWeight.Black,
-                                                color = Color.White,
-                                                modifier = Modifier
-                                                    .background(Color(0xFFDF5D57), RoundedCornerShape(2.dp))
-                                                    .padding(horizontal = 3.dp)
-                                            )
-                                        }
-                                    }
-                                    Spacer(Modifier.width(12.dp))
-                                    Column(modifier = Modifier.weight(1f)) {
-                                        Text(
-                                            text = property["legal"].string.ifEmpty { "Sổ hồng sở hữu lâu dài" },
-                                            fontSize = 13.5.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            color = FutaColors.Navy
-                                        )
-                                        Text("Tài liệu tham khảo do FUTA Land xác minh (2.4 MB)", fontSize = 11.5.sp, color = FutaColors.Slate)
-                                    }
-                                    Icon(Icons.Default.Visibility, "Xem", tint = Color(0xFF0E7643), modifier = Modifier.size(18.dp))
-                                }
-                            }
-                        }
-                    }
+                    PropertyLegalDocumentsCard(property)
                 }
 
                 // 9. Similar Properties Section

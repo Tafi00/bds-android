@@ -279,8 +279,7 @@ fun AgentDetailScreen(
                         itemsIndexed(listings, key = { idx, item -> item.id.ifEmpty { "agent-prop-$idx" } }) { _, property ->
                             FutaPropertyCard(
                                 property = property,
-                                isFavorited = false,
-                                onFavoriteClick = {},
+                                onFavoriteClick = { scope.launch { vn.futaland.app.core.auth.FavoritesStore.toggle(property.id) } },
                                 onShareClick = {},
                                 onCallClick = {
                                     val phone = a["publicPhone"].string.ifEmpty { a["phone"].string }

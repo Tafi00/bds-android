@@ -29,6 +29,8 @@ import coil3.compose.AsyncImage
 import kotlinx.coroutines.launch
 import vn.futaland.app.core.auth.AppSession
 import vn.futaland.app.core.network.APIClient
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 import vn.futaland.app.designsystem.*
 
 @Composable
@@ -40,13 +42,12 @@ fun ProfileScreen(
     val context = androidx.compose.ui.platform.LocalContext.current
     val scope = rememberCoroutineScope()
 
-    var name by remember { mutableStateOf(user?.get("name")?.string.orEmpty().ifEmpty { "Người dùng FUTA" }) }
+    var name by remember { mutableStateOf(user?.get("name")?.string.orEmpty()) }
     val phone = user?.get("phone")?.string.orEmpty()
     var email by remember { mutableStateOf(user?.get("email")?.string.orEmpty()) }
-    var address by remember { mutableStateOf(user?.get("address")?.string.orEmpty().ifEmpty { "TP. Hồ Chí Minh" }) }
-    var bio by remember { mutableStateOf(user?.get("bio")?.string.orEmpty().ifEmpty { "Chuyên viên tư vấn bất động sản FUTA Land" }) }
+    var address by remember { mutableStateOf(user?.get("address")?.string.orEmpty()) }
+    var bio by remember { mutableStateOf(user?.get("bio")?.string.orEmpty()) }
     var avatarUrl by remember { mutableStateOf(user?.get("avatar")?.string.orEmpty()) }
-    var gender by remember { mutableStateOf("male") } // "male", "female"
     var isSaving by remember { mutableStateOf(false) }
     var isUploadingPhoto by remember { mutableStateOf(false) }
 
@@ -70,8 +71,6 @@ fun ProfileScreen(
                         if (uploadedUrl.isNotEmpty()) {
                             avatarUrl = uploadedUrl
                             ToastCenter.show("Đã tải ảnh đại diện lên thành công!")
-                        } else {
-                            avatarUrl = uri.toString()
                         }
                     }
                 } catch (e: Exception) {
@@ -214,30 +213,6 @@ fun ProfileScreen(
                             FutaInput(value = email, onValueChange = { email = it }, placeholder = "Nhập địa chỉ email")
                         }
 
-                        // Gender
-                        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                            Text("Giới tính", fontSize = 11.5.sp, fontWeight = FontWeight.SemiBold, color = FutaColors.Slate)
-                            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                                listOf("male" to "Nam", "female" to "Nữ").forEach { (gKey, gLabel) ->
-                                    val isSelected = gender == gKey
-                                    Surface(
-                                        shape = RoundedCornerShape(10.dp),
-                                        color = if (isSelected) FutaColors.MintBg else Color(0xFFF8FAFC),
-                                        border = BorderStroke(1.dp, if (isSelected) FutaColors.BrandGreen else Color(0xFFE2E8F0)),
-                                        modifier = Modifier.clickable { gender = gKey }
-                                    ) {
-                                        Text(
-                                            text = gLabel,
-                                            fontSize = 13.sp,
-                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                            color = if (isSelected) FutaColors.BrandGreen else FutaColors.Navy,
-                                            modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp)
-                                        )
-                                    }
-                                }
-                            }
-                        }
-
                         // Address
                         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             Text("Địa chỉ liên hệ", fontSize = 11.5.sp, fontWeight = FontWeight.SemiBold, color = FutaColors.Slate)
@@ -263,12 +238,14 @@ fun ProfileScreen(
                         scope.launch {
                             isSaving = true
                             try {
-                                val body = "{\"name\":\"$name\",\"email\":\"$email\",\"address\":\"$address\",\"bio\":\"$bio\",\"avatar\":\"$avatarUrl\"}"
-                                try {
-                                    APIClient.get().request("/auth/me", method = "PUT", bodyJson = body)
-                                } catch (_: Exception) {
-                                    APIClient.get().request("/auth/profile", method = "PUT", bodyJson = body)
-                                }
+                                // PUT /auth/me only accepts name/email/avatar (+phone, referralCode);
+                                // send just the filled, valid values like iOS so empty strings are never rejected.
+                                val body = buildJsonObject {
+                                    name.trim().takeIf { it.isNotEmpty() }?.let { put("name", it) }
+                                    email.trim().takeIf { it.isNotEmpty() && android.util.Patterns.EMAIL_ADDRESS.matcher(it).matches() }?.let { put("email", it) }
+                                    avatarUrl.trim().takeIf { it.startsWith("http://") || it.startsWith("https://") }?.let { put("avatar", it) }
+                                }.toString()
+                                APIClient.get().request("/auth/me", method = "PUT", bodyJson = body)
                                 session.restore()
                                 ToastCenter.show("Cập nhật thông tin hồ sơ thành công!")
                                 onBack()
