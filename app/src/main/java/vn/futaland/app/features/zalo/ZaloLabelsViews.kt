@@ -13,6 +13,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -112,7 +113,7 @@ fun ZaloLabelsScreen(navigator: ZaloNavigator) {
                     FutaEmptyState(
                         title = "Chưa có nhãn nào",
                         message = "Chưa có nhãn nào. Bấm '+' để tạo nhãn mới.",
-                        icon = Icons.Default.Label,
+                        icon = Icons.AutoMirrored.Filled.Label,
                         actionButton = { FutaButton("Tạo nhãn mới", onClick = { formEditing = null; formOpen = true }, height = 40.dp) }
                     )
                 }
@@ -259,7 +260,7 @@ private fun ZaloLabelFormSheet(
                     Modifier.clip(CircleShape).background(previewColor.copy(alpha = 0.1f)).padding(horizontal = 10.dp, vertical = 6.dp),
                     verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    Icon(Icons.Default.Label, null, tint = previewColor, modifier = Modifier.size(15.dp))
+                    Icon(Icons.AutoMirrored.Filled.Label, null, tint = previewColor, modifier = Modifier.size(15.dp))
                     if (name.isBlank()) Text("Tên nhãn", fontSize = 13.sp, color = previewColor)
                     else VerbatimText(name, fontSize = 13.sp, color = previewColor)
                 }
@@ -358,7 +359,7 @@ fun ZaloConversationLabelSheet(
             allLabels.isEmpty() -> FutaEmptyState(
                 title = "Chưa có nhãn nào trong hệ thống",
                 message = "Hãy tạo nhãn trong mục Quản lý nhãn trước khi gán cho khách hàng.",
-                icon = Icons.Default.LabelOff,
+                icon = Icons.AutoMirrored.Filled.LabelOff,
                 actionButton = {
                     FutaButton("Tạo nhãn mới", onClick = { onDismiss(); navigator.push(ZaloRoute.Labels) }, height = 40.dp)
                 }

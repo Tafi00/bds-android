@@ -8,6 +8,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -162,7 +163,7 @@ private fun ZaloRoot(navigator: ZaloNavigator, onBack: () -> Unit) {
                         }
                         HorizontalDivider(color = FutaColors.PanelDivider)
                     }
-                    MenuRow("Quản lý nhãn", Icons.Default.Label) {
+                    MenuRow("Quản lý nhãn", Icons.AutoMirrored.Filled.Label) {
                         showMenu = false; navigator.push(ZaloRoute.Labels)
                     }
                     MenuRow("Cấu hình AI gợi ý", Icons.Default.AutoAwesome) {

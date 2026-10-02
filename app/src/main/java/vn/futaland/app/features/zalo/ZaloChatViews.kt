@@ -19,6 +19,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -422,7 +423,7 @@ private fun ConversationRow(
                         .background(Color.White).padding(1.5.dp).clip(CircleShape).background(conv.provider.brandColor),
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(if (conv.provider == ZaloProvider.ZALO) Icons.Default.Chat else Icons.Default.Phone, null,
+                    Icon(if (conv.provider == ZaloProvider.ZALO) Icons.AutoMirrored.Filled.Chat else Icons.Default.Phone, null,
                         tint = Color.White, modifier = Modifier.size(9.dp))
                 }
             }
@@ -465,7 +466,7 @@ private fun ConversationRow(
             )
             DropdownMenuItem(
                 text = { Text("Gán nhãn", fontSize = 14.sp) },
-                leadingIcon = { Icon(Icons.Default.Label, null) },
+                leadingIcon = { Icon(Icons.AutoMirrored.Filled.Label, null) },
                 onClick = { showMenu = false; onLabels() }
             )
         }
@@ -676,7 +677,7 @@ fun ZaloNewChatScreen(initialAccounts: List<ZaloAccountModel>, navigator: ZaloNa
                         if (contact.phoneNumber.isNotEmpty()) VerbatimText(contact.phoneNumber, fontSize = 12.sp, color = FutaColors.Slate)
                     }
                     if (startingId == contact.zaloId) ZaloSpinner(color = FutaColors.BrandGreen)
-                    else Icon(Icons.Default.Chat, tr("Nhắn tin"), tint = FutaColors.BrandGreen, modifier = Modifier.size(18.dp))
+                    else Icon(Icons.AutoMirrored.Filled.Chat, tr("Nhắn tin"), tint = FutaColors.BrandGreen, modifier = Modifier.size(18.dp))
                 }
             }
         }

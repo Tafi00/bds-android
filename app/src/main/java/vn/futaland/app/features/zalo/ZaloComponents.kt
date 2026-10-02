@@ -118,7 +118,7 @@ fun ZaloSection(
 ) {
     Column(modifier = modifier.fillMaxWidth()) {
         if (title != null) {
-            Text(title.uppercase(), fontSize = 11.5.sp, fontWeight = FontWeight.Bold, color = FutaColors.Slate,
+            VerbatimText(tr(title).uppercase(), fontSize = 11.5.sp, fontWeight = FontWeight.Bold, color = FutaColors.Slate,
                 modifier = Modifier.padding(start = 4.dp, bottom = 6.dp))
         }
         FutaCard(modifier = Modifier.fillMaxWidth(), borderColor = FutaColors.LightBlueBorder) {

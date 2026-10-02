@@ -37,6 +37,7 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material.icons.automirrored.filled.Undo
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.DropdownMenu
@@ -400,7 +401,7 @@ fun ZaloChatDetailScreen(conversation: ZaloConversationModel, navigator: ZaloNav
         onBack = { navigator.pop() },
         leading = { ZaloAvatar(headerConversation.userAvatar, headerConversation.userName, 34.dp, conversation.provider.brandColor) }
     ) {
-        FutaHeaderIconButton(Icons.Default.Label, tr("Gán nhãn"), { showLabels = true }, size = 36.dp)
+        FutaHeaderIconButton(Icons.AutoMirrored.Filled.Label, tr("Gán nhãn"), { showLabels = true }, size = 36.dp)
         FutaHeaderIconButton(Icons.Default.Info, tr("Chi tiết khách hàng"), { showInspector = true }, size = 36.dp)
     }
     HorizontalDivider(color = FutaColors.PanelDivider)
@@ -682,7 +683,7 @@ fun ZaloMessageBubble(
                             VerbatimText(file.fileName, fontSize = 13.5.sp, color = fg, maxLines = 2, overflow = TextOverflow.Ellipsis)
                             if (file.formattedSize.isNotEmpty()) VerbatimText(file.formattedSize, fontSize = 11.sp, color = fg.copy(alpha = 0.75f))
                         }
-                        Icon(Icons.Default.OpenInNew, tr("Mở tệp"), tint = fg, modifier = Modifier.size(16.dp))
+                        Icon(Icons.AutoMirrored.Filled.OpenInNew, tr("Mở tệp"), tint = fg, modifier = Modifier.size(16.dp))
                     }
                 }
                 message.linkCard?.let { link ->
@@ -806,7 +807,7 @@ private fun AudioAttachment(audio: ZaloMediaFileItem, fg: Color) {
                 if (playing) tr("Tạm dừng ghi âm") else tr("Phát ghi âm"), tint = fg, modifier = Modifier.size(32.dp))
         }
         VerbatimText(audio.fileName, fontSize = 13.5.sp, color = fg, maxLines = 2, modifier = Modifier.weight(1f, fill = false))
-        Icon(Icons.Default.OpenInNew, tr("Mở ghi âm"), tint = fg,
+        Icon(Icons.AutoMirrored.Filled.OpenInNew, tr("Mở ghi âm"), tint = fg,
             modifier = Modifier.size(16.dp).clickable { openExternal(context, audio.fileUrl) })
     }
 }
