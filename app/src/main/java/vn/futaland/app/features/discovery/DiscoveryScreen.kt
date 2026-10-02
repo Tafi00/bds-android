@@ -252,22 +252,48 @@ private fun TopBrandedHeader(
                 contentScale = ContentScale.Fit
             )
 
-            // Notification Bell Button
-            Surface(
-                shape = CircleShape,
-                color = Color(0xFFF8FAFC),
-                border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
-                modifier = Modifier
-                    .size(38.dp)
-                    .clickable(onClick = onNotificationClick)
-            ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Icon(
-                        painter = painterResource(id = R.drawable.sf_header_bell),
-                        contentDescription = "Thông báo",
-                        tint = Color(0xFF0F172A),
-                        modifier = Modifier.size(17.dp)
-                    )
+            // Notification Bell Button with the unread badge (GET /notifications/unread-count)
+            val unreadNotifications by vn.futaland.app.features.messaging.NotificationUnreadBadge.count.collectAsState()
+            val sessionUser by AppSession.shared.currentUser.collectAsState()
+            LaunchedEffect(sessionUser?.id) {
+                vn.futaland.app.features.messaging.NotificationUnreadBadge.refresh()
+            }
+            Box {
+                Surface(
+                    shape = CircleShape,
+                    color = Color(0xFFF8FAFC),
+                    border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                    modifier = Modifier
+                        .size(38.dp)
+                        .clickable(onClick = onNotificationClick)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            painter = painterResource(id = R.drawable.sf_header_bell),
+                            contentDescription = vn.futaland.app.core.i18n.tr("Thông báo"),
+                            tint = Color(0xFF0F172A),
+                            modifier = Modifier.size(17.dp)
+                        )
+                    }
+                }
+                if (unreadNotifications > 0 && sessionUser != null) {
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .offset(x = 4.dp, y = (-3).dp)
+                            .defaultMinSize(minWidth = 18.dp, minHeight = 18.dp)
+                            .background(Color(0xFFEF4444), CircleShape)
+                            .border(1.5.dp, Color.White, CircleShape)
+                            .padding(horizontal = 4.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        androidx.compose.material3.Text(
+                            text = if (unreadNotifications > 99) "99+" else unreadNotifications.toString(),
+                            color = Color.White,
+                            fontSize = 9.5.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
                 }
             }
         }

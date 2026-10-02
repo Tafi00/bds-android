@@ -83,6 +83,9 @@ object FcmRegistrar {
 
     private fun prefs(context: Context) = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 
+    /** True once /devices/register succeeded for the current session (its revocation credential is stored). */
+    fun isRegistered(context: Context): Boolean = !prefs(context).getString(KEY_REVOCATION, null).isNullOrEmpty()
+
     /**
      * Moves the current registration's revocation credential to the pending queue.
      * Called whenever the local identity is cleared (sign-out, session expiry, account deletion).
