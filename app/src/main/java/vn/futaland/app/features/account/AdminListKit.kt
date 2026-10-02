@@ -11,7 +11,17 @@ import androidx.compose.material.icons.filled.Inbox
 import androidx.compose.material.icons.filled.WarningAmber
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
-import androidx.compose.runtime.Composable
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.runtime.*
+import androidx.compose.ui.platform.LocalContext
+import kotlinx.coroutines.launch
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import vn.futaland.app.core.i18n.tr
+import vn.futaland.app.features.salesadmin.uploadPickedImage
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -100,4 +110,70 @@ internal fun DangerZoneCard(title: String, message: String, buttonText: String, 
             FutaButton(text = buttonText, icon = Icons.Default.Delete, variant = FutaButtonVariant.DANGER, enabled = enabled, height = 40.dp, onClick = onClick)
         }
     }
+}
+
+/** Gallery pick + upload (`POST /upload/images`) for an image field. */
+class ImageUploader internal constructor(val uploading: Boolean, val pick: () -> Unit)
+
+@Composable
+internal fun rememberImageUploader(prefix: String, onUploaded: (String) -> Unit): ImageUploader {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var uploading by remember { mutableStateOf(false) }
+    val latest by rememberUpdatedState(onUploaded)
+    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        if (uri != null) scope.launch {
+            uploading = true
+            try {
+                latest(uploadPickedImage(context, uri, prefix))
+                ToastCenter.show(tr("Tải ảnh lên thành công"))
+            } catch (e: Exception) {
+                ToastCenter.show(tr("Tải ảnh thất bại: {0}", e.message.orEmpty()), isError = true)
+            } finally {
+                uploading = false
+            }
+        }
+    }
+    return ImageUploader(uploading) { if (!uploading) launcher.launch("image/*") }
+}
+
+// ============================================================================
+// JSON path helpers for editing nested settings (`systemConfig.homepageContent…`)
+// ============================================================================
+
+/** Element at a dotted path; numeric segments index arrays. */
+internal fun JsonElement?.at(path: String): JsonElement? {
+    var current: JsonElement? = this
+    for (segment in path.split('.')) {
+        current = when (val c = current) {
+            is JsonObject -> c[segment]
+            is JsonArray -> segment.toIntOrNull()?.let { c.getOrNull(it) }
+            else -> null
+        } ?: return null
+    }
+    return current
+}
+
+internal fun JsonElement?.stringAt(path: String): String =
+    (at(path) as? JsonPrimitive)?.takeIf { it !is kotlinx.serialization.json.JsonNull }?.content.orEmpty()
+
+/** Copy with [value] written at the dotted path, creating objects/arrays on the way. */
+internal fun JsonElement?.withValueAt(path: String, value: JsonElement): JsonElement = setAt(path.split('.'), value)
+
+private fun JsonElement?.setAt(path: List<String>, value: JsonElement): JsonElement {
+    if (path.isEmpty()) return value
+    val head = path.first()
+    val rest = path.drop(1)
+    val nextIsIndex = rest.firstOrNull()?.toIntOrNull() != null
+    val index = head.toIntOrNull()
+    if (this is JsonArray && index != null) {
+        val list = toMutableList()
+        while (list.size <= index) list.add(JsonObject(emptyMap()))
+        list[index] = list[index].setAt(rest, value)
+        return JsonArray(list)
+    }
+    val map = (this as? JsonObject)?.toMutableMap() ?: mutableMapOf()
+    val child = map[head] ?: if (nextIsIndex) JsonArray(emptyList()) else null
+    map[head] = child.setAt(rest, value)
+    return JsonObject(map)
 }
