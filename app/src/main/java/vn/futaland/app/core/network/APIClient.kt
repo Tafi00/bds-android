@@ -128,6 +128,9 @@ class APIClient private constructor(context: Context) {
         val parsed = runCatching { JSONValue.parse(respBody) }.getOrNull()
         val message = parsed?.get("error")?.get("message")?.string?.takeIf { it.isNotBlank() }
             ?: parsed?.get("message")?.string?.takeIf { it.isNotBlank() }
+            // The messaging module (/zalo/*) answers `{error: "text"}`, or plain text for Hono HTTPExceptions.
+            ?: parsed?.get("error")?.string?.takeIf { it.isNotBlank() }
+            ?: respBody.trim().takeIf { parsed?.isNull != false && it.isNotEmpty() && it.length <= 200 && !it.startsWith("<") }
         return message ?: tr("Lỗi HTTP {0}", code)
     }
 
