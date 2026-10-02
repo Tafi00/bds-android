@@ -746,7 +746,7 @@ private fun AdminProjectDetailScreen(
                         if (amenities.isNotEmpty()) {
                             Text(tr("Tiện ích dự án ({0})", amenities.size), fontSize = 13.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
                             TwoColumnGrid(amenities.map { amenity ->
-                                { m: Modifier ->
+                                @Composable { m: Modifier ->
                                     Row(m, horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
                                         Icon(Icons.Default.CheckCircle, null, tint = FutaColors.BrandGreen, modifier = Modifier.size(15.dp))
                                         Text(amenity.translated("project"), fontSize = 12.5.sp, color = FutaColors.Navy)
@@ -762,7 +762,7 @@ private fun AdminProjectDetailScreen(
                 if (flycam.isNotEmpty() || tour.isNotEmpty() || mobileBanner.isNotEmpty()) {
                     DetailSection("Truyền thông & Trải nghiệm số", Icons.Default.OndemandVideo) {
                         if (flycam.isNotEmpty()) MediaLinkRow(Icons.Default.Videocam, Color(0xFFDC2626), "Xem video Flycam tiến độ", flycam) { openExternalUrl(context, flycam) }
-                        if (tour.isNotEmpty()) MediaLinkRow(Icons.Default.ThreeSixty, Color(0xFF2563EB), "Trải nghiệm thực tế ảo VR 360°", tour) { openExternalUrl(context, tour) }
+                        if (tour.isNotEmpty()) MediaLinkRow(Icons.Default.ViewInAr, Color(0xFF2563EB), "Trải nghiệm thực tế ảo VR 360°", tour) { openExternalUrl(context, tour) }
                         if (mobileBanner.isNotEmpty()) {
                             Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
                                 Box(Modifier.size(40.dp).clip(RoundedCornerShape(10.dp)).background(FutaColors.CreamBg), contentAlignment = Alignment.Center) {
@@ -886,13 +886,14 @@ private fun ProjectDepositCard(project: JSONValue) {
         }
     ) {
         if (hasBank) {
-            TwoColumnGrid(buildList {
-                add { m: Modifier -> SpecTile("Ngân hàng", if (bankCode.isNotEmpty()) "$bankName ($bankCode)" else bankName, Icons.Default.AccountBalance, m) }
-                add { m: Modifier -> SpecTile("Số tài khoản", account, Icons.Default.CreditCard, m) }
-                add { m: Modifier -> SpecTile("Chủ tài khoản", holder, Icons.Default.Person, m) }
-                add { m: Modifier -> SpecTile("Tiền tố chuyển khoản", prefix.ifEmpty { tr("FUTA (mặc định)") }, Icons.Default.FormatQuote, m) }
-                if (amount > 0) add { m: Modifier -> SpecTile("Số tiền cọc mặc định", SalesFormatters.currency(amount), Icons.Default.Paid, m) }
-            })
+            val tiles = mutableListOf<@Composable (Modifier) -> Unit>(
+                { m -> SpecTile("Ngân hàng", if (bankCode.isNotEmpty()) "$bankName ($bankCode)" else bankName, Icons.Default.AccountBalance, m) },
+                { m -> SpecTile("Số tài khoản", account, Icons.Default.CreditCard, m) },
+                { m -> SpecTile("Chủ tài khoản", holder, Icons.Default.Person, m) },
+                { m -> SpecTile("Tiền tố chuyển khoản", prefix.ifEmpty { tr("FUTA (mặc định)") }, Icons.Default.FormatQuote, m) }
+            )
+            if (amount > 0) tiles.add { m -> SpecTile("Số tiền cọc mặc định", SalesFormatters.currency(amount), Icons.Default.Paid, m) }
+            TwoColumnGrid(tiles)
         } else {
             Text(
                 "Dự án chưa thiết lập số tài khoản nhận cọc riêng. Hệ thống đang sử dụng tài khoản ngân hàng thụ hưởng mặc định của công ty.",
