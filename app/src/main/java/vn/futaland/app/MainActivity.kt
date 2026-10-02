@@ -26,6 +26,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import vn.futaland.app.features.account.AdminRegistrationsScreen
+import vn.futaland.app.features.account.PolicyDetailScreen
 import vn.futaland.app.features.account.AdvisorProductsScreen
 import vn.futaland.app.features.account.AdvisorProposalsScreen
 import vn.futaland.app.features.account.AdminTransactionsScreen
@@ -684,10 +685,19 @@ class MainActivity : ComponentActivity() {
                                 ContactScreen { navController.popBackStack() }
                             }
                             composable(FutaDestinations.ABOUT) {
-                                AboutScreen { navController.popBackStack() }
+                                AboutScreen(onOpenProjects = { safeNavigate(FutaDestinations.PROJECTS_LIST) }) { navController.popBackStack() }
                             }
                             composable(FutaDestinations.POLICIES) {
-                                PoliciesScreen { navController.popBackStack() }
+                                PoliciesScreen(onOpenPolicy = { safeNavigate(FutaDestinations.policyDetail(it)) }) { navController.popBackStack() }
+                            }
+                            composable(
+                                FutaDestinations.POLICY_DETAIL,
+                                arguments = listOf(navArgument("slug") { type = NavType.StringType })
+                            ) { entry ->
+                                PolicyDetailScreen(
+                                    slug = entry.arguments?.getString("slug").orEmpty(),
+                                    onContact = { safeNavigate(FutaDestinations.CONTACT) }
+                                ) { navController.popBackStack() }
                             }
                             composable(FutaDestinations.BILLING) {
                                 BillingScreen(
