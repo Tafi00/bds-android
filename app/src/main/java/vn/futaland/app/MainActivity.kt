@@ -576,7 +576,7 @@ class MainActivity : ComponentActivity() {
                                 AdminExamsScreen { navController.popBackStack() }
                             }
                             composable(FutaDestinations.ADMIN_ZALO) {
-                                AdminModuleScreen("Marketing Zalo", "/zalo/campaigns") { navController.popBackStack() }
+                                vn.futaland.app.features.zalo.ZaloScreen { navController.popBackStack() }
                             }
                             composable(
                                 route = FutaDestinations.ADMIN_CUSTOMERS_ROUTE,
