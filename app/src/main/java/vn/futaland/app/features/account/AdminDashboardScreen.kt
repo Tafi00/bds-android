@@ -481,7 +481,7 @@ private fun DashboardOrderDetailScreen(order: JSONValue, onBack: () -> Unit, onC
             scope.launch {
                 confirming = true
                 try {
-                    APIClient.get().request("/pricing/orders/${order["id"].string}/confirm", method = "POST")
+                    APIClient.get().request("/pricing/orders/${order["id"].string}/confirm", method = "POST", bodyJson = "{}")
                     ToastCenter.show(tr("Xác nhận thanh toán đơn hàng thành công!"))
                     onConfirmed()
                 } catch (e: Exception) {
