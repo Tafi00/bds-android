@@ -65,7 +65,7 @@ class ChatWebSocketManager(
         // so a missing token means "not allowed to connect", not "connect blank".
         val token = tokenProvider()
         if (token.isNullOrEmpty()) return
-        val wsUrl = "wss://bds.futaland.vn/ws/chat?token=$token"
+        val wsUrl = "${APIClient.webSocketUrl("/ws/chat")}?token=${android.net.Uri.encode(token)}"
 
         val request = Request.Builder()
             .url(wsUrl)

@@ -38,6 +38,17 @@ class APIClient private constructor(context: Context) {
         }
 
         val apiBaseUrl = "https://bds.futaland.vn/api"
+
+        /** ws(s):// URL for a root service such as `/ws/chat`, derived from [apiBaseUrl] (iOS webSocketURL). */
+        fun webSocketUrl(path: String): String {
+            val root = apiBaseUrl.removeSuffix("/").removeSuffix("/api")
+            val wsRoot = when {
+                root.startsWith("https://") -> "wss://" + root.removePrefix("https://")
+                root.startsWith("http://") -> "ws://" + root.removePrefix("http://")
+                else -> root
+            }
+            return wsRoot + (if (path.startsWith("/")) path else "/$path")
+        }
         val publicWebUrl = "https://bds.futaland.vn"
 
         // Public legal pages. These must stay reachable: Google Play rejects the
