@@ -66,6 +66,11 @@ import vn.futaland.app.features.account.AdminRolesScreen
 import vn.futaland.app.features.account.AdminLuckyWheelScreen
 import vn.futaland.app.features.account.ProfileScreen
 import vn.futaland.app.features.account.AdvisorWorkspaceScreen
+import vn.futaland.app.features.account.AdvisorPackageScreen
+import vn.futaland.app.features.account.AdvisorProfileScreen
+import vn.futaland.app.features.account.AdvisorExamScreen
+import vn.futaland.app.features.account.AdvisorVerificationScreen
+import vn.futaland.app.features.account.AdvisorRegistrationsScreen
 import vn.futaland.app.features.account.NewsScreen
 import vn.futaland.app.features.account.NewsDetailScreen
 import vn.futaland.app.features.account.GuideScreen
@@ -261,7 +266,7 @@ class MainActivity : ComponentActivity() {
                             )
                             segments.getOrNull(1) == "proposals" -> safeNavigate(FutaDestinations.ADVISOR_PROPOSALS)
                             segments.getOrNull(1) == "appointments" -> openAppointments(segments.getOrNull(2))
-                            segments.contains("registrations") -> safeNavigate(FutaDestinations.ADMIN_REGISTRATIONS)
+                            segments.contains("registrations") -> safeNavigate(FutaDestinations.ADVISOR_REGISTRATIONS)
                             else -> safeNavigate(FutaDestinations.ADVISOR)
                         }
                         "advisor-products" -> safeNavigate(FutaDestinations.ADVISOR_PRODUCTS)
@@ -631,6 +636,31 @@ class MainActivity : ComponentActivity() {
                                     onBack = { navController.popBackStack() },
                                     onNavigate = { route -> safeNavigate(route) }
                                 )
+                            }
+                            // Advisor onboarding steps and sales registrations (iOS AdvisorViews.swift)
+                            composable(FutaDestinations.ADVISOR_PACKAGE) {
+                                AdvisorPackageScreen(onBack = { navController.popBackStack() })
+                            }
+                            composable(FutaDestinations.ADVISOR_PROFILE) {
+                                AdvisorProfileScreen(
+                                    onBack = { navController.popBackStack() },
+                                    onOpenAgreements = { safeNavigate(FutaDestinations.ADVISOR_VERIFICATION) }
+                                )
+                            }
+                            composable(FutaDestinations.ADVISOR_EXAM) {
+                                AdvisorExamScreen(onBack = { navController.popBackStack() })
+                            }
+                            composable(FutaDestinations.ADVISOR_VERIFICATION) {
+                                AdvisorVerificationScreen(onBack = { navController.popBackStack() })
+                            }
+                            composable(FutaDestinations.ADVISOR_REGISTRATIONS) {
+                                FutaAccessGate(
+                                    access = NativeAccess.SignedIn,
+                                    session = AppSession.shared,
+                                    onRequireLogin = { safeNavigate(FutaDestinations.AUTH) }
+                                ) {
+                                    AdvisorRegistrationsScreen(onBack = { navController.popBackStack() })
+                                }
                             }
                             composable(FutaDestinations.ADVISOR_PROPOSALS) {
                                 AdvisorProposalsScreen(
