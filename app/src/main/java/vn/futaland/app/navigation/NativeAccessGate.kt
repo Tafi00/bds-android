@@ -1,5 +1,6 @@
 package vn.futaland.app.navigation
 
+import vn.futaland.app.core.i18n.Text
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -26,11 +27,13 @@ sealed interface NativeAccess {
     object PublicAccess : NativeAccess
     object SignedIn : NativeAccess
     data class Permissions(val required: List<String>) : NativeAccess
+    data class Roles(val allowed: Set<String>) : NativeAccess
 
     fun allows(session: AppSession): Boolean = when (this) {
         is PublicAccess -> true
         is SignedIn -> session.isAuthenticated
         is Permissions -> session.isAuthenticated && required.any { session.hasPermission(it) }
+        is Roles -> session.isAuthenticated && session.role in allowed
     }
 }
 

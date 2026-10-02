@@ -1,5 +1,7 @@
 package vn.futaland.app.features.properties
 
+import vn.futaland.app.core.i18n.tr
+import vn.futaland.app.core.i18n.Text
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -17,7 +19,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Calculate
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -52,7 +53,7 @@ data class PricingBreakdownItem(
         fun formatVndCurrency(amount: Double): String {
             val formatter = NumberFormat.getInstance(Locale.forLanguageTag("vi-VN"))
             formatter.maximumFractionDigits = 0
-            return "${formatter.format(amount.toLong())} đ"
+            return tr("{0} đ", formatter.format(amount.toLong()))
         }
     }
 }

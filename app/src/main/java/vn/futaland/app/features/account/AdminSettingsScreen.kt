@@ -1,18 +1,13 @@
 package vn.futaland.app.features.account
 
-import androidx.compose.animation.*
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import vn.futaland.app.core.i18n.tr
+import vn.futaland.app.core.i18n.Text
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -20,193 +15,127 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonNull
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 import vn.futaland.app.core.network.APIClient
-import vn.futaland.app.core.network.JSONValue
 import vn.futaland.app.designsystem.*
+import vn.futaland.app.features.salesadmin.*
+
+// Mirrors iOS Features/CMS/AdminSettingsView.swift. Settings live in the CMS record
+// (GET /cms/admin → PUT /cms/settings). The backend merges systemConfig key by key, so only the
+// blocks edited here are sent, each merged into its loaded value so unknown keys survive.
+// Secrets (notification provider secret, messaging API key) are never shown: they are sent only
+// when the admin types a new value.
+
+/** systemConfig blocks edited on this screen (key-merged on save). */
+private val settingsBlocks = listOf("banking", "brokerContract", "serviceContract", "acceptanceReport", "holding")
 
 @Composable
 fun AdminSettingsScreen(
     onBack: () -> Unit
 ) {
     val scope = rememberCoroutineScope()
-    var loading by remember { mutableStateOf(true) }
-    var saving by remember { mutableStateOf(false) }
-
-    // 1. Website fields
-    var siteName by remember { mutableStateOf("") }
-    var footerDesc by remember { mutableStateOf("") }
-
-    // 2. Banking fields
-    var bankName by remember { mutableStateOf("") }
-    var bankCode by remember { mutableStateOf("") }
-    var accountNumber by remember { mutableStateOf("") }
-    var accountHolder by remember { mutableStateOf("") }
-    var transferSyntax by remember { mutableStateOf("") }
-
-    // 3. Pricing fields
-    var yearlyPrice by remember { mutableStateOf("") }
-    var monthlyPrice by remember { mutableStateOf("") }
-
-    // 4. Broker Contract fields
-    var brokerTitle by remember { mutableStateOf("") }
-    var brokerCompany by remember { mutableStateOf("") }
-    var brokerTaxCode by remember { mutableStateOf("") }
-    var brokerRep by remember { mutableStateOf("") }
-    var brokerRepTitle by remember { mutableStateOf("") }
-    var brokerClauses by remember { mutableStateOf("") }
-
-    // 5. Service Contract fields
-    var serviceTitle by remember { mutableStateOf("") }
-    var serviceCompany by remember { mutableStateOf("") }
-    var serviceTaxCode by remember { mutableStateOf("") }
-    var serviceRep by remember { mutableStateOf("") }
-    var serviceRepTitle by remember { mutableStateOf("") }
-    var serviceClauses by remember { mutableStateOf("") }
-
-    // 6. Acceptance Report fields
-    var acceptanceTitle by remember { mutableStateOf("") }
-    var acceptanceCompany by remember { mutableStateOf("") }
-    var acceptanceRep by remember { mutableStateOf("") }
-    var acceptanceNotes by remember { mutableStateOf("") }
-
-    // 7. Online Holding rules
-    var holdDurationMinutes by remember { mutableStateOf("15") }
-    var cooldownMinutes by remember { mutableStateOf("5") }
-
-    // 8. Notification & Messaging Secrets (Masked per AGENTS.md rules)
-    var notificationSecret by remember { mutableStateOf("••••••••••••••••") }
-    var isEditingNotificationSecret by remember { mutableStateOf(false) }
+    var original by remember { mutableStateOf<JsonElement?>(null) }
+    var loadError by remember { mutableStateOf<String?>(null) }
+    var top by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
+    var initialTop by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
+    var config by remember { mutableStateOf<JsonElement>(JsonObject(emptyMap())) }
+    var initialConfig by remember { mutableStateOf<JsonElement>(JsonObject(emptyMap())) }
+    var editingNotificationSecret by remember { mutableStateOf(false) }
     var newNotificationSecret by remember { mutableStateOf("") }
+    var editingMessagingKey by remember { mutableStateOf(false) }
+    var newMessagingKey by remember { mutableStateOf("") }
+    var saving by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf<String?>(null) }
+    var showDiscard by remember { mutableStateOf(false) }
 
-    var messagingApiKey by remember { mutableStateOf("••••••••••••••••") }
-    var isEditingMessagingApiKey by remember { mutableStateOf(false) }
-    var newMessagingApiKey by remember { mutableStateOf("") }
-
-    LaunchedEffect(Unit) {
-        scope.launch {
-            loading = true
-            try {
-                val res = try {
-                    APIClient.get().request("/cms/admin")
-                } catch (_: Exception) {
-                    APIClient.get().request("/cms/settings")
-                }
-                val data = if (!res["data"]["settings"].isNull) res["data"]["settings"] else res["data"]
-                siteName = data["siteName"].string.ifEmpty { "FUTA Land" }
-                footerDesc = data["footerDescription"].string.ifEmpty { "FUTA Land – Chất lượng là danh dự." }
-
-                val banking = data.valueAt("systemConfig.banking")
-                bankName = banking["bankName"].string.ifEmpty { "Vietcombank" }
-                bankCode = banking["bankCode"].string.ifEmpty { "VCB" }
-                accountNumber = banking["accountNumber"].string.ifEmpty { "0071001234567" }
-                accountHolder = banking["accountHolder"].string.ifEmpty { "CONG TY CP BDS FUTA LAND" }
-                transferSyntax = banking["transferSyntaxPrefix"].string.ifEmpty { "FUTA" }
-
-                val yearly = banking["yearlyPackagePrice"].int.takeIf { it > 0 } ?: 12000000
-                val monthly = banking["monthlyPackagePrice"].int.takeIf { it > 0 } ?: 1200000
-                yearlyPrice = yearly.toString()
-                monthlyPrice = monthly.toString()
-
-                // Broker Contract
-                val broker = data.valueAt("systemConfig.brokerContract")
-                brokerTitle = broker["title"].string.ifEmpty { "HỢP ĐỒNG DỊCH VỤ MÔI GIỚI BẤT ĐỘNG SẢN" }
-                brokerCompany = broker["companyName"].string.ifEmpty { "CÔNG TY CỔ PHẦN ĐẦU TƯ FUTA LAND" }
-                brokerTaxCode = broker["companyTaxCode"].string.ifEmpty { "0316784953" }
-                brokerRep = broker["companyRepresentative"].string.ifEmpty { "Bà Trần Thị Hoa Xim" }
-                brokerRepTitle = broker["companyRepresentativeTitle"].string.ifEmpty { "Tổng Giám đốc Phụ trách Kinh doanh" }
-                val bClausesArr = broker["clauses"].array
-                brokerClauses = if (bClausesArr.isNotEmpty()) bClausesArr.joinToString("\n") { it.string } else "ĐIỀU 1. ĐỊNH NGHĨA VÀ GIẢI THÍCH TỪ NGỮ\nĐIỀU 2. ĐỐI TƯỢNG VÀ NỘI DUNG HỢP ĐỒNG\nĐIỀU 3. PHÍ DỊCH VỤ VÀ PHƯƠNG THỨC THANH TOÁN"
-
-                // Service Contract
-                val service = data.valueAt("systemConfig.serviceContract")
-                serviceTitle = service["title"].string.ifEmpty { "HỢP ĐỒNG DỊCH VỤ TƯ VẤN BẤT ĐỘNG SẢN" }
-                serviceCompany = service["companyName"].string.ifEmpty { "CÔNG TY CỔ PHẦN ĐẦU TƯ FUTA LAND" }
-                serviceTaxCode = service["companyTaxCode"].string.ifEmpty { "0316784953" }
-                serviceRep = service["companyRepresentative"].string.ifEmpty { "Bà Trần Thị Hoa Xim" }
-                serviceRepTitle = service["companyRepresentativeTitle"].string.ifEmpty { "Tổng Giám đốc Phụ trách Kinh doanh" }
-                val sClausesArr = service["clauses"].array
-                serviceClauses = if (sClausesArr.isNotEmpty()) sClausesArr.joinToString("\n") { it.string } else "ĐIỀU 1. PHẠM VI DỊCH VỤ\nĐIỀU 2. QUYỀN VÀ NGHĨA VỤ CỦA CÁC BÊN\nĐIỀU 3. BẢO MẬT THÔNG TIN"
-
-                // Acceptance Report
-                val acceptance = data.valueAt("systemConfig.acceptanceReport")
-                acceptanceTitle = acceptance["title"].string.ifEmpty { "BIÊN BẢN NGHIỆM THU DỊCH VỤ TƯ VẤN" }
-                acceptanceCompany = acceptance["companyName"].string.ifEmpty { "CÔNG TY CỔ PHẦN ĐẦU TƯ FUTA LAND" }
-                acceptanceRep = acceptance["companyRepresentative"].string.ifEmpty { "Bà Trần Thị Hoa Xim" }
-                val notesArr = acceptance["defaultNotes"].array
-                acceptanceNotes = if (notesArr.isNotEmpty()) notesArr.joinToString("\n") { it.string } else "Các bên đồng ý nghiệm thu toàn bộ công việc môi giới đã thực hiện đầy đủ theo đúng hợp đồng."
-
-                // Holding rules
-                val holding = data.valueAt("systemConfig.holding")
-                holdDurationMinutes = holding["holdDurationMinutes"].int.takeIf { it > 0 }?.toString() ?: "15"
-                cooldownMinutes = holding["cooldownMinutes"].int.takeIf { it > 0 }?.toString() ?: "5"
-
-            } catch (_: Exception) {
-            } finally {
-                loading = false
-            }
-        }
+    fun apply(settings: JsonElement) {
+        original = settings
+        val t = listOf("siteName", "footerDescription").associateWith { settings.stringAt(it) }
+        top = t; initialTop = t
+        val blocks = JsonObject(settingsBlocks.associateWith { settings.at("systemConfig.$it") as? JsonObject ?: JsonObject(emptyMap()) })
+        config = blocks; initialConfig = blocks
+        editingNotificationSecret = false; newNotificationSecret = ""
+        editingMessagingKey = false; newMessagingKey = ""
     }
 
-    fun handleSave() {
+    suspend fun fetch() {
+        try {
+            // /cms/admin carries the full systemConfig (contracts, banking, secrets).
+            val res = APIClient.get().request("/cms/admin")
+            val s = res["data"]["settings"].takeIf { !it.isNull } ?: APIClient.get().request("/cms/settings")["data"]
+            apply(s.element)
+            loadError = null
+        } catch (e: Exception) {
+            loadError = e.message ?: tr("Không thể tải dữ liệu")
+        }
+    }
+    LaunchedEffect(Unit) { fetch() }
+
+    val secretsDirty = (editingNotificationSecret && newNotificationSecret.isNotBlank()) || (editingMessagingKey && newMessagingKey.isNotBlank())
+    val dirty = original != null && (top != initialTop || config != initialConfig || secretsDirty)
+    fun close() { if (dirty && !saving) showDiscard = true else onBack() }
+    BackHandler { close() }
+
+    fun text(key: String) = top[key].orEmpty()
+    fun c(path: String) = config.stringAt(path)
+    fun setC(path: String, v: String) { config = config.withValueAt(path, JsonPrimitive(v)) }
+    fun setInt(path: String, v: String) {
+        val digits = v.filter(Char::isDigit).take(12)
+        config = config.withValueAt(path, digits.toLongOrNull()?.let { JsonPrimitive(it) } ?: JsonNull)
+    }
+    /** Text of a contract's clauses: `clausesText` (web/iOS), falling back to legacy `content`. */
+    fun clauses(block: String) = c("$block.clausesText").ifEmpty { c("$block.content") }
+
+    fun save() {
+        val hold = config.at("holding.holdDurationMinutes")?.let { (it as? JsonPrimitive)?.content?.toLongOrNull() }
+        error = when {
+            initialTop["siteName"].orEmpty().isNotBlank() && text("siteName").isBlank() -> tr("Tên website không được để trống")
+            initialTop["footerDescription"].orEmpty().isNotBlank() && text("footerDescription").isBlank() -> tr("Mô tả chân trang không được để trống")
+            hold != null && hold !in 1..120 -> tr("Thời gian giữ chỗ phải từ 1 đến 120 phút")
+            editingNotificationSecret && newNotificationSecret.isNotEmpty() && newNotificationSecret.isBlank() -> tr("Khóa bí mật không hợp lệ")
+            else -> null
+        }
+        if (error != null) return
+        val source = original
+        val body = buildJsonObject {
+            listOf("siteName", "footerDescription").forEach { k -> text(k).trim().takeIf { it.isNotEmpty() && text(k) != initialTop[k] }?.let { put(k, it) } }
+            val sc = buildJsonObject {
+                settingsBlocks.forEach { block ->
+                    val now = config.at(block)
+                    if (now != initialConfig.at(block) && now != null) put(block, now)
+                }
+                if (editingNotificationSecret && newNotificationSecret.isNotBlank()) {
+                    val base = source.at("systemConfig.notifications") as? JsonObject ?: JsonObject(emptyMap())
+                    put("notifications", JsonObject(base + ("providerSecret" to JsonPrimitive(newNotificationSecret.trim()))))
+                }
+                if (editingMessagingKey && newMessagingKey.isNotBlank()) {
+                    val base = source.at("systemConfig.messaging") as? JsonObject ?: JsonObject(emptyMap())
+                    put("messaging", JsonObject(base + ("apiKey" to JsonPrimitive(newMessagingKey.trim()))))
+                }
+            }
+            if (sc.isNotEmpty()) put("systemConfig", sc)
+        }
+        if (body.isEmpty()) return
         scope.launch {
             saving = true
             try {
-                val bClausesList = brokerClauses.split("\n").map { "\"${it.trim()}\"" }.joinToString(",")
-                val sClausesList = serviceClauses.split("\n").map { "\"${it.trim()}\"" }.joinToString(",")
-                val aNotesList = acceptanceNotes.split("\n").map { "\"${it.trim()}\"" }.joinToString(",")
-
-                val body = """
-                {
-                    "siteName": "$siteName",
-                    "footerDescription": "$footerDesc",
-                    "systemConfig": {
-                        "banking": {
-                            "bankName": "$bankName",
-                            "bankCode": "$bankCode",
-                            "accountNumber": "$accountNumber",
-                            "accountHolder": "$accountHolder",
-                            "transferSyntaxPrefix": "$transferSyntax",
-                            "yearlyPackagePrice": ${yearlyPrice.toIntOrNull() ?: 12000000},
-                            "monthlyPackagePrice": ${monthlyPrice.toIntOrNull() ?: 1200000}
-                        },
-                        "brokerContract": {
-                            "title": "$brokerTitle",
-                            "companyName": "$brokerCompany",
-                            "companyTaxCode": "$brokerTaxCode",
-                            "companyRepresentative": "$brokerRep",
-                            "companyRepresentativeTitle": "$brokerRepTitle",
-                            "clauses": [$bClausesList]
-                        },
-                        "serviceContract": {
-                            "title": "$serviceTitle",
-                            "companyName": "$serviceCompany",
-                            "companyTaxCode": "$serviceTaxCode",
-                            "companyRepresentative": "$serviceRep",
-                            "companyRepresentativeTitle": "$serviceRepTitle",
-                            "clauses": [$sClausesList]
-                        },
-                        "acceptanceReport": {
-                            "title": "$acceptanceTitle",
-                            "companyName": "$acceptanceCompany",
-                            "companyRepresentative": "$acceptanceRep",
-                            "defaultNotes": [$aNotesList]
-                        },
-                        "holding": {
-                            "holdDurationMinutes": ${holdDurationMinutes.toIntOrNull() ?: 15},
-                            "cooldownMinutes": ${cooldownMinutes.toIntOrNull() ?: 5}
-                        }
-                    }
-                }
-                """.trimIndent()
-
-                APIClient.get().request("/cms/settings", method = "PUT", bodyJson = body)
-                ToastCenter.show("Đã lưu thiết lập hệ thống thành công!")
-                onBack()
+                val res = APIClient.get().request("/cms/settings", method = "PUT", bodyJson = body.toString())
+                ToastCenter.show(tr("Đã lưu cài đặt hệ thống thành công!"))
+                val saved = res["data"]
+                if (!saved.isNull && !saved["systemConfig"].isNull) apply(saved.element) else fetch()
             } catch (e: Exception) {
-                ToastCenter.show("Lỗi lưu thiết lập: ${e.message}", isError = true)
+                error = e.message
+                ToastCenter.show(e.message ?: tr("Không thể lưu cài đặt"), isError = true)
             } finally {
                 saving = false
             }
@@ -214,274 +143,138 @@ fun AdminSettingsScreen(
     }
 
     Scaffold(
-        containerColor = Color(0xFFF8FAFC),
-        topBar = {
-            Surface(
-                color = FutaColors.PageBg,
-                modifier = Modifier.fillMaxWidth().statusBarsPadding()
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 10.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    FutaHeaderIconButton(
-                        icon = Icons.AutoMirrored.Filled.ArrowBack,
-                        contentDescription = "Quay lại",
-                        onClick = onBack
-                    )
-
-                    Text(
-                        text = "Cài đặt hệ thống",
-                        fontSize = 17.5.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = FutaColors.Navy
-                    )
-
-                    FutaHeaderIconButton(
-                        icon = Icons.Default.Check,
-                        contentDescription = "Lưu thiết lập",
-                        tint = FutaColors.BrandGreen,
-                        onClick = { handleSave() }
-                    )
-                }
-            }
-        },
-        bottomBar = {
-            FutaStickyActionBar {
-                FutaButton(
-                    text = "Hủy",
-                    variant = FutaButtonVariant.OUTLINE,
-                    onClick = onBack,
-                    modifier = Modifier.weight(1f)
-                )
-                FutaButton(
-                    text = if (saving) "Đang lưu..." else "Lưu thiết lập",
-                    variant = FutaButtonVariant.PRIMARY,
-                    enabled = !saving,
-                    onClick = { handleSave() },
-                    modifier = Modifier.weight(1.5f)
-                )
-            }
-        }
+        containerColor = FutaColors.PageBg,
+        topBar = { SalesAdminTopBar(title = "Cài đặt hệ thống", onBack = { close() }) },
+        bottomBar = { if (original != null) FormActionBar("Lưu cài đặt", saving, enabled = dirty, onCancel = { close() }, onSave = { save() }) }
     ) { padding ->
-        if (loading) {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding)
-                    .padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(14.dp)
-            ) {
-                repeat(4) { FutaSkeletonBlock(height = 110.dp, radius = 16.dp) }
+        when {
+            original == null && loadError == null -> Column(Modifier.padding(padding).padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                repeat(4) { FutaSkeletonBlock(height = 120.dp, radius = 16.dp) }
             }
-        } else {
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding),
-                contentPadding = PaddingValues(16.dp),
+            original == null -> AdminErrorState(loadError.orEmpty(), { loadError = null; scope.launch { fetch() } }, Modifier.padding(padding))
+            else -> Column(
+                Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                // Section 1: Thông tin website chung
-                item {
-                    SettingsCardSection(title = "Thông tin website chung") {
-                        Text("Tên website / Thương hiệu", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = FutaColors.Navy)
-                        FutaInput(value = siteName, onValueChange = { siteName = it }, placeholder = "FUTA Land")
-
-                        Text("Mô tả chân trang (Footer)", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = FutaColors.Navy)
-                        FutaInput(value = footerDesc, onValueChange = { footerDesc = it }, placeholder = "Mô tả ngắn...")
-                    }
+                FormErrorBanner(error)
+                FormSection("Thông tin website chung") {
+                    FormTextField("Tên website / Thương hiệu", text("siteName"), { top = top + ("siteName" to it) })
+                    FormTextField("Mô tả chân trang (Footer)", text("footerDescription"), { top = top + ("footerDescription" to it) }, multiline = true)
                 }
-
-                // Section 2: Thông tin tài khoản ngân hàng
-                item {
-                    SettingsCardSection(title = "Thông tin tài khoản ngân hàng") {
-                        Text("Tên ngân hàng (ví dụ: Vietcombank)", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = FutaColors.Navy)
-                        FutaInput(value = bankName, onValueChange = { bankName = it }, placeholder = "Vietcombank")
-
-                        Text("Mã ngân hàng (ví dụ: VCB, TPB)", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = FutaColors.Navy)
-                        FutaInput(value = bankCode, onValueChange = { bankCode = it }, placeholder = "VCB")
-
-                        Text("Số tài khoản", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = FutaColors.Navy)
-                        FutaInput(value = accountNumber, onValueChange = { accountNumber = it }, placeholder = "0071001234567", keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next))
-
-                        Text("Chủ tài khoản (chữ hoa không dấu)", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = FutaColors.Navy)
-                        FutaInput(value = accountHolder, onValueChange = { accountHolder = it }, placeholder = "CONG TY CP BDS FUTA LAND")
-
-                        Text("Cú pháp chuyển khoản (Prefix)", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = FutaColors.Navy)
-                        FutaInput(value = transferSyntax, onValueChange = { transferSyntax = it }, placeholder = "FUTA")
-                    }
+                FormSection("Thông tin tài khoản ngân hàng") {
+                    FormTextField("Tên ngân hàng (ví dụ: Vietcombank, TPBank)", c("banking.bankName"), { setC("banking.bankName", it) })
+                    FormTextField("Mã ngân hàng (ví dụ: VCB, TPB)", c("banking.bankCode"), { setC("banking.bankCode", it) })
+                    FormTextField("Số tài khoản", c("banking.accountNumber"), { setC("banking.accountNumber", it.filter(Char::isDigit)) }, keyboardType = KeyboardType.Number)
+                    FormTextField("Chủ tài khoản (chữ hoa không dấu)", c("banking.accountHolder"), { setC("banking.accountHolder", it.uppercase()) })
+                    FormTextField("Cú pháp chuyển khoản (Prefix)", c("banking.transferSyntaxPrefix"), { setC("banking.transferSyntaxPrefix", it) })
                 }
-
-                // Section 3: Bảng giá gói thành viên TVV
-                item {
-                    SettingsCardSection(title = "Bảng giá gói thành viên TVV") {
-                        Text("Giá gói năm (VND)", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = FutaColors.Navy)
-                        FutaInput(value = yearlyPrice, onValueChange = { yearlyPrice = it }, placeholder = "12000000", keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next))
-
-                        Text("Giá gói tháng (VND)", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = FutaColors.Navy)
-                        FutaInput(value = monthlyPrice, onValueChange = { monthlyPrice = it }, placeholder = "1200000", keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next))
-                    }
+                FormSection("Bảng giá gói thành viên TVV") {
+                    FormTextField("Giá gói năm (VND)", c("banking.yearlyPackagePrice"), { setInt("banking.yearlyPackagePrice", it) }, keyboardType = KeyboardType.Number)
+                    FormTextField("Giá gói tháng (VND)", c("banking.monthlyPackagePrice"), { setInt("banking.monthlyPackagePrice", it) }, keyboardType = KeyboardType.Number)
                 }
-
-                // Section 4: Hợp đồng môi giới (Broker Contract)
-                item {
-                    SettingsCardSection(title = "Hợp đồng môi giới (Broker Contract)") {
-                        Text("Tiêu đề hợp đồng", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = FutaColors.Navy)
-                        FutaInput(value = brokerTitle, onValueChange = { brokerTitle = it }, placeholder = "HỢP ĐỒNG...")
-
-                        Text("Tên công ty", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = FutaColors.Navy)
-                        FutaInput(value = brokerCompany, onValueChange = { brokerCompany = it }, placeholder = "Tên công ty...")
-
-                        Text("Mã số thuế", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = FutaColors.Navy)
-                        FutaInput(value = brokerTaxCode, onValueChange = { brokerTaxCode = it }, placeholder = "MST...")
-
-                        Text("Người đại diện", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = FutaColors.Navy)
-                        FutaInput(value = brokerRep, onValueChange = { brokerRep = it }, placeholder = "Họ tên người đại diện")
-
-                        Text("Chức vụ", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = FutaColors.Navy)
-                        FutaInput(value = brokerRepTitle, onValueChange = { brokerRepTitle = it }, placeholder = "Chức vụ...")
-
-                        Text("Các điều khoản hợp đồng (mỗi dòng một điều khoản)", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = FutaColors.Navy)
-                        FutaInput(value = brokerClauses, onValueChange = { brokerClauses = it }, placeholder = "Điều khoản...")
-                    }
+                ContractSection("Hợp đồng môi giới (Broker Contract)", "brokerContract", "Nhập các điều khoản hợp đồng môi giới (mỗi dòng một điều khoản)…", ::c, ::setC, clauses("brokerContract"))
+                ContractSection("Hợp đồng dịch vụ (Service Contract)", "serviceContract", "Nhập các điều khoản hợp đồng dịch vụ (mỗi dòng một điều khoản)…", ::c, ::setC, clauses("serviceContract"))
+                FormSection("Biên bản nghiệm thu (Acceptance Report)") {
+                    FormTextField("Tiêu đề biên bản", c("acceptanceReport.title"), { setC("acceptanceReport.title", it) })
+                    FormTextField("Tên công ty", c("acceptanceReport.companyName"), { setC("acceptanceReport.companyName", it) })
+                    FormTextField("Người đại diện", c("acceptanceReport.companyRepresentative"), { setC("acceptanceReport.companyRepresentative", it) })
+                    FormTextField(
+                        "Ghi chú mặc định", c("acceptanceReport.notes").ifEmpty { c("acceptanceReport.content") }, { setC("acceptanceReport.notes", it) },
+                        placeholder = "Nhập các ghi chú mặc định cho biên bản nghiệm thu…", multiline = true
+                    )
                 }
-
-                // Section 5: Hợp đồng dịch vụ (Service Contract)
-                item {
-                    SettingsCardSection(title = "Hợp đồng dịch vụ (Service Contract)") {
-                        Text("Tiêu đề hợp đồng dịch vụ", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = FutaColors.Navy)
-                        FutaInput(value = serviceTitle, onValueChange = { serviceTitle = it }, placeholder = "HỢP ĐỒNG...")
-
-                        Text("Tên công ty", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = FutaColors.Navy)
-                        FutaInput(value = serviceCompany, onValueChange = { serviceCompany = it }, placeholder = "Tên công ty...")
-
-                        Text("Mã số thuế", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = FutaColors.Navy)
-                        FutaInput(value = serviceTaxCode, onValueChange = { serviceTaxCode = it }, placeholder = "MST...")
-
-                        Text("Người đại diện", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = FutaColors.Navy)
-                        FutaInput(value = serviceRep, onValueChange = { serviceRep = it }, placeholder = "Họ tên người đại diện")
-
-                        Text("Chức vụ", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = FutaColors.Navy)
-                        FutaInput(value = serviceRepTitle, onValueChange = { serviceRepTitle = it }, placeholder = "Chức vụ...")
-
-                        Text("Các điều khoản hợp đồng (mỗi dòng một điều khoản)", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = FutaColors.Navy)
-                        FutaInput(value = serviceClauses, onValueChange = { serviceClauses = it }, placeholder = "Điều khoản...")
-                    }
+                FormSection("Quy chế giữ chỗ (Online Holding)") {
+                    FormTextField("Thời gian giữ chỗ (phút)", c("holding.holdDurationMinutes"), { setInt("holding.holdDurationMinutes", it.take(3)) }, placeholder = "15", keyboardType = KeyboardType.Number)
+                    FormTextField("Thời gian chờ giữa 2 lần (phút)", c("holding.cooldownMinutes"), { setInt("holding.cooldownMinutes", it.take(4)) }, placeholder = "5", keyboardType = KeyboardType.Number)
                 }
-
-                // Section 6: Biên bản nghiệm thu (Acceptance Report)
-                item {
-                    SettingsCardSection(title = "Biên bản nghiệm thu (Acceptance Report)") {
-                        Text("Tiêu đề biên bản", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = FutaColors.Navy)
-                        FutaInput(value = acceptanceTitle, onValueChange = { acceptanceTitle = it }, placeholder = "BIÊN BẢN...")
-
-                        Text("Tên công ty", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = FutaColors.Navy)
-                        FutaInput(value = acceptanceCompany, onValueChange = { acceptanceCompany = it }, placeholder = "Tên công ty...")
-
-                        Text("Người đại diện", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = FutaColors.Navy)
-                        FutaInput(value = acceptanceRep, onValueChange = { acceptanceRep = it }, placeholder = "Người đại diện...")
-
-                        Text("Ghi chú mặc định", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = FutaColors.Navy)
-                        FutaInput(value = acceptanceNotes, onValueChange = { acceptanceNotes = it }, placeholder = "Nội dung ghi chú...")
-                    }
-                }
-
-                // Section 7: Quy chế giữ chỗ (Online Holding)
-                item {
-                    SettingsCardSection(title = "Quy chế giữ chỗ (Online Holding)") {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text("Thời gian giữ chỗ (phút):", fontSize = 13.sp, color = FutaColors.Navy, fontWeight = FontWeight.Medium)
-                            Box(modifier = Modifier.width(90.dp)) {
-                                FutaInput(value = holdDurationMinutes, onValueChange = { holdDurationMinutes = it }, placeholder = "15")
-                            }
-                        }
-
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text("Thời gian chờ giữa 2 lần (phút):", fontSize = 13.sp, color = FutaColors.Navy, fontWeight = FontWeight.Medium)
-                            Box(modifier = Modifier.width(90.dp)) {
-                                FutaInput(value = cooldownMinutes, onValueChange = { cooldownMinutes = it }, placeholder = "5")
-                            }
-                        }
-                    }
-                }
-
-                // Section 8: Bảo mật thông báo (Push Notification Secret)
-                item {
-                    SettingsCardSection(title = "Bảo mật thông báo (Push Notification Secret)") {
-                        if (!isEditingNotificationSecret) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                                    Text("Khóa bí mật (Provider Secret)", fontSize = 13.sp, color = FutaColors.Navy)
-                                    Text("••••••••••••••••", fontSize = 12.sp, color = FutaColors.Slate)
-                                }
-                                FutaButton(
-                                    text = "Đổi khóa",
-                                    variant = FutaButtonVariant.OUTLINE,
-                                    onClick = { isEditingNotificationSecret = true }
-                                )
-                            }
-                        } else {
-                            FutaInput(value = newNotificationSecret, onValueChange = { newNotificationSecret = it }, placeholder = "Nhập Secret mới")
-                            FutaButton(
-                                text = "Hủy đổi khóa",
-                                variant = FutaButtonVariant.OUTLINE,
-                                onClick = {
-                                    isEditingNotificationSecret = false
-                                    newNotificationSecret = ""
-                                }
-                            )
-                        }
-                    }
-                }
-
-                item {
-                    Spacer(Modifier.height(40.dp))
-                }
+                SecretSection(
+                    title = "Bảo mật thông báo (Push Notification Secret)",
+                    label = "Khóa bí mật thông báo (Provider Secret)",
+                    placeholder = "Nhập Secret mới",
+                    configured = original.stringAt("systemConfig.notifications.providerSecret").isNotEmpty(),
+                    editing = editingNotificationSecret,
+                    value = newNotificationSecret,
+                    onValueChange = { newNotificationSecret = it },
+                    onEdit = { editingNotificationSecret = true },
+                    onCancel = { editingNotificationSecret = false; newNotificationSecret = "" }
+                )
+                SecretSection(
+                    title = "Khóa Messaging API (Zalo / SMS / Chat)",
+                    label = "Messaging API Key",
+                    placeholder = "Nhập API Key mới",
+                    configured = original.stringAt("systemConfig.messaging.apiKey").isNotEmpty(),
+                    editing = editingMessagingKey,
+                    value = newMessagingKey,
+                    onValueChange = { newMessagingKey = it },
+                    onEdit = { editingMessagingKey = true },
+                    onCancel = { editingMessagingKey = false; newMessagingKey = "" }
+                )
+                Spacer(Modifier.height(24.dp))
             }
         }
     }
+
+    DiscardChangesDialog(showDiscard, onDismiss = { showDiscard = false }, onDiscard = { showDiscard = false; onBack() })
 }
 
 @Composable
-private fun SettingsCardSection(
+private fun ContractSection(
     title: String,
-    content: @Composable ColumnScope.() -> Unit
+    block: String,
+    clausesPlaceholder: String,
+    get: (String) -> String,
+    set: (String, String) -> Unit,
+    clauses: String
 ) {
-    Surface(
-        shape = RoundedCornerShape(16.dp),
-        color = Color.White,
-        shadowElevation = 1.dp,
-        border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            Text(
-                text = title,
-                fontSize = 14.5.sp,
-                fontWeight = FontWeight.Bold,
-                color = FutaColors.Navy
-            )
-            HorizontalDivider(color = Color(0xFFF1F5F9))
-            content()
+    FormSection(title) {
+        FormTextField("Tiêu đề hợp đồng", get("$block.title"), { set("$block.title", it) })
+        FormTextField("Tên công ty", get("$block.companyName"), { set("$block.companyName", it) })
+        FormTextField("Mã số thuế", get("$block.companyTaxCode"), { set("$block.companyTaxCode", it) })
+        FormTextField("Người đại diện", get("$block.companyRepresentative"), { set("$block.companyRepresentative", it) })
+        FormTextField("Chức vụ", get("$block.companyRepresentativeTitle"), { set("$block.companyRepresentativeTitle", it) })
+        FormTextField("Các điều khoản hợp đồng", clauses, { set("$block.clausesText", it) }, placeholder = clausesPlaceholder, multiline = true)
+    }
+}
+
+/**
+ * Masked secret: the stored value is never rendered. "Đổi khóa" opens a password field; the new
+ * value is sent only when typed, otherwise the stored secret is left untouched.
+ */
+@Composable
+private fun SecretSection(
+    title: String,
+    label: String,
+    placeholder: String,
+    configured: Boolean,
+    editing: Boolean,
+    value: String,
+    onValueChange: (String) -> Unit,
+    onEdit: () -> Unit,
+    onCancel: () -> Unit
+) {
+    FormSection(title) {
+        if (!editing) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Icon(if (configured) Icons.Default.Lock else Icons.Default.LockOpen, null, tint = if (configured) FutaColors.BrandGreen else FutaColors.Slate, modifier = Modifier.size(18.dp))
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text(label, fontSize = 13.5.sp, fontWeight = FontWeight.SemiBold, color = FutaColors.Navy)
+                    if (configured) Text("••••••••••••••••", fontSize = 12.sp, color = FutaColors.Slate)
+                    else Text("Chưa cấu hình", fontSize = 12.sp, color = Color(0xFFF97316))
+                }
+                FutaButton(text = if (configured) "Đổi khóa" else "Thiết lập", variant = FutaButtonVariant.OUTLINE, height = 36.dp, onClick = onEdit)
+            }
+        } else {
+            FutaFormSectionField(label = label) {
+                FutaInput(
+                    value = value,
+                    onValueChange = onValueChange,
+                    placeholder = placeholder,
+                    visualTransformation = PasswordVisualTransformation(),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, autoCorrectEnabled = false)
+                )
+            }
+            Text("Khóa hiện tại được giữ nguyên nếu bạn không nhập giá trị mới.", fontSize = 11.5.sp, color = FutaColors.Slate)
+            FutaButton(text = "Huỷ đổi khóa", variant = FutaButtonVariant.GHOST, height = 34.dp, onClick = onCancel)
         }
     }
 }

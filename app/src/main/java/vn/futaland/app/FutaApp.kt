@@ -2,6 +2,8 @@ package vn.futaland.app
 
 import android.app.Application
 import vn.futaland.app.core.auth.AppSession
+import vn.futaland.app.core.i18n.ContentTranslator
+import vn.futaland.app.core.i18n.I18n
 import vn.futaland.app.core.network.APIClient
 import vn.futaland.app.designsystem.ToastCenter
 import vn.futaland.app.features.messaging.FutaMessagingService
@@ -12,6 +14,8 @@ import coil3.network.okhttp.OkHttpNetworkFetcherFactory
 class FutaApp : Application() {
     override fun onCreate() {
         super.onCreate()
+        I18n.init(this)
+        ContentTranslator.init(this)
         val client = APIClient.init(this)
         client.onSessionExpired = {
             AppSession.shared.logout()

@@ -2,4 +2,6 @@
 <paths>
     <!-- Exported spreadsheets shared to other apps (Zalo, Mail, Drive…). -->
     <cache-path name="exports" path="exports/" />
+    <!-- Camera captures of customer documents (holding / deposit request). -->
+    <cache-path name="captures" path="captures/" />
 </paths>

@@ -1,5 +1,7 @@
 package vn.futaland.app.features.account
 
+import vn.futaland.app.core.i18n.tr
+import vn.futaland.app.core.i18n.Text
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -106,7 +108,7 @@ fun AdminModuleScreen(
                 ModuleMetric("sold", "Đã bán", "$countSold", "Thành công", Icons.Default.CheckCircle, Color(0xFF7C3AED), Color(0xFFF5F3FF))
             )
             isProjectModule -> listOf(
-                ModuleMetric("all", "Tổng dự án", "$total", "$total hiển thị", Icons.Default.Apartment, Color(0xFF0E7643), Color(0xFFE8F5E9)),
+                ModuleMetric("all", "Tổng dự án", "$total", tr("{0} hiển thị", total), Icons.Default.Apartment, Color(0xFF0E7643), Color(0xFFE8F5E9)),
                 ModuleMetric("selling", "Đang mở bán", "$countSelling", "Đang triển khai", Icons.Default.LocalFireDepartment, Color(0xFF2563EB), Color(0xFFEFF6FF)),
                 ModuleMetric("pending", "Sắp mở bán", "$countPending", "Giai đoạn 1", Icons.Default.Schedule, Color(0xFFF97316), Color(0xFFFFF7ED)),
                 ModuleMetric("sold", "Đã bàn giao", "$countSold", "Hoàn tất", Icons.Default.CheckCircle, Color(0xFF64748B), Color(0xFFF1F5F9))
@@ -127,10 +129,10 @@ fun AdminModuleScreen(
         val countSold = records.count { it["status"].string.lowercase() in listOf("sold", "closed", "completed") }
 
         listOf(
-            "all" to "Tất cả ($total)",
-            "selling" to "Đang mở bán ($countSelling)",
-            "pending" to "Đang giữ chỗ / Cọc ($countPending)",
-            "sold" to "Đã bán ($countSold)"
+            "all" to tr("Tất cả ({0})", total),
+            "selling" to tr("Đang mở bán ({0})", countSelling),
+            "pending" to tr("Đang giữ chỗ / Cọc ({0})", countPending),
+            "sold" to tr("Đã bán ({0})", countSold)
         )
     }
 
@@ -240,7 +242,7 @@ fun AdminModuleScreen(
                 FutaInput(
                     value = search,
                     onValueChange = { search = it },
-                    placeholder = if (isPropertyModule) "Tìm theo mã căn, tòa, tầng, dự án..." else "Tìm kiếm trong $title...",
+                    placeholder = if (isPropertyModule) "Tìm theo mã căn, tòa, tầng, dự án..." else tr("Tìm kiếm trong {0}...", title),
                     leadingIcon = Icons.Default.Search,
                     trailingIcon = if (search.isNotEmpty()) {
                         {
@@ -406,9 +408,9 @@ fun AdminModuleScreen(
                 ) {
                     Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         Text(recTitle, fontSize = 15.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
-                        Text("Mã: ${item["code"].string.ifEmpty { item["propertyCode"].string.ifEmpty { item.id } }}", fontSize = 12.sp, color = FutaColors.BrandGreen)
+                        Text(tr("Mã: {0}", item["code"].string.ifEmpty { item["propertyCode"].string.ifEmpty { item.id } }), fontSize = 12.sp, color = FutaColors.BrandGreen)
                         if (item["price"].double > 0) {
-                            Text("Giá niêm yết: ${PropertyFormatters.formatPrice(item["price"].double)}", fontSize = 14.sp, fontWeight = FontWeight.Black, color = Color(0xFFF97316))
+                            Text(tr("Giá niêm yết: {0}", PropertyFormatters.formatPrice(item["price"].double)), fontSize = 14.sp, fontWeight = FontWeight.Black, color = Color(0xFFF97316))
                         }
                     }
                 }
@@ -631,7 +633,7 @@ fun AdminModuleScreen(
                             ToastCenter.show("Đã xóa bản ghi thành công")
                             loadData()
                         } catch (e: Exception) {
-                            ToastCenter.show("Lỗi xóa: ${e.message}", isError = true)
+                            ToastCenter.show(tr("Lỗi xóa: {0}", e.message), isError = true)
                         }
                     }
                 }
@@ -726,7 +728,7 @@ private fun AdminRecordCreateSheet(
     FutaBottomSheet(
         visible = true,
         onDismiss = onDismiss,
-        title = "Thêm mới $moduleTitle"
+        title = tr("Thêm mới {0}", moduleTitle)
     ) {
         Column(
             modifier = Modifier
@@ -852,7 +854,7 @@ private fun AdminRecordCreateSheet(
                             ToastCenter.show("Tạo mới thành công!")
                             onSuccess()
                         } catch (e: Exception) {
-                            ToastCenter.show("Lỗi tạo mới: ${e.message}", isError = true)
+                            ToastCenter.show(tr("Lỗi tạo mới: {0}", e.message), isError = true)
                         } finally {
                             isSubmitting = false
                         }
@@ -1007,7 +1009,7 @@ private fun InventoryCardRow(
 
                 // Breadcrumb
                 Text(
-                    text = "${item["projectName"].string.ifEmpty { "Dự án FUTA" }} · Tòa ${item["block"].string.ifEmpty { "CT7" }} · Tầng ${item["floor"].string.ifEmpty { "26" }}",
+                    text = tr("{0} · Tòa {1} · Tầng {2}", item["projectName"].string.ifEmpty { "Dự án FUTA" }, item["block"].string.ifEmpty { "CT7" }, item["floor"].string.ifEmpty { "26" }),
                     fontSize = 11.5.sp,
                     color = FutaColors.Slate,
                     maxLines = 1,
@@ -1135,7 +1137,7 @@ private fun ProjectCardRow(
                                 horizontalArrangement = Arrangement.spacedBy(4.dp)
                             ) {
                                 Icon(painterResource(R.drawable.sf_tab_home_inactive), null, tint = FutaColors.Navy, modifier = Modifier.size(11.dp))
-                                Text(if (homeOrder > 0) "Trang chủ #$homeOrder" else "Trang chủ", fontSize = 10.5.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
+                                Text(if (homeOrder > 0) tr("Trang chủ #{0}", homeOrder) else "Trang chủ", fontSize = 10.5.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
                             }
                         }
                     }
@@ -1187,9 +1189,9 @@ private fun ProjectCardRow(
                 }
                 if (code.isNotEmpty() || projectName.isNotEmpty()) {
                     val identifier = when {
-                        code.isEmpty() -> "Phân khu: $projectName"
-                        projectName.isEmpty() -> "Mã: $code"
-                        else -> "Mã: $code · Phân khu: $projectName"
+                        code.isEmpty() -> tr("Phân khu: {0}", projectName)
+                        projectName.isEmpty() -> tr("Mã: {0}", code)
+                        else -> tr("Mã: {0} · Phân khu: {1}", code, projectName)
                     }
                     Text(identifier, fontSize = 12.sp, color = FutaColors.Slate)
                 }

@@ -1,5 +1,6 @@
 package vn.futaland.app.features.properties
 
+import vn.futaland.app.core.i18n.tr
 import vn.futaland.app.core.network.JSONValue
 import java.util.Locale
 import kotlin.math.abs
@@ -53,7 +54,7 @@ object PaymentScheduleEngine {
         return when {
             days == null -> anchor
             days == 0 -> anchor.ifEmpty { "Cùng ngày mốc thanh toán" }
-            else -> "$days ngày sau ${anchor.ifEmpty { "mốc thanh toán" }}"
+            else -> tr("{0} ngày sau {1}", days, anchor.ifEmpty { "mốc thanh toán" })
         }
     }
 
@@ -88,7 +89,7 @@ object PaymentScheduleEngine {
             return directPolicies.mapIndexed { index, plan ->
                 val id = plan["id"].string.ifEmpty { plan["policyId"].string.ifEmpty { "policy-$index" } }
                 val code = plan["code"].string.ifEmpty { plan["policyCode"].string }
-                val name = plan["name"].string.ifEmpty { plan["policyName"].string.ifEmpty { "Chính sách ${index + 1}" } }
+                val name = plan["name"].string.ifEmpty { plan["policyName"].string.ifEmpty { tr("Chính sách {0}", index + 1) } }
                 val discount = if (!plan["discountPercent"].isNull) plan["discountPercent"].double else 0.0
                 val deposit = if (!plan["depositAmount"].isNull) plan["depositAmount"].double.roundToLong() else 100_000_000L
                 PaymentSchedulePolicy(
@@ -110,7 +111,7 @@ object PaymentScheduleEngine {
             return priceTablePlans.mapIndexed { index, plan ->
                 val id = plan["policyId"].string.ifEmpty { plan["id"].string.ifEmpty { "plan-$index" } }
                 val code = plan["policyCode"].string.ifEmpty { plan["code"].string }
-                val name = plan["policyName"].string.ifEmpty { plan["name"].string.ifEmpty { "Phương thức ${index + 1}" } }
+                val name = plan["policyName"].string.ifEmpty { plan["name"].string.ifEmpty { tr("Phương thức {0}", index + 1) } }
                 val totalAmount = if (!plan["totalAmount"].isNull) plan["totalAmount"].double.roundToLong() else 0L
                 val isBalanced = if (!plan["balanced"].isNull) plan["balanced"].bool else true
                 val discount = if (!plan["discountPercent"].isNull) plan["discountPercent"].double else 0.0
@@ -134,7 +135,7 @@ object PaymentScheduleEngine {
             return methodPolicies.mapIndexed { index, plan ->
                 val id = plan["id"].string.ifEmpty { plan["policyId"].string.ifEmpty { "method-policy-$index" } }
                 val code = plan["code"].string.ifEmpty { plan["policyCode"].string }
-                val name = plan["name"].string.ifEmpty { plan["policyName"].string.ifEmpty { "Chính sách ${index + 1}" } }
+                val name = plan["name"].string.ifEmpty { plan["policyName"].string.ifEmpty { tr("Chính sách {0}", index + 1) } }
                 val discount = if (!plan["discountPercent"].isNull) plan["discountPercent"].double else 0.0
                 val deposit = if (!plan["depositAmount"].isNull) plan["depositAmount"].double.roundToLong() else 0L
                 PaymentSchedulePolicy(
@@ -283,7 +284,7 @@ object PaymentScheduleEngine {
 
         installments.forEachIndexed { index, item ->
             val isLast = index == installments.size - 1
-            val name = item["name"].string.trim().ifEmpty { "Đợt ${index + 1}" }
+            val name = item["name"].string.trim().ifEmpty { tr("Đợt {0}", index + 1) }
             val timing = formatErpTiming(item["timing"])
             val percent = percents.getOrNull(index) ?: 0.0
 
@@ -303,7 +304,7 @@ object PaymentScheduleEngine {
             val note = if (rawNote.isNotEmpty()) {
                 rawNote
             } else if (baseStr.isNotEmpty() && baseStr != "contractPrice") {
-                "Gốc: $baseStr"
+                tr("Gốc: {0}", baseStr)
             } else {
                 ""
             }
@@ -336,7 +337,7 @@ object PaymentScheduleEngine {
     }
 
     fun formatVnd(amount: Long): String {
-        return String.format(Locale.US, "%,d", amount) + " đ"
+        return String.format(Locale.US, "%,d", amount) + tr(" đ")
     }
 
     fun formatNumberOnly(amount: Long): String {
@@ -350,29 +351,29 @@ object PaymentScheduleEngine {
     ): String {
         val builder = StringBuilder()
         builder.append("BẢNG TÍNH MINH HỌA GIÁ TRỊ THANH TOÁN THEO ĐỢT\n")
-        builder.append("Mã căn: $unitLabel\n")
-        builder.append("Chính sách: ${policy.name}\n")
+        builder.append(tr("Mã căn: {0}\n", unitLabel))
+        builder.append(tr("Chính sách: {0}\n", policy.name))
         builder.append("----------------------------------------\n")
-        builder.append("Tổng giá niêm yết: ${formatVnd(result.basePrice)}\n")
+        builder.append(tr("Tổng giá niêm yết: {0}\n", formatVnd(result.basePrice)))
         if (result.discountPercent > 0.0) {
             builder.append("Tổng chiết khấu (%.1f%%): - ${formatVnd(result.discountAmount)}\n".format(result.discountPercent))
         }
         if (result.depositAmount > 0L) {
-            builder.append("Tiền đặt cọc quy định: ${formatVnd(result.depositAmount)}\n")
+            builder.append(tr("Tiền đặt cọc quy định: {0}\n", formatVnd(result.depositAmount)))
         }
-        builder.append("GIÁ THANH TOÁN THỰC TẾ: ${formatVnd(result.netPrice)}\n")
+        builder.append(tr("GIÁ THANH TOÁN THỰC TẾ: {0}\n", formatVnd(result.netPrice)))
         builder.append("----------------------------------------\n")
         builder.append("CHI TIẾT TỪNG ĐỢT:\n")
         for (row in result.rows) {
             val pct = row.percent?.let { " (%.1f%%)".format(it).replace(".0%", "%") } ?: ""
-            builder.append("Đợt ${row.order}: ${row.name}$pct\n")
+            builder.append(tr("Đợt {0}: {1}{2}\n", row.order, row.name, pct))
             if (row.timing.isNotEmpty()) {
-                builder.append("  - Mốc: ${row.timing}\n")
+                builder.append(tr("  - Mốc: {0}\n", row.timing))
             }
-            builder.append("  - Số tiền: ${formatVnd(row.amount)}\n")
-            builder.append("  - Lũy kế: ${formatVnd(row.cumulative)}\n")
+            builder.append(tr("  - Số tiền: {0}\n", formatVnd(row.amount)))
+            builder.append(tr("  - Lũy kế: {0}\n", formatVnd(row.cumulative)))
             if (row.note.isNotEmpty()) {
-                builder.append("  - Ghi chú: ${row.note}\n")
+                builder.append(tr("  - Ghi chú: {0}\n", row.note))
             }
         }
         builder.append("----------------------------------------\n")

@@ -1,5 +1,7 @@
 package vn.futaland.app.features.account
 
+import vn.futaland.app.core.i18n.tr
+import vn.futaland.app.core.i18n.Text
 import androidx.compose.animation.*
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -219,7 +221,7 @@ fun AdminAIScreen(
                                     color = if (isBotEnabled) FutaColors.BrandGreen else Color(0xFFF97316)
                                 )
                             }
-                            Text("$activeProvidersCount provider đang bật", fontSize = 11.5.sp, color = FutaColors.Slate)
+                            Text(tr("{0} provider đang bật", activeProvidersCount), fontSize = 11.5.sp, color = FutaColors.Slate)
                         }
 
                         HorizontalDivider(color = Color(0xFFF1F5F9))
@@ -308,7 +310,7 @@ fun AdminAIScreen(
                                                 ToastCenter.show("Đã index lại toàn bộ tài liệu!")
                                                 loadData()
                                             } catch (e: Exception) {
-                                                ToastCenter.show("Lỗi: ${e.message}", isError = true)
+                                                ToastCenter.show(tr("Lỗi: {0}", e.message), isError = true)
                                             } finally {
                                                 isReindexingAll = false
                                             }
@@ -454,7 +456,7 @@ fun AdminAIScreen(
                         ) {
                             Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                                    Text("Phiên bản v${cur?.get("version")?.int ?: 1} (${cur?.get("status")?.string ?: "published"})", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
+                                    Text(tr("Phiên bản v{0} ({1})", cur?.get("version")?.int ?: 1, cur?.get("status")?.string ?: "published"), fontSize = 14.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
                                     if (cur?.get("status")?.string != "published" && cur != null) {
                                         FutaButton(
                                             text = "Rollback & Publish",
@@ -619,7 +621,7 @@ fun AdminAIScreen(
                                                     playgroundProviderInfo = "${data["provider"].string} · ${data["model"].string}"
                                                     playgroundSources = data["sources"].array
                                                 } catch (e: Exception) {
-                                                    playgroundAnswer = "Lỗi: ${e.message}"
+                                                    playgroundAnswer = tr("Lỗi: {0}", e.message)
                                                 } finally {
                                                     isRunningPlayground = false
                                                 }
@@ -651,7 +653,7 @@ fun AdminAIScreen(
 
                                     if (playgroundSources.isNotEmpty()) {
                                         HorizontalDivider(color = Color(0xFFF1F5F9))
-                                        Text("Context RAG trích xuất (${playgroundSources.size})", fontSize = 11.5.sp, fontWeight = FontWeight.Bold, color = FutaColors.Slate)
+                                        Text(tr("Context RAG trích xuất ({0})", playgroundSources.size), fontSize = 11.5.sp, fontWeight = FontWeight.Bold, color = FutaColors.Slate)
                                         playgroundSources.forEach { s ->
                                             Surface(shape = RoundedCornerShape(6.dp), color = Color(0xFFF8FAFC), modifier = Modifier.fillMaxWidth()) {
                                                 Text(s["content"].string.ifEmpty { s["text"].string }, fontSize = 11.sp, color = FutaColors.Slate, modifier = Modifier.padding(8.dp))
@@ -666,7 +668,7 @@ fun AdminAIScreen(
                     // Saved Test Cases List
                     if (testCases.isNotEmpty()) {
                         item {
-                            Text("Danh sách Test Cases đã lưu (${testCases.size})", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
+                            Text(tr("Danh sách Test Cases đã lưu ({0})", testCases.size), fontSize = 13.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
                         }
                         itemsIndexed(testCases) { _, tc ->
                             Surface(
@@ -861,7 +863,7 @@ fun AdminAIScreen(
                                 showUploadDialog = false
                                 loadData()
                             } catch (e: Exception) {
-                                ToastCenter.show("Lỗi: ${e.message}", isError = true)
+                                ToastCenter.show(tr("Lỗi: {0}", e.message), isError = true)
                             } finally {
                                 isUploading = false
                             }
@@ -930,7 +932,7 @@ private fun AIProviderSettingsSheet(
                 ) {
                     Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                         Text("Kích hoạt trợ lý AI", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
-                        Text("Ưu tiên từ trên xuống · ${providers.filter { it["isEnabled"] == true }.size} provider đang bật", fontSize = 11.sp, color = FutaColors.Slate)
+                        Text(tr("Ưu tiên từ trên xuống · {0} provider đang bật", providers.filter { it["isEnabled"] == true }.size), fontSize = 11.sp, color = FutaColors.Slate)
                     }
                     Switch(
                         checked = isEnabled,
@@ -1018,7 +1020,7 @@ private fun AIProviderSettingsSheet(
                             FutaInput(
                                 value = p["apiKey"] as? String ?: "",
                                 onValueChange = { p["apiKey"] = it },
-                                placeholder = if (hint.isNotEmpty()) "Để trống để giữ key ($hint)" else "Nhập API Key"
+                                placeholder = if (hint.isNotEmpty()) tr("Để trống để giữ key ({0})", hint) else "Nhập API Key"
                             )
 
                             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
@@ -1045,7 +1047,7 @@ private fun AIProviderSettingsSheet(
                                                 ToastCenter.show("Kết nối API thành công!")
                                             } catch (e: Exception) {
                                                 p["testState"] = "error"
-                                                ToastCenter.show("Lỗi: ${e.message}", isError = true)
+                                                ToastCenter.show(tr("Lỗi: {0}", e.message), isError = true)
                                             }
                                         }
                                     }
@@ -1143,7 +1145,7 @@ private fun AIProviderSettingsSheet(
                             ToastCenter.show("Đã lưu cấu hình API thành công!")
                             onSaved()
                         } catch (e: Exception) {
-                            ToastCenter.show("Lỗi: ${e.message}", isError = true)
+                            ToastCenter.show(tr("Lỗi: {0}", e.message), isError = true)
                         } finally {
                             isSaving = false
                         }

@@ -1,5 +1,14 @@
 package vn.futaland.app.features.account
 
+import vn.futaland.app.core.i18n.tr
+import vn.futaland.app.core.i18n.Text
+import vn.futaland.app.core.i18n.VerbatimText
+import vn.futaland.app.core.i18n.LocalizedPrice
+import vn.futaland.app.core.i18n.translated
+import vn.futaland.app.core.network.JSONValue
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -25,9 +34,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import coil3.compose.AsyncImage
 import kotlinx.coroutines.launch
-import vn.futaland.app.core.auth.AppSession
 import vn.futaland.app.core.network.APIClient
 import androidx.compose.foundation.border
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -40,7 +47,36 @@ data class PricingPlanModel(
     val sixMonthDiscount: Double,
     val isPopular: Boolean = false,
     val features: List<String>
+) {
+    /** Display price for the selected cycle; the payable amount always comes from the server order. */
+    fun price(cycle: String): Long =
+        if (cycle == "six_months") (monthlyPrice * 6 * (1.0 - sixMonthDiscount)).toLong() else monthlyPrice
+}
+
+// Grounded catalog matching backend DEFAULT_PLAN_CATALOG (used only when /pricing/plans fails).
+private val fallbackPlans = listOf(
+    PricingPlanModel("free", "FREE", 0L, 0.0, features = listOf("standard_display", "basic_management", "basic_stats", "email_support")),
+    PricingPlanModel("pro", "PRO", 5_000_000L, 0.2, features = listOf("priority_boost_3_per_day", "ai_content", "advanced_stats", "priority_support")),
+    PricingPlanModel("vip", "VIP", 10_000_000L, 0.25, isPopular = true, features = listOf("featured_homepage", "priority_boost_10_per_day", "advanced_ai", "crm", "dedicated_support"))
 )
+
+/** Backend plan feature keys → Vietnamese labels (same as iOS PricingView.localizeFeature). */
+internal fun pricingFeatureLabel(key: String): String = when (key) {
+    "standard_display" -> "Hiển thị tiêu chuẩn trên hệ thống"
+    "basic_management" -> "Quản lý tin đăng cơ bản"
+    "basic_stats" -> "Thống kê lượt xem cơ bản"
+    "email_support" -> "Hỗ trợ khách hàng qua email"
+    "priority_boost_3_per_day" -> "3 lượt đẩy tin ưu tiên mỗi ngày"
+    "ai_content" -> "Hỗ trợ soạn thảo nội dung AI"
+    "advanced_stats" -> "Thống kê phân tích chuyên sâu"
+    "priority_support" -> "Hỗ trợ ưu tiên qua kênh riêng"
+    "featured_homepage" -> "Nổi bật trên trang chủ FUTA Land"
+    "priority_boost_10_per_day" -> "10 lượt đẩy tin VIP mỗi ngày"
+    "advanced_ai" -> "Trợ lý ảo AI cao cấp"
+    "crm" -> "Tích hợp quản lý khách hàng CRM"
+    "dedicated_support" -> "Chuyên viên chăm sóc 24/7 riêng biệt"
+    else -> key.translated("pricing")
+}
 
 @Composable
 fun PricingScreen(
@@ -49,99 +85,56 @@ fun PricingScreen(
     val scope = rememberCoroutineScope()
     var selectedCycle by remember { mutableStateOf("monthly") } // "monthly", "six_months"
     var planToCheckout by remember { mutableStateOf<PricingPlanModel?>(null) }
+    var checkoutCycle by remember { mutableStateOf("monthly") }
+    var createdOrder by remember { mutableStateOf<JSONValue?>(null) }
+    var checkoutError by remember { mutableStateOf<String?>(null) }
     var isCreatingOrder by remember { mutableStateOf(false) }
-
-    val plans = remember {
-        listOf(
-            PricingPlanModel(
-                id = "free",
-                name = "GÓI CƠ BẢN (FREE)",
-                monthlyPrice = 0L,
-                sixMonthDiscount = 0.0,
-                isPopular = false,
-                features = listOf(
-                    "Đăng tối đa 3 tin BĐS",
-                    "Hiển thị tiêu chuẩn trên hệ thống",
-                    "Báo cáo thống kê lượt xem cơ bản",
-                    "Hỗ trợ qua trung tâm trợ giúp"
-                )
-            ),
-            PricingPlanModel(
-                id = "pro",
-                name = "GÓI CHUYÊN NGHIỆP (PRO)",
-                monthlyPrice = 5_000_000L,
-                sixMonthDiscount = 0.15,
-                isPopular = true,
-                features = listOf(
-                    "Đẩy tin tự động 3 lần / ngày",
-                    "Huy hiệu Môi giới xác thực uy tín",
-                    "Trợ lý AI hỗ trợ viết tin bán hàng",
-                    "Báo cáo phân tích khách hàng nâng cao",
-                    "Hỗ trợ kỹ thuật ưu tiên 24/7 qua hotline"
-                )
-            ),
-            PricingPlanModel(
-                id = "vip",
-                name = "GÓI ĐỐI TÁC VIP (DIAMOND)",
-                monthlyPrice = 10_000_000L,
-                sixMonthDiscount = 0.25,
-                isPopular = false,
-                features = listOf(
-                    "Đăng không giới hạn tin BĐS",
-                    "Top 1 ưu tiên trang chủ & phân khu tâm điểm",
-                    "Đẩy tin tự động 10 lần / ngày",
-                    "Huy hiệu VIP Kim Cương chính thức",
-                    "Kết nối dữ liệu khách hàng tiềm năng CRM",
-                    "Chuyên viên chăm sóc tài khoản riêng 1:1"
-                )
-            )
-        )
-    }
-    var displayPlans by remember { mutableStateOf(plans) }
-    // Bank/QR details come from CMS Site Settings so customers never transfer
-    // to an account staff cannot collect from.
-    var bankName by remember { mutableStateOf("") }
-    var bankCode by remember { mutableStateOf("") }
-    var bankAccountNumber by remember { mutableStateOf("") }
-    var bankAccountHolder by remember { mutableStateOf("") }
+    var loadingPlans by remember { mutableStateOf(true) }
+    var displayPlans by remember { mutableStateOf<List<PricingPlanModel>>(emptyList()) }
 
     LaunchedEffect(Unit) {
         try {
-            val res = APIClient.get().request("/cms/settings")
-            val banking = res["data"].valueAt("systemConfig.banking")
-            bankName = banking["bankName"].string
-            bankCode = banking["bankCode"].string
-            bankAccountNumber = banking["accountNumber"].string
-            bankAccountHolder = banking["accountHolder"].string
+            val res = APIClient.get().request("/pricing/plans")
+            val arr = res["data"].array.ifEmpty { res.array }
+            displayPlans = arr.map { p ->
+                val discount = p["sixMonthDiscount"].double
+                PricingPlanModel(
+                    id = p.id,
+                    name = p["name"].string.ifEmpty { p.id.uppercase() },
+                    monthlyPrice = p["monthlyPrice"].double.toLong(),
+                    sixMonthDiscount = if (discount > 0) discount else if (p.id == "vip") 0.25 else 0.2,
+                    isPopular = p.id == "vip",
+                    features = p["features"].array.map { it.string }.filter { it.isNotEmpty() }
+                )
+            }.ifEmpty { fallbackPlans }
         } catch (_: Exception) {
-            // Leave the transfer block hidden instead of inventing account data.
+            displayPlans = fallbackPlans
+        }
+        loadingPlans = false
+    }
+
+    fun createOrder(plan: PricingPlanModel) {
+        scope.launch {
+            isCreatingOrder = true
+            checkoutError = null
+            try {
+                val body = buildJsonObject {
+                    put("planId", plan.id)
+                    put("billingCycle", checkoutCycle)
+                    put("paymentMethod", "bank_transfer")
+                    put("source", "pricing")
+                }.toString()
+                val res = APIClient.get().request("/pricing/checkout", method = "POST", bodyJson = body)
+                createdOrder = if (res["data"].isNull) res else res["data"]
+            } catch (e: Exception) {
+                checkoutError = e.message ?: tr("Không tạo được đơn hàng, vui lòng thử lại")
+            } finally {
+                isCreatingOrder = false
+            }
         }
     }
 
-    LaunchedEffect(Unit) {
-        scope.launch {
-            try {
-                val res = APIClient.get().request("/pricing/plans")
-                val arr = res["data"].array.ifEmpty { res.array }
-                if (arr.isNotEmpty()) {
-                    val parsed = arr.map { p ->
-                        val mPrice = if (p["monthlyPrice"].int > 0) p["monthlyPrice"].int.toLong() else p["price"].double.toLong()
-                        PricingPlanModel(
-                            id = p["id"].string.ifEmpty { p["key"].string.ifEmpty { "plan" } },
-                            name = p["name"].string.ifEmpty { "GÓI DỊCH VỤ FUTA" },
-                            monthlyPrice = mPrice,
-                            sixMonthDiscount = 0.15,
-                            isPopular = p["isPopular"].bool || p["popular"].bool,
-                            features = p["features"].array.map { it.string }.filter { it.isNotEmpty() }.ifEmpty {
-                                listOf("Đăng tin BĐS", "Hiển thị tiêu chuẩn", "Báo cáo thống kê")
-                            }
-                        )
-                    }
-                    displayPlans = parsed
-                }
-            } catch (_: Exception) {}
-        }
-    }
+    val maxDiscount = (displayPlans.maxOfOrNull { it.sixMonthDiscount } ?: 0.0)
 
     Scaffold(
         topBar = {
@@ -242,8 +235,8 @@ fun PricingScreen(
                                         color = if (selectedCycle == "six_months") FutaColors.Navy else FutaColors.Slate
                                     )
                                     Spacer(Modifier.width(4.dp))
-                                    Text(
-                                        text = "-25%",
+                                    if (maxDiscount > 0) Text(
+                                        text = tr("-{0}%", (maxDiscount * 100).toInt()),
                                         fontSize = 10.sp,
                                         fontWeight = FontWeight.Black,
                                         color = Color.White,
@@ -258,18 +251,24 @@ fun PricingScreen(
                 }
             }
 
+            if (loadingPlans) {
+                items(3) {
+                    FutaSkeletonBlock(modifier = Modifier.fillMaxWidth(), height = 260.dp, radius = 16.dp)
+                }
+            }
+
             // Plan Cards
             itemsIndexed(displayPlans) { _, plan ->
                 val isSixMonths = selectedCycle == "six_months"
-                val finalMonthlyPrice = if (isSixMonths && plan.sixMonthDiscount > 0) {
-                    (plan.monthlyPrice * (1.0 - plan.sixMonthDiscount)).toLong()
-                } else {
-                    plan.monthlyPrice
-                }
+                val cyclePrice = plan.price(selectedCycle)
+                val isPro = plan.id == "pro"
+                val isVip = plan.id == "vip"
+                val accent = if (isVip) FutaColors.BrandOrange else if (isPro) FutaColors.BrandGreen else FutaColors.Navy
 
                 FutaCard(
                     modifier = Modifier.fillMaxWidth(),
-                    borderColor = if (plan.isPopular) FutaColors.BrandGreen else FutaColors.LightBlueBorder
+                    borderColor = if (isVip || isPro) accent else FutaColors.LightBlueBorder,
+                    borderWidth = if (isVip || isPro) 2.dp else 1.dp
                 ) {
                     Column(
                         modifier = Modifier.padding(18.dp),
@@ -280,24 +279,28 @@ fun PricingScreen(
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text(
-                                text = plan.name,
-                                fontSize = 13.5.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = if (plan.isPopular) FutaColors.BrandGreen else FutaColors.Navy
-                            )
+                            Column(modifier = Modifier.weight(1f)) {
+                                VerbatimText(
+                                    text = plan.name.translated("pricing").uppercase(),
+                                    fontSize = 17.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = accent
+                                )
+                                Text(
+                                    text = if (isVip) "Dành cho môi giới chuyên nghiệp" else if (isPro) "Tăng tốc hiệu quả bán hàng" else "Bắt đầu trải nghiệm",
+                                    fontSize = 11.sp,
+                                    color = FutaColors.Slate
+                                )
+                            }
                             if (plan.isPopular) {
-                                Surface(
-                                    shape = CircleShape,
-                                    color = FutaColors.MintBg
-                                ) {
+                                Surface(shape = CircleShape, color = FutaColors.BrandOrange) {
                                     Row(
                                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
-                                        Icon(Icons.Default.Star, null, tint = FutaColors.BrandGreen, modifier = Modifier.size(12.dp))
+                                        Icon(Icons.Default.Star, null, tint = Color.White, modifier = Modifier.size(12.dp))
                                         Spacer(Modifier.width(3.dp))
-                                        Text("Phổ biến nhất", fontSize = 10.5.sp, fontWeight = FontWeight.Bold, color = FutaColors.BrandGreen)
+                                        Text("PHỔ BIẾN NHẤT", fontSize = 9.5.sp, fontWeight = FontWeight.Bold, color = Color.White)
                                     }
                                 }
                             }
@@ -305,22 +308,27 @@ fun PricingScreen(
 
                         // Price
                         Row(verticalAlignment = Alignment.Bottom) {
-                            if (finalMonthlyPrice == 0L) {
+                            if (cyclePrice == 0L) {
                                 Text("Miễn phí", fontSize = 24.sp, fontWeight = FontWeight.Black, color = FutaColors.Navy)
                             } else {
-                                Text(
-                                    text = "${"%,d".format(finalMonthlyPrice)} đ",
+                                VerbatimText(
+                                    text = LocalizedPrice.full(cyclePrice.toDouble()),
                                     fontSize = 22.sp,
                                     fontWeight = FontWeight.Black,
                                     color = FutaColors.Navy
                                 )
-                                Text(" / tháng", fontSize = 12.sp, color = FutaColors.Slate, modifier = Modifier.padding(bottom = 2.dp))
+                                Text(
+                                    if (isSixMonths) " / 6 tháng" else " / tháng",
+                                    fontSize = 12.sp,
+                                    color = FutaColors.Slate,
+                                    modifier = Modifier.padding(bottom = 2.dp)
+                                )
                             }
                         }
 
-                        if (isSixMonths && plan.sixMonthDiscount > 0) {
+                        if (isSixMonths && plan.sixMonthDiscount > 0 && plan.monthlyPrice > 0) {
                             Text(
-                                text = "Tiết kiệm ${(plan.sixMonthDiscount * 100).toInt()}% khi thanh toán kỳ hạn 6 tháng",
+                                text = tr("Tiết kiệm {0}% khi thanh toán kỳ hạn 6 tháng", (plan.sixMonthDiscount * 100).toInt()),
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.SemiBold,
                                 color = FutaColors.BrandOrange
@@ -332,167 +340,129 @@ fun PricingScreen(
                         // Feature Checklist
                         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             plan.features.forEach { feat ->
-                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                Row(verticalAlignment = Alignment.Top) {
                                     Icon(
-                                        imageVector = Icons.Default.Check,
+                                        imageVector = Icons.Default.CheckCircle,
                                         contentDescription = null,
                                         tint = FutaColors.BrandGreen,
-                                        modifier = Modifier.size(16.dp)
+                                        modifier = Modifier.size(16.dp).padding(top = 1.dp)
                                     )
                                     Spacer(Modifier.width(8.dp))
-                                    Text(feat, fontSize = 12.5.sp, color = FutaColors.Navy)
+                                    Text(pricingFeatureLabel(feat), fontSize = 12.5.sp, color = FutaColors.Slate)
                                 }
                             }
                         }
 
                         FutaButton(
-                            text = if (plan.id == "free") "Đang sử dụng" else "Chọn gói ${plan.name.split(" ")[1]}",
-                            variant = if (plan.isPopular) FutaButtonVariant.PRIMARY else FutaButtonVariant.OUTLINE,
-                            enabled = plan.id != "free",
-                            onClick = { planToCheckout = plan },
+                            text = if (cyclePrice == 0L) tr("Bắt đầu miễn phí") else tr("Nâng cấp gói {0}", plan.name.translated("pricing")),
+                            variant = if (isVip) FutaButtonVariant.SECONDARY else if (isPro) FutaButtonVariant.PRIMARY else FutaButtonVariant.OUTLINE,
+                            onClick = {
+                                checkoutCycle = selectedCycle
+                                createdOrder = null
+                                checkoutError = null
+                                planToCheckout = plan
+                            },
                             modifier = Modifier.fillMaxWidth()
                         )
                     }
                 }
             }
 
-            // FAQ Section (Matching iOS PricingView)
+            // FAQ Section (Matching iOS PricingView.faqSection)
             item {
-                FutaCard(modifier = Modifier.fillMaxWidth()) {
-                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        Text("CÂU HỎI THƯỜNG GẶP", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
-                        Text("• Tôi có thể nâng cấp hoặc hủy gói bất kỳ lúc nào không?", fontSize = 12.5.sp, fontWeight = FontWeight.SemiBold, color = FutaColors.Navy)
-                        Text("Có. Khi nâng cấp, số ngày còn lại của gói cũ sẽ được quy đổi tương đương vào gói mới.", fontSize = 11.5.sp, color = FutaColors.Slate)
-                        Spacer(Modifier.height(4.dp))
-                        Text("• Hình thức thanh toán gồm những gì?", fontSize = 12.5.sp, fontWeight = FontWeight.SemiBold, color = FutaColors.Navy)
-                        Text("Hỗ trợ quét mã VietQR tự động xác nhận qua ngân hàng hoặc chuyển khoản đối soát SePay.", fontSize = 11.5.sp, color = FutaColors.Slate)
-                    }
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.padding(top = 4.dp)) {
+                    Text("Câu hỏi thường gặp", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
+                    PricingFaqItem(
+                        q = "Tôi có thể thanh toán bằng phương thức nào?",
+                        a = "Hiện tại FUTA Land hỗ trợ hình thức Chuyển khoản ngân hàng qua mã VietQR chuẩn NAPAS 24/7."
+                    )
+                    PricingFaqItem(
+                        q = "Gói dịch vụ có được kích hoạt ngay không?",
+                        a = "Sau khi bạn thực hiện chuyển khoản với đúng nội dung mã đơn hàng, hệ thống sẽ đối soát và kích hoạt gói cho tài khoản của bạn."
+                    )
                 }
                 Spacer(Modifier.height(40.dp))
             }
         }
     }
 
-    // Checkout Sheet (Matching iOS CheckoutSheet)
+    // Checkout Sheet (Matching iOS CheckoutSheet): confirm → POST /pricing/checkout → server order QR.
     planToCheckout?.let { plan ->
         FutaBottomSheet(
             visible = true,
-            onDismiss = { planToCheckout = null },
-            title = "Thanh toán gói dịch vụ"
+            onDismiss = { if (!isCreatingOrder) planToCheckout = null },
+            title = "Thanh toán dịch vụ"
         ) {
-            val isSixMonths = selectedCycle == "six_months"
-            val totalAmount = if (isSixMonths) {
-                ((plan.monthlyPrice * (1.0 - plan.sixMonthDiscount)) * 6).toLong()
-            } else {
-                plan.monthlyPrice
-            }
-
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(14.dp)
-            ) {
-                Surface(
-                    shape = RoundedCornerShape(12.dp),
-                    color = Color(0xFFF8FAFC),
-                    border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text(plan.name, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
-                        Text("Chu kỳ: ${if (isSixMonths) "Gói 6 tháng" else "Gói 1 tháng"}", fontSize = 12.sp, color = FutaColors.Slate)
-                        Text("Tổng thanh toán: ${"%,d".format(totalAmount)} VNĐ", fontSize = 16.sp, fontWeight = FontWeight.Black, color = FutaColors.BrandGreen)
-                    }
-                }
-
-                Text("HƯỚNG DẪN CHUYỂN KHOẢN VIETQR", fontSize = 11.5.sp, fontWeight = FontWeight.Bold, color = FutaColors.Slate)
-                Surface(
-                    shape = RoundedCornerShape(12.dp),
-                    color = Color.White,
-                    border = BorderStroke(1.dp, Color(0xFFCBD5E1)),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        if (bankName.isNotEmpty()) {
-                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                Text("Ngân hàng:", fontSize = 12.5.sp, color = FutaColors.Slate)
-                                Text(bankName, fontSize = 12.5.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
-                            }
-                        }
-                        if (bankAccountNumber.isNotEmpty()) {
-                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                Text("Số tài khoản:", fontSize = 12.5.sp, color = FutaColors.Slate)
-                                Text(bankAccountNumber, fontSize = 13.sp, fontWeight = FontWeight.Bold, color = FutaColors.BrandGreen)
-                            }
-                        }
-                        if (bankAccountHolder.isNotEmpty()) {
-                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                Text("Chủ tài khoản:", fontSize = 12.5.sp, color = FutaColors.Slate)
-                                Text(bankAccountHolder, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
-                            }
-                        }
-                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text("Nội dung CK:", fontSize = 12.5.sp, color = FutaColors.Slate)
-                            Text("FUTA ${plan.id.uppercase()} ${AppSession.shared.user?.get("phone")?.string.orEmpty()}".trim(), fontSize = 12.5.sp, fontWeight = FontWeight.Bold, color = FutaColors.BrandOrange)
-                        }
-                    }
-                }
-
-                // VietQR Code Image
-                val userPhone = AppSession.shared.user?.get("phone")?.string.orEmpty()
-                val transferDesc = "FUTA ${plan.id.uppercase()} $userPhone".trim()
-                val qrUrl = if (bankCode.isNotEmpty() && bankAccountNumber.isNotEmpty()) {
-                    "https://img.vietqr.io/image/$bankCode-$bankAccountNumber-compact2.png?amount=$totalAmount&addInfo=${java.net.URLEncoder.encode(transferDesc, "UTF-8")}"
-                } else null
-
-                Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    if (qrUrl == null) {
-                        Text(
-                            "Thông tin chuyển khoản đang được cập nhật. Vui lòng liên hệ hotline FUTA Land.",
-                            fontSize = 12.sp,
-                            color = FutaColors.Slate
-                        )
-                        Spacer(Modifier.height(8.dp))
-                    } else {
-                    Text("Quét mã VietQR chuyển khoản tự động:", fontSize = 12.sp, color = FutaColors.Slate)
-                    Spacer(Modifier.height(8.dp))
-                    AsyncImage(
-                        model = qrUrl,
-                        contentDescription = "Mã VietQR",
-                        modifier = Modifier
-                            .size(200.dp)
-                            .clip(RoundedCornerShape(12.dp))
-                            .border(1.dp, Color(0xFFCBD5E1), RoundedCornerShape(12.dp))
+            val order = createdOrder
+            if (order != null) {
+                if (order["status"].string == "paid") {
+                    FutaEmptyState(
+                        title = "Kích hoạt thành công",
+                        message = tr("Gói {0} đã được kích hoạt cho tài khoản của bạn.", plan.name.translated("pricing")),
+                        icon = Icons.Default.CheckCircle
                     )
-                    }
+                } else {
+                    PricingPaymentDetails(order)
                 }
-
-                FutaButton(
-                    text = if (isCreatingOrder) "Đang tạo đơn..." else "Tôi đã hoàn tất chuyển khoản",
-                    variant = FutaButtonVariant.PRIMARY,
-                    enabled = !isCreatingOrder,
-                    onClick = {
-                        scope.launch {
-                            isCreatingOrder = true
-                            try {
-                                val body = "{\"planId\":\"${plan.id}\",\"cycle\":\"$selectedCycle\",\"amount\":$totalAmount}"
-                                APIClient.get().request("/pricing/orders", method = "POST", bodyJson = body)
-                                planToCheckout = null
-                                ToastCenter.show("Tạo đơn hàng thành công! Gói dịch vụ sẽ kích hoạt sau khi đối soát.")
-                            } catch (e: Exception) {
-                                ToastCenter.show(e.message ?: "Không tạo được đơn hàng, vui lòng thử lại", isError = true)
-                            } finally {
-                                isCreatingOrder = false
-                            }
+                Spacer(Modifier.height(12.dp))
+            } else {
+                Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                    Surface(
+                        shape = RoundedCornerShape(14.dp),
+                        color = Color(0xFFF8FAFC),
+                        border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                            Text("Tóm tắt gói dịch vụ", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
+                            SummaryRow("Gói đã chọn", plan.name.translated("pricing").uppercase())
+                            SummaryRow(
+                                "Chu kỳ thanh toán",
+                                if (checkoutCycle == "six_months") tr("6 tháng (Giảm {0}%)", (plan.sixMonthDiscount * 100).toInt()) else tr("1 tháng")
+                            )
+                            SummaryRow("Tạm tính", LocalizedPrice.full(plan.price(checkoutCycle).toDouble()))
+                            HorizontalDivider(color = Color(0xFFE2E8F0))
+                            SummaryRow("Phương thức thanh toán", tr("Chuyển khoản VietQR"), valueColor = FutaColors.BrandGreen)
                         }
-                    },
-                    modifier = Modifier.fillMaxWidth()
-                )
+                    }
+
+                    checkoutError?.let {
+                        VerbatimText(it, fontSize = 12.sp, color = Color(0xFFDC2626))
+                    }
+
+                    FutaButton(
+                        text = if (isCreatingOrder) "Đang tạo đơn hàng..." else "Tiến hành lấy mã thanh toán QR",
+                        variant = FutaButtonVariant.PRIMARY,
+                        enabled = !isCreatingOrder,
+                        onClick = { createOrder(plan) },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Spacer(Modifier.height(8.dp))
+                }
             }
+        }
+    }
+}
+
+@Composable
+private fun SummaryRow(label: String, value: String, valueColor: Color = FutaColors.Navy) {
+    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+        Text(label, fontSize = 12.5.sp, color = FutaColors.Slate)
+        VerbatimText(value, fontSize = 12.5.sp, fontWeight = FontWeight.Bold, color = valueColor)
+    }
+}
+
+@Composable
+private fun PricingFaqItem(q: String, a: String) {
+    Surface(
+        shape = RoundedCornerShape(12.dp),
+        color = Color(0xFFF8FAFC),
+        border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(q, fontSize = 13.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
+            Text(a, fontSize = 12.sp, color = FutaColors.Slate, lineHeight = 17.sp)
         }
     }
 }

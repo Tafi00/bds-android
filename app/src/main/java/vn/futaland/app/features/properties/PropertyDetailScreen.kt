@@ -1,5 +1,9 @@
 package vn.futaland.app.features.properties
 
+import vn.futaland.app.core.i18n.LocalizedDirection
+import vn.futaland.app.core.i18n.translated
+import vn.futaland.app.core.i18n.tr
+import vn.futaland.app.core.i18n.Text
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.BorderStroke
@@ -136,7 +140,10 @@ fun PropertyDetailScreen(
     }
     var similarProperties by remember(scopeKey) { mutableStateOf<List<JSONValue>>(emptyList()) }
     var loading by remember(scopeKey) { mutableStateOf(true) }
-    var isFavorite by remember(scopeKey) { mutableStateOf(false) }
+    // Heart state comes from the shared favorites store (same as the property cards).
+    val favoriteIds by vn.futaland.app.core.auth.FavoritesStore.ids.collectAsState()
+    val favoriteKey = property?.id?.takeIf { it.isNotEmpty() } ?: propertyId
+    val isFavorite = favoriteIds.contains(favoriteKey) || favoriteIds.contains(propertyId)
     var isDescriptionExpanded by remember(scopeKey) { mutableStateOf(false) }
 
     // Media mode tab: "photos", "video", "flycam", "tour"
@@ -150,11 +157,6 @@ fun PropertyDetailScreen(
     var bookingSlot by remember(scopeKey) { mutableStateOf("Sáng (09:00 - 11:30)") }
     var bookingName by remember(scopeKey) { mutableStateOf(AppSession.shared.user?.get("name")?.string.orEmpty()) }
     var bookingPhone by remember(scopeKey) { mutableStateOf(AppSession.shared.user?.get("phone")?.string.orEmpty()) }
-    var holdingName by remember(scopeKey) { mutableStateOf(AppSession.shared.user?.get("name")?.string.orEmpty()) }
-    var holdingPhone by remember(scopeKey) { mutableStateOf(AppSession.shared.user?.get("phone")?.string.orEmpty()) }
-    var holdingCccd by remember(scopeKey) { mutableStateOf("") }
-    var holdingEmail by remember(scopeKey) { mutableStateOf(AppSession.shared.user?.get("email")?.string.orEmpty()) }
-    var holdingBusy by remember(scopeKey) { mutableStateOf(false) }
     var showRegistrationDialog by remember(scopeKey) { mutableStateOf(false) }
     var showPaymentScheduleSheet by remember(scopeKey) { mutableStateOf(false) }
     var isRegistering by remember(scopeKey) { mutableStateOf(false) }
@@ -243,7 +245,7 @@ fun PropertyDetailScreen(
                     }
                     val code = property?.get("propertyCode")?.string?.ifEmpty { property?.get("code")?.string.orEmpty() } ?: ""
                     Text(
-                        text = if (code.isNotEmpty()) "Mã căn: $code" else (property?.get("title")?.string?.ifEmpty { "Chi tiết sản phẩm" } ?: "Chi tiết"),
+                        text = if (code.isNotEmpty()) tr("Mã căn: {0}", code) else (property?.get("title")?.string?.ifEmpty { "Chi tiết sản phẩm" } ?: "Chi tiết"),
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Bold,
                         color = FutaColors.Navy,
@@ -268,7 +270,12 @@ fun PropertyDetailScreen(
                             putExtra(Intent.EXTRA_SUBJECT, PropertyFormatters.propertyTitle(property))
                             type = "text/plain"
                         }
-                        context.startActivity(Intent.createChooser(sendIntent, "Chia sẻ sản phẩm"))
+                        context.startActivity(Intent.createChooser(sendIntent, tr("Chia sẻ sản phẩm")))
+                        scope.launch {
+                            try {
+                                APIClient.get().request("/apartments/${android.net.Uri.encode(favoriteKey)}/track-share", method = "POST")
+                            } catch (_: Exception) {}
+                        }
                     }) {
                         Icon(
                             painter = painterResource(id = R.drawable.sf_card_share),
@@ -596,13 +603,13 @@ fun PropertyDetailScreen(
 
                                     val codeText = property["propertyCode"].string.ifEmpty { property.id }
                                     Text(
-                                        text = if (codeText.isNotEmpty()) "Mã căn: $codeText" else PropertyFormatters.propertyTitle(property),
+                                        text = if (codeText.isNotEmpty()) tr("Mã căn: {0}", codeText) else PropertyFormatters.propertyTitle(property),
                                         fontSize = 20.sp,
                                         fontWeight = FontWeight.Bold,
                                         color = FutaColors.Navy
                                     )
 
-                                    val titleText = property["title"].string
+                                    val titleText = property["title"].string.translated("property")
                                     if (titleText.isNotEmpty() && titleText.length > 8) {
                                         Spacer(Modifier.height(4.dp))
                                         Text(
@@ -626,7 +633,16 @@ fun PropertyDetailScreen(
                                             .clip(RoundedCornerShape(10.dp))
                                             .background(Color(0xFFF8FAFC))
                                             .border(1.dp, Color(0xFFE2E8F0), RoundedCornerShape(10.dp))
-                                            .clickable { isFavorite = !isFavorite },
+                                            .clickable {
+                                                if (!AppSession.shared.isAuthenticated) {
+                                                    onNavigate(FutaDestinations.AUTH)
+                                                } else {
+                                                    scope.launch {
+                                                        val next = vn.futaland.app.core.auth.FavoritesStore.toggle(favoriteKey)
+                                                        if (next != null) ToastCenter.show(if (next) "Đã lưu vào danh sách yêu thích" else "Đã bỏ lưu khỏi danh sách yêu thích")
+                                                    }
+                                                }
+                                            },
                                         contentAlignment = Alignment.Center
                                     ) {
                                         Icon(
@@ -651,7 +667,13 @@ fun PropertyDetailScreen(
                                                     putExtra(Intent.EXTRA_SUBJECT, PropertyFormatters.propertyTitle(property))
                                                     type = "text/plain"
                                                 }
-                                                context.startActivity(Intent.createChooser(sendIntent, "Chia sẻ sản phẩm"))
+                                                context.startActivity(Intent.createChooser(sendIntent, tr("Chia sẻ sản phẩm")))
+                                                // Share activity log for the CRM (POST /apartments/{id}/track-share, best effort).
+                                                scope.launch {
+                                                    try {
+                                                        APIClient.get().request("/apartments/${android.net.Uri.encode(favoriteKey)}/track-share", method = "POST")
+                                                    } catch (_: Exception) {}
+                                                }
                                             },
                                         contentAlignment = Alignment.Center
                                     ) {
@@ -763,9 +785,9 @@ fun PropertyDetailScreen(
                                 specsList.add(Triple(R.drawable.sf_spec_bath, "Phòng tắm / WC", "$bathCount WC"))
                             }
                             val dir = property["direction"].string
-                            if (dir.isNotEmpty()) specsList.add(Triple(R.drawable.sf_spec_compass, "Hướng cửa chính", dir))
+                            if (dir.isNotEmpty()) specsList.add(Triple(R.drawable.sf_spec_compass, "Hướng cửa chính", LocalizedDirection.name(dir)))
                             val balcony = property["balconyDirection"].string
-                            if (balcony.isNotEmpty()) specsList.add(Triple(R.drawable.sf_spec_compass, "Hướng ban công", balcony))
+                            if (balcony.isNotEmpty()) specsList.add(Triple(R.drawable.sf_spec_compass, "Hướng ban công", LocalizedDirection.name(balcony)))
                             val legalText = property["legalStatus"].string.ifEmpty { property["legal"].string }.ifEmpty { "Sổ hồng" }
                             specsList.add(Triple(R.drawable.sf_acc_policies, "Pháp lý", legalText))
                             specsList.add(Triple(R.drawable.sf_quick_house, "Nội thất", property["furniture"].string.ifEmpty { "Cơ bản cao cấp" }))
@@ -809,7 +831,7 @@ fun PropertyDetailScreen(
                     } else {
                         val advId = property["advisorId"].string.ifEmpty { property["advisor"]["id"].string.ifEmpty { property["createdBy"]["id"].string } }
                         val advName = property["advisor"]["name"].string.ifEmpty { property["createdBy"]["name"].string }.ifEmpty { property["ownerName"].string.ifEmpty { "Chuyên viên tư vấn FUTA Land" } }
-                        val advPhone = property["advisor"]["phone"].string.ifEmpty { property["createdBy"]["phone"].string }.ifEmpty { property["ownerPhone"].string.ifEmpty { "02363575757" } }
+                        val advPhone = property["advisor"]["phone"].string.ifEmpty { property["createdBy"]["phone"].string }.ifEmpty { property["ownerPhone"].string.ifEmpty { "0903715757" } }
                         val advAvatar = property["advisor"]["avatar"].string.ifEmpty { property["createdBy"]["avatar"].string }
                         listOf(
                             JSONValue.parse("""{"id":"$advId","name":"$advName","phone":"$advPhone","avatar":"$advAvatar"}""")
@@ -835,7 +857,7 @@ fun PropertyDetailScreen(
                                     color = Color(0xFFE8F5E9)
                                 ) {
                                     Text(
-                                        text = if (advisors.size > 1) "${advisors.size} TVV sẵn sàng" else "Chuyên viên sẵn sàng",
+                                        text = if (advisors.size > 1) tr("{0} TVV sẵn sàng", advisors.size) else "Chuyên viên sẵn sàng",
                                         fontSize = 10.5.sp,
                                         fontWeight = FontWeight.SemiBold,
                                         color = Color(0xFF0E7643),
@@ -847,7 +869,7 @@ fun PropertyDetailScreen(
                             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                                 advisors.forEachIndexed { idx, adv ->
                                     val advName = adv["name"].string.ifEmpty { "Chuyên viên tư vấn FUTA Land" }
-                                    val advPhone = adv["phone"].string.ifEmpty { "02363575757" }
+                                    val advPhone = adv["phone"].string.ifEmpty { "0903715757" }
                                     val advAvatar = adv["avatar"].string
                                     val advId = adv["id"].string.ifEmpty { adv["advisorId"].string }
 
@@ -931,7 +953,7 @@ fun PropertyDetailScreen(
                                                         try {
                                                             context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(zaloUrl)))
                                                         } catch (_: Exception) {
-                                                            ToastCenter.show("Không thể mở Zalo: $zaloUrl")
+                                                            ToastCenter.show(tr("Không thể mở Zalo: {0}", zaloUrl))
                                                         }
                                                     }
                                             ) {
@@ -1110,7 +1132,7 @@ fun PropertyDetailScreen(
                 }
 
                 // 6. Detailed Description
-                val desc = property["description"].string
+                val desc = property["description"].string.translated("property")
                 if (desc.isNotEmpty()) {
                     item {
                         FutaCard(modifier = Modifier.fillMaxWidth()) {
@@ -1178,7 +1200,7 @@ fun PropertyDetailScreen(
                                     fontWeight = FontWeight.Bold,
                                     color = FutaColors.Navy
                                 )
-                                val addr = property["address"].string
+                                val addr = property["address"].string.translated("property")
                                 if (addr.isNotEmpty()) {
                                     Row(
                                         horizontalArrangement = Arrangement.spacedBy(6.dp),
@@ -1227,87 +1249,7 @@ fun PropertyDetailScreen(
                 }
                 // 8. Legal Documents Section (Matching iOS)
                 item {
-                    FutaCard(modifier = Modifier.fillMaxWidth()) {
-                        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    text = "HỒ SƠ PHÁP LÝ & TÀI LIỆU DỰ ÁN",
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = FutaColors.Navy,
-                                    letterSpacing = 0.5.sp
-                                )
-                                Surface(
-                                    shape = CircleShape,
-                                    color = Color(0xFFECFDF5)
-                                ) {
-                                    Row(modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
-                                        Icon(Icons.Default.CheckCircle, null, tint = Color(0xFF0E7643), modifier = Modifier.size(13.dp))
-                                        Spacer(Modifier.width(4.dp))
-                                        Text("Đã xác minh", fontSize = 10.5.sp, fontWeight = FontWeight.Bold, color = Color(0xFF0E7643))
-                                    }
-                                }
-                            }
-
-                            Surface(
-                                shape = RoundedCornerShape(12.dp),
-                                color = Color.White,
-                                border = BorderStroke(1.dp, Color(0xFFD7DCE2)),
-                                modifier = Modifier
-                                    .clickable {
-                                        val legalDocs = property["legalDocuments"].array
-                                        val docUrl = legalDocs.firstOrNull()?.get("url")?.string.orEmpty()
-                                            .ifEmpty { property["documentUrl"].string }
-                                        if (docUrl.isNotEmpty()) {
-                                            try {
-                                                val browserIntent = Intent(Intent.ACTION_VIEW, Uri.parse(docUrl))
-                                                context.startActivity(browserIntent)
-                                            } catch (_: Exception) {
-                                                ToastCenter.show("Không thể mở tài liệu: $docUrl", isError = true)
-                                            }
-                                        } else {
-                                            ToastCenter.show("Tài liệu pháp lý đang được cập nhật bản scan số.")
-                                        }
-                                    }
-                            ) {
-                                Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                                    Surface(
-                                        shape = RoundedCornerShape(10.dp),
-                                        color = Color(0xFFFFF1F0),
-                                        modifier = Modifier.size(44.dp)
-                                    ) {
-                                        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-                                            Icon(Icons.Default.Description, null, tint = Color(0xFFDF5D57), modifier = Modifier.size(18.dp))
-                                            Text(
-                                                text = "PDF",
-                                                fontSize = 7.5.sp,
-                                                fontWeight = FontWeight.Black,
-                                                color = Color.White,
-                                                modifier = Modifier
-                                                    .background(Color(0xFFDF5D57), RoundedCornerShape(2.dp))
-                                                    .padding(horizontal = 3.dp)
-                                            )
-                                        }
-                                    }
-                                    Spacer(Modifier.width(12.dp))
-                                    Column(modifier = Modifier.weight(1f)) {
-                                        Text(
-                                            text = property["legal"].string.ifEmpty { "Sổ hồng sở hữu lâu dài" },
-                                            fontSize = 13.5.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            color = FutaColors.Navy
-                                        )
-                                        Text("Tài liệu tham khảo do FUTA Land xác minh (2.4 MB)", fontSize = 11.5.sp, color = FutaColors.Slate)
-                                    }
-                                    Icon(Icons.Default.Visibility, "Xem", tint = Color(0xFF0E7643), modifier = Modifier.size(18.dp))
-                                }
-                            }
-                        }
-                    }
+                    PropertyLegalDocumentsCard(property)
                 }
 
                 // 9. Similar Properties Section
@@ -1453,116 +1395,15 @@ fun PropertyDetailScreen(
         }
 
         // =========================================================================
-        // 2. HOLDING DEPOSIT BOTTOM SHEET (Matching iOS)
+        // 2. HOLDING FLOW (iOS ProductHoldingSheet: quick hold → deposit request)
         // =========================================================================
         if (showHoldingSheet && access?.get("canHold")?.bool == true) {
             property?.let { property ->
-                FutaBottomSheet(
-                    visible = true,
+                ProductHoldingSheet(
+                    product = property,
                     onDismiss = { showHoldingSheet = false },
-                    title = "Giữ chỗ căn hộ FUTA Land"
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .verticalScroll(rememberScrollState()),
-                        verticalArrangement = Arrangement.spacedBy(14.dp)
-                    ) {
-                        Surface(
-                            shape = RoundedCornerShape(12.dp),
-                            color = Color(0xFFFEF3C7),
-                            border = BorderStroke(1.dp, Color(0xFFFDE68A)),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                                Column {
-                                    Text("TIỀN GIỮ CHỖ THƯỜNG NIÊN", fontSize = 10.5.sp, fontWeight = FontWeight.Bold, color = Color(0xFFB45309))
-                                    Text("50.000.000 VNĐ", fontSize = 18.sp, fontWeight = FontWeight.Black, color = Color(0xFFB45309))
-                                    Text("Hoàn 100% trong 24h nếu khách đổi ý không giao dịch", fontSize = 11.sp, color = Color(0xFF92400E))
-                                }
-                            }
-                        }
-
-                        Text("THÔNG TIN ĐỨNG TÊN HỢP ĐỒNG", fontSize = 11.5.sp, fontWeight = FontWeight.Bold, color = FutaColors.Slate)
-                        FutaInput(
-                            value = holdingName,
-                            onValueChange = { holdingName = it },
-                            placeholder = "Họ và tên người đứng tên cọc",
-                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next)
-                        )
-                        FutaInput(
-                            value = holdingPhone,
-                            onValueChange = { holdingPhone = it },
-                            placeholder = "Số điện thoại nhận hợp đồng điện tử",
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone, imeAction = ImeAction.Next)
-                        )
-                        FutaInput(
-                            value = holdingCccd,
-                            onValueChange = { holdingCccd = it },
-                            placeholder = "Số CCCD / Hộ chiếu",
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next)
-                        )
-                        FutaInput(
-                            value = holdingEmail,
-                            onValueChange = { holdingEmail = it },
-                            placeholder = "Email khách hàng (bắt buộc)",
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email, imeAction = ImeAction.Done)
-                        )
-
-                        val canSubmit = holdingName.isNotBlank() && holdingPhone.isNotBlank() && holdingEmail.isNotBlank()
-                        FutaButton(
-                            text = if (holdingBusy) "Đang xử lý..." else "Xác nhận giữ chỗ",
-                            variant = FutaButtonVariant.SECONDARY,
-                            enabled = !holdingBusy && canSubmit,
-                            onClick = {
-                                scope.launch {
-                                    holdingBusy = true
-                                    try {
-                                        val registrationId = registrationInfo
-                                            ?.get("viewerRegistration")?.get("registrationId")?.string.orEmpty()
-                                        val hasActiveRights = registrationInfo
-                                            ?.get("viewerRegistration")?.get("hasActiveRights")?.bool == true
-
-                                        if (hasActiveRights && registrationId.isNotEmpty()) {
-                                            val holdBody = buildJsonObject {
-                                                put("customerName", holdingName)
-                                                put("customerPhone", holdingPhone)
-                                                put("customerEmail", holdingEmail)
-                                                if (holdingCccd.isNotBlank()) put("customerCccd", holdingCccd)
-                                            }.toString()
-                                            APIClient.get().request(
-                                                "/sales/registrations/$registrationId/hold",
-                                                method = "POST",
-                                                bodyJson = holdBody
-                                            )
-                                            ToastCenter.show("Đã giữ chỗ căn thành công! Chuyên viên FUTA sẽ liên hệ đối soát.")
-                                        } else {
-                                            val body = buildJsonObject {
-                                                put("propertyId", property.id)
-                                                put("customerName", holdingName)
-                                                put("customerPhone", holdingPhone)
-                                                put("customerEmail", holdingEmail)
-                                                if (holdingCccd.isNotBlank()) put("customerCccd", holdingCccd)
-                                                put("salesPolicyAccepted", true)
-                                                put("salesPolicyVersion", SalesPolicy.VERSION)
-                                            }.toString()
-                                            APIClient.get().request("/sales/registrations", method = "POST", bodyJson = body)
-                                            ToastCenter.show("Đã gửi hồ sơ đăng ký bán. Vui lòng chờ Admin duyệt trước khi giữ chỗ.")
-                                        }
-                                        showHoldingSheet = false
-                                        loadRegistrationInfo()
-                                    } catch (e: Exception) {
-                                        ToastCenter.show(e.message ?: "Không gửi được yêu cầu giữ chỗ", isError = true)
-                                    } finally {
-                                        holdingBusy = false
-                                    }
-                                }
-                            },
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                        Spacer(Modifier.height(10.dp))
-                    }
-                }
+                    onDone = { loadRegistrationInfo() }
+                )
             }
         }
     }
@@ -1893,12 +1734,12 @@ private fun TownhouseFloorsCard(property: JSONValue) {
                 HorizontalDivider(color = Color(0xFFE2E8F0), modifier = Modifier.padding(vertical = 4.dp))
                 rawFloors.forEachIndexed { idx, item ->
                     val floorNum = when {
-                        item["floor"].int > 0 -> "Tầng ${item["floor"].int}"
+                        item["floor"].int > 0 -> tr("Tầng {0}", item["floor"].int)
                         item["floor"].string.isNotEmpty() -> {
                             val f = item["floor"].string
-                            if (f.lowercase().contains("tầng")) f else "Tầng $f"
+                            if (f.lowercase().contains("tầng")) f else tr("Tầng {0}", f)
                         }
-                        else -> "Tầng ${idx + 1}"
+                        else -> tr("Tầng {0}", idx + 1)
                     }
                     val areaVal = when {
                         item["area_m2"].string.isNotEmpty() -> item["area_m2"].string
@@ -1945,7 +1786,7 @@ private fun AdvisorContactBottomSheet(
     } else {
         val advId = property["advisorId"].string.ifEmpty { property["advisor"]["id"].string.ifEmpty { property["createdBy"]["id"].string } }
         val advName = property["advisor"]["name"].string.ifEmpty { property["createdBy"]["name"].string }.ifEmpty { property["ownerName"].string.ifEmpty { "Chuyên viên tư vấn FUTA Land" } }
-        val advPhone = property["advisor"]["phone"].string.ifEmpty { property["createdBy"]["phone"].string }.ifEmpty { property["ownerPhone"].string.ifEmpty { "02363575757" } }
+        val advPhone = property["advisor"]["phone"].string.ifEmpty { property["createdBy"]["phone"].string }.ifEmpty { property["ownerPhone"].string.ifEmpty { "0903715757" } }
         val advAvatar = property["advisor"]["avatar"].string.ifEmpty { property["createdBy"]["avatar"].string }
         listOf(
             JSONValue.parse("""{"id":"$advId","name":"$advName","phone":"$advPhone","avatar":"$advAvatar"}""")
@@ -1979,7 +1820,7 @@ private fun AdvisorContactBottomSheet(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "Mã: $code",
+                            text = tr("Mã: {0}", code),
                             fontSize = 15.sp,
                             fontWeight = FontWeight.Bold,
                             color = FutaColors.Navy
@@ -2104,7 +1945,7 @@ private fun AdvisorContactBottomSheet(
             // 2. Advisor List
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(
-                    text = "ĐỘI NGŨ CHUYÊN VIÊN PHỤ TRÁCH (${advisors.size})",
+                    text = tr("ĐỘI NGŨ CHUYÊN VIÊN PHỤ TRÁCH ({0})", advisors.size),
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Bold,
                     color = Color(0xFFF97316),
@@ -2113,7 +1954,7 @@ private fun AdvisorContactBottomSheet(
 
                 advisors.forEach { adv ->
                     val name = adv["name"].string.ifEmpty { "Chuyên viên FUTA Land" }
-                    val phone = adv["phone"].string.ifEmpty { "02363575757" }
+                    val phone = adv["phone"].string.ifEmpty { "0903715757" }
                     val avatar = adv["avatar"].string
                     val advId = adv["id"].string.ifEmpty { adv["advisorId"].string }
 
@@ -2236,7 +2077,7 @@ private fun AdvisorContactBottomSheet(
                             color = FutaColors.Navy
                         )
                         Text(
-                            text = "0236 3575757 · Hỗ trợ toàn diện",
+                            text = "0903 715 757 · Hỗ trợ toàn diện",
                             fontSize = 11.5.sp,
                             color = FutaColors.Slate
                         )
@@ -2244,7 +2085,7 @@ private fun AdvisorContactBottomSheet(
                     Surface(
                         shape = CircleShape,
                         color = Color(0xFFFDF6EE),
-                        modifier = Modifier.clickable { onCallAdvisor("02363575757") }
+                        modifier = Modifier.clickable { onCallAdvisor("0903715757") }
                     ) {
                         Text(
                             text = "Gọi tổng đài",

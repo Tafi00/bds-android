@@ -1,5 +1,10 @@
 package vn.futaland.app.features.properties
 
+import vn.futaland.app.core.i18n.LocalizedPrice
+import vn.futaland.app.core.i18n.LocalizedDirection
+import vn.futaland.app.core.i18n.translated
+import vn.futaland.app.core.i18n.tr
+import vn.futaland.app.core.i18n.Text
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -9,8 +14,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.Icon
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import vn.futaland.app.core.auth.FavoritesStore
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -33,7 +40,8 @@ import java.util.Locale
 @Composable
 fun FutaPropertyCard(
     property: JSONValue,
-    isFavorited: Boolean = false,
+    // null = follow the shared FavoritesStore (the normal case).
+    isFavorited: Boolean? = null,
     onFavoriteClick: () -> Unit = {},
     onShareClick: () -> Unit = {},
     onCallClick: () -> Unit = {},
@@ -42,6 +50,8 @@ fun FutaPropertyCard(
     modifier: Modifier = Modifier
 ) {
     val primaryImage = PropertyFormatters.resolveImage(property)
+    val favoriteIds by FavoritesStore.ids.collectAsState()
+    val favorited = isFavorited ?: favoriteIds.contains(property.id)
 
     val hasTour = property["virtualTourUrl"].string.isNotEmpty() ||
         property["projectVirtualTourUrl"].string.isNotEmpty() ||
@@ -69,7 +79,7 @@ fun FutaPropertyCard(
         property["projectName"].string.trim().isNotEmpty() -> property["projectName"].string.trim()
         property["zone"].string.trim().isNotEmpty() -> property["zone"].string.trim()
         else -> "Dự án FUTA Land"
-    }
+    }.translated("project")
 
     val code = when {
         property["propertyCode"].string.trim().isNotEmpty() -> property["propertyCode"].string.trim()
@@ -107,7 +117,7 @@ fun FutaPropertyCard(
     }
 
     val translatedMainDir = if (dir.isNotEmpty()) translateDirection(dir) else ""
-    val mainDirectionText = "Hướng cửa chính: ${translatedMainDir.ifEmpty { "Đang cập nhật" }}"
+    val mainDirectionText = tr("Hướng cửa chính: {0}", translatedMainDir.ifEmpty { "Đang cập nhật" })
 
     val sellPrice = property["sellPrice"].double
     val price = property["price"].double
@@ -116,8 +126,7 @@ fun FutaPropertyCard(
         "Liên hệ"
     } else {
         val finalPrice = if (rawVal < 1000) rawVal * 1_000_000 else rawVal
-        val formattedNum = "%,d".format(Locale.US, finalPrice.toLong()).replace(',', '.')
-        "$formattedNum đ"
+        LocalizedPrice.full(finalPrice)
     }
 
     FutaPropertyCardContent(
@@ -131,7 +140,7 @@ fun FutaPropertyCard(
         formattedPrice = formattedPrice,
         hasTour = hasTour,
         hasVideo = hasVideo,
-        isFavorited = isFavorited,
+        isFavorited = favorited,
         onFavoriteClick = onFavoriteClick,
         onClick = onClick,
         modifier = modifier
@@ -169,7 +178,7 @@ fun FutaPropertyCard(
 
     val bedroomLabel = if (beds > 0) "$beds PN" else null
     val balconyDir = translateDirection(direction).ifEmpty { "-" }
-    val mainDir = "Hướng cửa chính: ${translateDirection(direction).ifEmpty { "Đang cập nhật" }}"
+    val mainDir = tr("Hướng cửa chính: {0}", translateDirection(direction).ifEmpty { "Đang cập nhật" })
 
     FutaPropertyCardContent(
         projectName = address.ifEmpty { "Dự án FUTA Land" },
@@ -457,26 +466,4 @@ private fun FutaPropertyCardContent(
     }
 }
 
-private fun translateDirection(raw: String): String {
-    val norm = raw.trim().lowercase()
-        .replace("_", "-")
-        .replace("đ", "d")
-        .replace("Đ", "d")
-        .replace(Regex("""[àáạảãâầấậẩẫăằắặẳẵ]"""), "a")
-        .replace(Regex("""[èéẹẻẽêềếệểễ]"""), "e")
-        .replace(Regex("""[ìíịỉĩ]"""), "i")
-        .replace(Regex("""[òóọỏõôồốộổỗơờớợởỡ]"""), "o")
-        .replace(Regex("""[ùúụủũưừứựửữ]"""), "u")
-        .replace(Regex("""[ỳýỵỷỹ]"""), "y")
-    return when (norm) {
-        "dong" -> "Đông"
-        "tay" -> "Tây"
-        "nam" -> "Nam"
-        "bac" -> "Bắc"
-        "dong-nam", "dongnam" -> "Đông Nam"
-        "dong-bac", "dongbac" -> "Đông Bắc"
-        "tay-nam", "taynam" -> "Tây Nam"
-        "tay-bac", "taybac" -> "Tây Bắc"
-        else -> raw.trim()
-    }
-}
+private fun translateDirection(raw: String): String = LocalizedDirection.name(raw)

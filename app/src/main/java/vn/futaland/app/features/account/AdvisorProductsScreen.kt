@@ -1,5 +1,11 @@
 package vn.futaland.app.features.account
 
+import vn.futaland.app.core.i18n.LocalizedDirection
+import vn.futaland.app.core.i18n.tr
+import vn.futaland.app.core.i18n.Text
+import vn.futaland.app.core.i18n.LocalizedPrice
+import vn.futaland.app.core.i18n.I18n
+import vn.futaland.app.core.i18n.AppLanguage
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -30,6 +36,10 @@ import kotlinx.coroutines.launch
 import vn.futaland.app.core.network.APIClient
 import vn.futaland.app.core.network.JSONValue
 import vn.futaland.app.designsystem.*
+import vn.futaland.app.features.properties.AdvisorSalesAvailability
+import vn.futaland.app.features.properties.DepositRequestGate
+import vn.futaland.app.features.properties.ProductHoldingSheet
+import vn.futaland.app.features.properties.rememberTickingNow
 import vn.futaland.app.features.messaging.ChatWebSocketManager
 import vn.futaland.app.features.properties.PropertyFormatters
 import vn.futaland.app.navigation.FutaDestinations
@@ -58,6 +68,8 @@ fun AdvisorProductsScreen(
     var balconyDirectionFilter by remember { mutableStateOf("") }
     var showFilterSheet by remember { mutableStateOf(false) }
     var detailItem by remember { mutableStateOf<JSONValue?>(null) }
+    // Registration opened in the holding flow (quick hold or deposit request).
+    var holdingTarget by remember { mutableStateOf<JSONValue?>(null) }
 
     val activeFilterCount = listOf(
         projectFilter,
@@ -110,18 +122,13 @@ fun AdvisorProductsScreen(
         }
         if (match != null) {
             if (bookingIntent) {
-                // iOS parity: booking intent opens the product detail in advisor context.
-                val targetId = match["propertyId"].string.ifEmpty { match["property"]["id"].string.ifEmpty { match.id } }
-                if (targetId.isNotEmpty()) {
-                    onNavigate(FutaDestinations.propertyDetail(targetId, vn.futaland.app.core.sales.ProductContext.ADVISOR))
-                } else {
-                    detailItem = match
-                }
+                // iOS parity: booking intent opens the holding flow for that unit.
+                holdingTarget = match
             } else {
                 detailItem = match
             }
         } else {
-            ToastCenter.show("Không tìm thấy sản phẩm $code trong rổ hàng của bạn.", isError = true)
+            ToastCenter.show(tr("Không tìm thấy sản phẩm {0} trong rổ hàng của bạn.", code), isError = true)
         }
     }
 
@@ -544,12 +551,7 @@ fun AdvisorProductsScreen(
                     items(filteredItems, key = { it["id"].string.ifEmpty { it["unitCode"].string } }) { reg ->
                         AdvisorProductCartCard(
                             reg = reg,
-                            onHold = {
-                                val targetId = reg["propertyId"].string.ifEmpty { reg["property"]["id"].string.ifEmpty { reg.id } }
-                                if (targetId.isNotEmpty()) {
-                                    onNavigate(FutaDestinations.propertyDetail(targetId, vn.futaland.app.core.sales.ProductContext.ADVISOR))
-                                }
-                            },
+                            onHold = { holdingTarget = reg },
                             onClick = { detailItem = reg }
                         )
                     }
@@ -639,7 +641,7 @@ fun AdvisorProductsScreen(
                         title = "TẦNG",
                         selected = floorFilter,
                         options = floorOptions,
-                        displayTransform = { "Tầng $it" },
+                        displayTransform = { tr("Tầng {0}", it) },
                         onSelect = { floorFilter = it }
                     )
                 }
@@ -649,6 +651,7 @@ fun AdvisorProductsScreen(
                         title = "HƯỚNG CỬA CHÍNH",
                         selected = directionFilter,
                         options = directionOptions,
+                        displayTransform = { LocalizedDirection.name(it) },
                         onSelect = { directionFilter = it }
                     )
                 }
@@ -658,6 +661,7 @@ fun AdvisorProductsScreen(
                         title = "HƯỚNG BAN CÔNG",
                         selected = balconyDirectionFilter,
                         options = balconyDirectionOptions,
+                        displayTransform = { LocalizedDirection.name(it) },
                         onSelect = { balconyDirectionFilter = it }
                     )
                 }
@@ -718,6 +722,12 @@ fun AdvisorProductsScreen(
             }
         }
     }
+
+    AdvisorProductsHoldingHost(
+        target = holdingTarget,
+        onDismiss = { holdingTarget = null },
+        onDone = { fetchData(silent = true) }
+    )
 
     // Product Detail Bottom Sheet (held / registered items)
     detailItem?.let { item ->
@@ -785,9 +795,49 @@ fun AdvisorProductsScreen(
                     Text("Ghi chú xử lý", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
                     Text(notes, fontSize = 13.5.sp, color = FutaColors.Slate)
                 }
+                // Holding actions (iOS AdvisorProductDetailSheet)
+                val holdState = (status == "active" || status == "approved") &&
+                    (bStatus.isEmpty() || listOf("none", "rejected", "cancelled", "available").contains(bStatus))
+                val unavailableReason = if (holdState) AdvisorSalesAvailability.unavailableReason(item) else null
+                val now = rememberTickingNow()
+                when {
+                    holdState && unavailableReason == null -> FutaButton(
+                        text = "Đăng ký giữ chỗ",
+                        icon = Icons.Default.Bolt,
+                        onClick = {
+                            detailItem = null
+                            holdingTarget = item
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    unavailableReason != null -> {
+                        HorizontalDivider(color = Color(0xFFF1F5F9))
+                        Text("Căn tạm ngưng mở bán", fontSize = 13.5.sp, fontWeight = FontWeight.Bold, color = FutaColors.Slate)
+                        Text(unavailableReason, fontSize = 12.sp, color = FutaColors.Slate)
+                    }
+                    DepositRequestGate.canRequestDeposit(item, now) -> {
+                        FutaButton(
+                            text = "Gửi yêu cầu xác nhận cọc",
+                            icon = Icons.Default.Payments,
+                            onClick = {
+                                detailItem = null
+                                holdingTarget = item
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        DepositRequestGate.remainingSeconds(item, now)?.let {
+                            Text(tr("Thời gian giữ chỗ online còn lại: {0}", DepositRequestGate.countdownText(it)), fontSize = 12.sp, color = FutaColors.Slate)
+                        }
+                    }
+                }
             }
         }
     }
+}
+
+@Composable
+private fun AdvisorProductsHoldingHost(target: JSONValue?, onDismiss: () -> Unit, onDone: suspend () -> Unit) {
+    if (target != null) ProductHoldingSheet(product = target, onDismiss = onDismiss, onDone = onDone)
 }
 
 @Composable
@@ -882,7 +932,9 @@ private fun AdvisorProductCartCard(
     val bStatus = reg["bookingStatus"].string.lowercase()
     val status = reg["status"].string.lowercase()
 
-    val canBook = (status == "active" || status == "approved") && (bStatus.isEmpty() || listOf("none", "rejected", "cancelled", "available").contains(bStatus))
+    val holdState = (status == "active" || status == "approved") && (bStatus.isEmpty() || listOf("none", "rejected", "cancelled", "available").contains(bStatus))
+    val holdBlocked = holdState && AdvisorSalesAvailability.unavailableReason(reg) != null
+    val canBook = holdState && !holdBlocked
 
     val rawImg = reg["image"].string.ifEmpty {
         reg["thumbnail"].string.ifEmpty {
@@ -954,7 +1006,7 @@ private fun AdvisorProductCartCard(
                         }
                     }
                     Text(
-                        text = projectName + (if (block.isNotEmpty()) " · Toà $block" else "") + (if (floor.isNotEmpty()) " · Tầng $floor" else ""),
+                        text = projectName + (if (block.isNotEmpty()) tr(" · Toà {0}", block) else "") + (if (floor.isNotEmpty()) tr(" · Tầng {0}", floor) else ""),
                         fontSize = 12.5.sp,
                         color = FutaColors.Slate
                     )
@@ -989,13 +1041,13 @@ private fun AdvisorProductCartCard(
                 val exp = reg["expiresAt"].string
                 if (exp.isNotEmpty() && (status == "active" || status == "approved")) {
                     Text(
-                        text = "Hạn quyền bán: ${exp.take(10)}",
+                        text = tr("Hạn quyền bán: {0}", exp.take(10)),
                         fontSize = 11.5.sp,
                         color = FutaColors.Slate
                     )
                 } else if (reg["registeredAt"].string.isNotEmpty()) {
                     Text(
-                        text = "Đăng ký: ${reg["registeredAt"].string.take(10)}",
+                        text = tr("Đăng ký: {0}", reg["registeredAt"].string.take(10)),
                         fontSize = 11.5.sp,
                         color = FutaColors.Slate
                     )
@@ -1004,12 +1056,27 @@ private fun AdvisorProductCartCard(
                 }
 
                 if (bStatus == "online_holding") {
-                    Text(
-                        text = "Đang giữ cọc 15p",
-                        fontSize = 12.5.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFFF97316)
-                    )
+                    // Web parity (advisor-products.tsx): live countdown + step 2 entry.
+                    val now = rememberTickingNow()
+                    val remaining = DepositRequestGate.remainingSeconds(reg, now)
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(
+                            text = tr("Đang giữ chỗ ({0})", remaining?.let { DepositRequestGate.countdownText(it) } ?: "15:00"),
+                            fontSize = 12.5.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFFF97316)
+                        )
+                        if (DepositRequestGate.canRequestDeposit(reg, now)) {
+                            Button(
+                                onClick = onHold,
+                                colors = ButtonDefaults.buttonColors(containerColor = FutaColors.BrandGreen),
+                                shape = CircleShape,
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                            ) {
+                                Text("Yêu cầu xác nhận cọc", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
                 } else if (bStatus == "holding_success") {
                     Text(
                         text = "ERP đã khóa căn",
@@ -1037,6 +1104,13 @@ private fun AdvisorProductCartCard(
                         fontSize = 12.5.sp,
                         fontWeight = FontWeight.Bold,
                         color = Color(0xFFD97706)
+                    )
+                } else if (holdBlocked) {
+                    Text(
+                        text = "Căn tạm ngưng mở bán",
+                        fontSize = 12.5.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = FutaColors.Slate
                     )
                 } else if (canBook) {
                     Button(
@@ -1073,6 +1147,7 @@ private fun StatusBadge(text: String, color: Color, bg: Color) {
 
 private fun formatMoney(value: Double): String {
     if (value <= 0) return "Liên hệ"
+    if (I18n.language != AppLanguage.VI) return LocalizedPrice.compact(value)
     if (value >= 1_000_000_000) {
         return String.format("%.2f tỷ", value / 1_000_000_000).replace(".00", "").replace(".", ",")
     }

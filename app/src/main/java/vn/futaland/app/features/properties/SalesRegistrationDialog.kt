@@ -1,5 +1,7 @@
 package vn.futaland.app.features.properties
 
+import vn.futaland.app.core.i18n.tr
+import vn.futaland.app.core.i18n.Text
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -19,7 +21,6 @@ import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -64,7 +65,7 @@ fun SalesPolicyConfirmDialog(
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text(
-                    text = "Trước khi đăng ký bán căn $unitCode thuộc $projectName, bạn cần đọc và đồng ý với chính sách bán hàng và quy định của FUTA Land.",
+                    text = tr("Trước khi đăng ký bán căn {0} thuộc {1}, bạn cần đọc và đồng ý với chính sách bán hàng và quy định của FUTA Land.", unitCode, projectName),
                     fontSize = 13.5.sp,
                     color = FutaColors.Slate
                 )
@@ -100,7 +101,7 @@ fun SalesPolicyConfirmDialog(
                         colors = CheckboxDefaults.colors(checkedColor = FutaColors.BrandGreen)
                     )
                     Text(
-                        text = "Tôi đồng ý với chính sách bán hàng và quy chế phân phối (Phiên bản ${SalesPolicy.VERSION})",
+                        text = tr("Tôi đồng ý với chính sách bán hàng và quy chế phân phối (Phiên bản {0})", SalesPolicy.VERSION),
                         fontSize = 12.sp,
                         color = FutaColors.Navy
                     )

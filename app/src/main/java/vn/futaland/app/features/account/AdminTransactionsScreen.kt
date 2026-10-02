@@ -1,5 +1,10 @@
 package vn.futaland.app.features.account
 
+import vn.futaland.app.core.i18n.tr
+import vn.futaland.app.core.i18n.Text
+import vn.futaland.app.core.i18n.LocalizedPrice
+import vn.futaland.app.core.i18n.I18n
+import vn.futaland.app.core.i18n.AppLanguage
 import androidx.compose.animation.*
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -293,10 +298,10 @@ fun AdminTransactionsScreen(
                         .horizontalScroll(rememberScrollState()),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    TransactionFilterPill("Tất cả (${transactions.size})", "all", statusFilter == "all") { statusFilter = "all" }
-                    TransactionFilterPill("Chờ duyệt ($pendingCount)", "pending", statusFilter == "pending") { statusFilter = "pending" }
-                    TransactionFilterPill("Đã duyệt ($approvedCount)", "approved", statusFilter == "approved") { statusFilter = "approved" }
-                    TransactionFilterPill("Từ chối ($rejectedCount)", "rejected", statusFilter == "rejected") { statusFilter = "rejected" }
+                    TransactionFilterPill(tr("Tất cả ({0})", transactions.size), "all", statusFilter == "all") { statusFilter = "all" }
+                    TransactionFilterPill(tr("Chờ duyệt ({0})", pendingCount), "pending", statusFilter == "pending") { statusFilter = "pending" }
+                    TransactionFilterPill(tr("Đã duyệt ({0})", approvedCount), "approved", statusFilter == "approved") { statusFilter = "approved" }
+                    TransactionFilterPill(tr("Từ chối ({0})", rejectedCount), "rejected", statusFilter == "rejected") { statusFilter = "rejected" }
                 }
             }
 
@@ -386,7 +391,7 @@ fun AdminTransactionsScreen(
         FutaBottomSheet(
             visible = true,
             onDismiss = { selectedTransaction = null },
-            title = "Chi tiết giao dịch $code"
+            title = tr("Chi tiết giao dịch {0}", code)
         ) {
             Column(
                 modifier = Modifier
@@ -401,13 +406,13 @@ fun AdminTransactionsScreen(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Text("Số tiền: $amountStr", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = FutaColors.BrandGreen)
-                        Text("Người thực hiện: $userName", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
+                        Text(tr("Số tiền: {0}", amountStr), fontSize = 18.sp, fontWeight = FontWeight.Bold, color = FutaColors.BrandGreen)
+                        Text(tr("Người thực hiện: {0}", userName), fontSize = 13.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
                         if (userPhone.isNotEmpty()) {
-                            Text("SĐT: $userPhone", fontSize = 12.5.sp, color = FutaColors.Slate)
+                            Text(tr("SĐT: {0}", userPhone), fontSize = 12.5.sp, color = FutaColors.Slate)
                         }
-                        Text("Nội dung: ${tx["description"].string.ifEmpty { tx["packageName"].string }}", fontSize = 12.5.sp, color = FutaColors.Slate)
-                        Text("Cú pháp CK: ${tx["transferSyntax"].string.ifEmpty { tx["code"].string }}", fontSize = 12.sp, color = Color(0xFFF97316), fontWeight = FontWeight.SemiBold)
+                        Text(tr("Nội dung: {0}", tx["description"].string.ifEmpty { tx["packageName"].string }), fontSize = 12.5.sp, color = FutaColors.Slate)
+                        Text(tr("Cú pháp CK: {0}", tx["transferSyntax"].string.ifEmpty { tx["code"].string }), fontSize = 12.sp, color = Color(0xFFF97316), fontWeight = FontWeight.SemiBold)
                     }
                 }
 
@@ -444,17 +449,19 @@ fun AdminTransactionsScreen(
             title = "Duyệt giao dịch?",
             confirmText = "Duyệt ngay",
             onConfirm = {
+                if (actionBusy) return@FutaDialog
                 scope.launch {
                     actionBusy = true
                     try {
                         val txId = selectedTransaction!!.id
-                        APIClient.get().request("/advisor/transactions/$txId/approve", method = "POST")
+                        // Backend: PATCH /advisor/transactions/:id/approve (OkHttp needs a body for PATCH).
+                        APIClient.get().request("/advisor/transactions/$txId/approve", method = "PATCH", bodyJson = "{}")
                         ToastCenter.show("Đã duyệt giao dịch thành công!")
                         showApproveConfirm = false
                         selectedTransaction = null
                         loadData(search)
                     } catch (e: Exception) {
-                        ToastCenter.show("Lỗi: ${e.message}", isError = true)
+                        ToastCenter.show(tr("Lỗi: {0}", e.message), isError = true)
                     } finally {
                         actionBusy = false
                     }
@@ -473,20 +480,26 @@ fun AdminTransactionsScreen(
             confirmText = "Xác nhận từ chối",
             confirmVariant = FutaButtonVariant.DANGER,
             onConfirm = {
+                if (actionBusy) return@FutaDialog
                 scope.launch {
+                    actionBusy = true
                     try {
                         val txId = selectedTransaction!!.id
                         APIClient.get().request(
                             "/advisor/transactions/$txId/reject",
-                            method = "POST",
-                            bodyJson = "{\"reason\":\"$rejectReason\"}"
+                            method = "PATCH",
+                            bodyJson = kotlinx.serialization.json.buildJsonObject {
+                                put("reason", kotlinx.serialization.json.JsonPrimitive(rejectReason.trim()))
+                            }.toString()
                         )
                         ToastCenter.show("Đã từ chối giao dịch!")
                         showRejectDialog = false
                         selectedTransaction = null
                         loadData(search)
                     } catch (e: Exception) {
-                        ToastCenter.show("Lỗi: ${e.message}", isError = true)
+                        ToastCenter.show(tr("Lỗi: {0}", e.message), isError = true)
+                    } finally {
+                        actionBusy = false
                     }
                 }
             },
@@ -781,6 +794,7 @@ private fun TransactionCardRow(
 }
 
 private fun formatCompactCurrency(value: Double): String {
+    if (I18n.language != AppLanguage.VI && value > 0) return LocalizedPrice.compact(value)
     return when {
         value >= 1_000_000_000 -> "%.1f tỷ".format(value / 1_000_000_000.0)
         value >= 1_000_000 -> "%.1f tr".format(value / 1_000_000.0)

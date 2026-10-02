@@ -1,5 +1,7 @@
 package vn.futaland.app.features.properties
 
+import vn.futaland.app.core.i18n.tr
+import vn.futaland.app.core.i18n.Text
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -16,7 +18,6 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -69,7 +70,7 @@ fun PaymentScheduleSheet(
                         color = FutaColors.Navy
                     )
                     Text(
-                        text = "Mã căn: $unitCode · Xem chi tiết từng đợt thanh toán theo chính sách đang áp dụng.",
+                        text = tr("Mã căn: {0} · Xem chi tiết từng đợt thanh toán theo chính sách đang áp dụng.", unitCode),
                         fontSize = 12.sp,
                         color = Color(0xFF68788B),
                         lineHeight = 16.sp

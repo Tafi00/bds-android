@@ -77,6 +77,8 @@ object FutaDestinations {
     const val CONTACT = "contact"
     const val ABOUT = "about"
     const val POLICIES = "policies"
+    const val POLICY_DETAIL = "policy/{slug}"
+    fun policyDetail(slug: String) = "policy/${android.net.Uri.encode(slug)}"
     const val BILLING = "billing"
     const val MY_LISTINGS = "my_listings"
     const val VIEW_HISTORY = "view_history"

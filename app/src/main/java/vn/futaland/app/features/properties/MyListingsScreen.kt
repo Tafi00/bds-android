@@ -1,5 +1,11 @@
 package vn.futaland.app.features.properties
 
+import vn.futaland.app.core.i18n.LocalizedDirection
+import vn.futaland.app.core.i18n.tr
+import vn.futaland.app.core.i18n.Text
+import vn.futaland.app.core.i18n.LocalizedPrice
+import vn.futaland.app.core.i18n.I18n
+import vn.futaland.app.core.i18n.AppLanguage
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -238,7 +244,7 @@ fun MyListingsScreen(
                 }
             } catch (e: Exception) {
                 if (generation == loadGeneration) {
-                    ToastCenter.show("Không thể làm mới danh sách: ${e.message}", isError = true)
+                    ToastCenter.show(tr("Không thể làm mới danh sách: {0}", e.message), isError = true)
                 }
             } finally {
                 if (generation == loadGeneration) loading = false
@@ -544,7 +550,7 @@ fun MyListingsScreen(
                                         color = FutaColors.BrandGreen
                                     )
                                     Text(
-                                        text = item.projectName + if (item.block.isNotEmpty()) " · Toà ${item.block}" else "",
+                                        text = item.projectName + if (item.block.isNotEmpty()) tr(" · Toà {0}", item.block) else "",
                                         fontSize = 11.5.sp,
                                         color = FutaColors.Slate,
                                         maxLines = 1,
@@ -582,7 +588,7 @@ fun MyListingsScreen(
                                 when (item.status) {
                                     "active", "approved" -> {
                                         Text(
-                                            text = if (item.expiresAt.isNotEmpty()) "Hạn: ${item.expiresAt.take(10)}" else "Đang mở bán",
+                                            text = if (item.expiresAt.isNotEmpty()) tr("Hạn: {0}", item.expiresAt.take(10)) else "Đang mở bán",
                                             fontSize = 11.5.sp,
                                             color = FutaColors.Slate
                                         )
@@ -627,7 +633,7 @@ fun MyListingsScreen(
                                         } else if (!RegistrationPresentation.canRegister(sellingQuota)) {
                                             Text(
                                                 if (sellingQuota.isNull) "Vui lòng làm mới danh sách"
-                                                else "Đã đạt giới hạn ${sellingQuota["maxProductsPerAdvisor"].int} căn",
+                                                else tr("Đã đạt giới hạn {0} căn", sellingQuota["maxProductsPerAdvisor"].int),
                                                 fontSize = 12.sp, color = FutaColors.Slate
                                             )
                                         } else Button(
@@ -735,7 +741,7 @@ fun MyListingsScreen(
                         title = "TẦNG",
                         selected = floorFilter,
                         options = floorOptions,
-                        displayTransform = { "Tầng $it" },
+                        displayTransform = { tr("Tầng {0}", it) },
                         onSelect = { floorFilter = it }
                     )
                 }
@@ -745,6 +751,7 @@ fun MyListingsScreen(
                         title = "HƯỚNG CỬA CHÍNH",
                         selected = directionFilter,
                         options = directionOptions,
+                        displayTransform = { LocalizedDirection.name(it) },
                         onSelect = { directionFilter = it }
                     )
                 }
@@ -754,6 +761,7 @@ fun MyListingsScreen(
                         title = "HƯỚNG BAN CÔNG",
                         selected = balconyDirectionFilter,
                         options = balconyDirectionOptions,
+                        displayTransform = { LocalizedDirection.name(it) },
                         onSelect = { balconyDirectionFilter = it }
                     )
                 }
@@ -776,11 +784,11 @@ fun MyListingsScreen(
                     try {
                         val body = """{"propertyId":"${property.propertyId}","customerName":"Tư vấn viên FUTA Land","notes":"Đăng ký bán từ ứng dụng Android","salesPolicyAccepted":true,"salesPolicyVersion":"${SalesPolicy.VERSION}"}"""
                         APIClient.get().request("/sales/registrations", method = "POST", bodyJson = body)
-                        ToastCenter.show("Đã gửi yêu cầu đăng ký bán căn ${property.unitCode}! Đang chờ Admin duyệt.")
+                        ToastCenter.show(tr("Đã gửi yêu cầu đăng ký bán căn {0}! Đang chờ Admin duyệt.", property.unitCode))
                         registeringProperty = null
                         loadData()
                     } catch (e: Exception) {
-                        ToastCenter.show("Lỗi: ${e.message}", isError = true)
+                        ToastCenter.show(tr("Lỗi: {0}", e.message), isError = true)
                     } finally {
                         isRegistering = false
                     }
@@ -844,19 +852,7 @@ private fun FilterChipSection(
     }
 }
 
-private fun formatDirection(dir: String): String {
-    return when (dir.lowercase().trim()) {
-        "dong", "đông", "east" -> "Đông"
-        "tay", "tây", "west" -> "Tây"
-        "nam", "south" -> "Nam"
-        "bac", "bắc", "north" -> "Bắc"
-        "dong-nam", "đông nam", "southeast" -> "Đông Nam"
-        "dong-bac", "đông bắc", "northeast" -> "Đông Bắc"
-        "tay-nam", "tây nam", "southwest" -> "Tây Nam"
-        "tay-bac", "tây bắc", "northwest" -> "Tây Bắc"
-        else -> dir
-    }
-}
+private fun formatDirection(dir: String): String = LocalizedDirection.name(dir)
 
 @Composable
 private fun RegistrationBadge(text: String, color: Color, bg: Color) {
@@ -876,6 +872,7 @@ private fun RegistrationBadge(text: String, color: Color, bg: Color) {
 
 private fun formatMoney(value: Double): String {
     if (value <= 0) return "Liên hệ"
+    if (I18n.language != AppLanguage.VI) return LocalizedPrice.compact(value)
     if (value >= 1_000_000_000) {
         return String.format("%.2f tỷ", value / 1_000_000_000).replace(".00", "").replace(".", ",")
     }

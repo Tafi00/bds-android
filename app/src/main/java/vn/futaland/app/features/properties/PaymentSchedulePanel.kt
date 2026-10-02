@@ -1,6 +1,8 @@
 package vn.futaland.app.features.properties
 
 
+import vn.futaland.app.core.i18n.tr
+import vn.futaland.app.core.i18n.Text
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -30,7 +32,6 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -377,7 +378,7 @@ fun PaymentSchedulePanel(
                             Column(modifier = Modifier.padding(12.dp)) {
                                 val pctLabel = if (scheduleResult.discountPercent > 0) "%.1f%%".format(scheduleResult.discountPercent) else "0%"
                                 Text(
-                                    text = "CHIẾT KHẤU ($pctLabel)",
+                                    text = tr("CHIẾT KHẤU ({0})", pctLabel),
                                     fontSize = 10.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = Color(0xFF68788B),
@@ -551,7 +552,7 @@ fun PaymentSchedulePanel(
                                             )
                                             if (row.includesDeposit) {
                                                 Text(
-                                                    text = "Bao gồm ${PaymentScheduleEngine.formatVnd(scheduleResult.depositAmount)} tiền đặt cọc",
+                                                    text = tr("Bao gồm {0} tiền đặt cọc", PaymentScheduleEngine.formatVnd(scheduleResult.depositAmount)),
                                                     fontSize = 10.5.sp,
                                                     color = Color(0xFF8492A2)
                                                 )

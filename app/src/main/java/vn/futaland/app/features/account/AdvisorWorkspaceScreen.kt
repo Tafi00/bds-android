@@ -1,36 +1,32 @@
 package vn.futaland.app.features.account
 
-import android.net.Uri
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
+import vn.futaland.app.core.i18n.tr
+import vn.futaland.app.core.i18n.Text
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
-import org.json.JSONObject
 import vn.futaland.app.core.auth.AppSession
 import vn.futaland.app.core.network.APIClient
 import vn.futaland.app.core.network.JSONValue
@@ -38,991 +34,447 @@ import vn.futaland.app.designsystem.*
 import vn.futaland.app.navigation.FutaDestinations
 
 /**
- * Full Advisor Workspace matching iOS AdvisorViews.swift (4-step onboarding, holding, proposals).
+ * Advisor workspace (iOS `AdvisorView`): activation status, the four onboarding steps,
+ * business shortcuts and performance metrics. Data: `GET /advisor/me` + `GET /advisor/dashboard`.
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AdvisorWorkspaceScreen(
     onBack: () -> Unit,
     onNavigate: (String) -> Unit
 ) {
     val scope = rememberCoroutineScope()
-    var workspace by remember { mutableStateOf<JSONValue>(JSONValue.Null) }
+    var workspace by remember { mutableStateOf<JSONValue>(JSONValue.EmptyObject) }
+    var dashboard by remember { mutableStateOf<JSONValue>(JSONValue.EmptyObject) }
     var loading by remember { mutableStateOf(true) }
+    var refreshing by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf<String?>(null) }
+    var hasData by remember { mutableStateOf(false) }
+    var showNotAdvisorAlert by remember { mutableStateOf(false) }
 
-    var showPackageSheet by remember { mutableStateOf(false) }
-    var showProfileSheet by remember { mutableStateOf(false) }
-    var showExamSheet by remember { mutableStateOf(false) }
-    var showVerificationSheet by remember { mutableStateOf(false) }
-    var showCommissionSheet by remember { mutableStateOf(false) }
-
-    fun loadWorkspace() {
-        scope.launch {
-            loading = true
-            try {
-                val res = APIClient.get().request("/advisor/workspace")
-                workspace = res["data"].takeIf { !it.isNull } ?: res
-            } catch (_: Exception) {
-                // Fallback state if server has no workspace record yet
-                workspace = JSONValue.parse("{\"isActivated\":false,\"activationStatus\":\"pending\",\"packagePurchased\":false,\"profileStatus\":\"pending\",\"examStatus\":\"pending\",\"verificationStatus\":\"pending\"}")
-            } finally {
-                loading = false
-            }
-        }
-    }
-
-    LaunchedEffect(Unit) {
-        loadWorkspace()
-    }
-
-    val isActivated = workspace["isActivated"].bool
-    val packageDone = workspace["packagePurchased"].bool
-    val profileDone = workspace["profileStatus"].string == "approved"
-    val attemptsList = workspace["attempts"].array
-    val examDone = workspace["examStatus"].string == "passed" ||
-        attemptsList.any { it["status"].string == "passed" || it["score"].int >= 85 }
-    val verifyDone = workspace["verificationStatus"].string == "approved"
-
-    Scaffold(
-        topBar = {
-            Surface(color = Color.White, shadowElevation = 1.dp) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .statusBarsPadding()
-                        .padding(horizontal = 8.dp, vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Quay lại", tint = FutaColors.Navy)
-                    }
-                    Text(
-                        text = "Tư vấn viên FutaLand",
-                        fontSize = 17.5.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = FutaColors.Navy,
-                        modifier = Modifier.weight(1f)
-                    )
-                }
-            }
-        }
-    ) { padding ->
-        if (loading) {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding)
-                    .padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(14.dp)
-            ) {
-                repeat(4) { FutaSkeletonBlock(height = 100.dp, radius = 16.dp) }
-            }
-        } else {
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(FutaColors.PageBg)
-                    .padding(padding),
-                contentPadding = PaddingValues(16.dp),
-                verticalArrangement = Arrangement.spacedBy(14.dp)
-            ) {
-                // 1. Activation Status Banner
-                item {
-                    Surface(
-                        shape = RoundedCornerShape(16.dp),
-                        color = if (isActivated) FutaColors.MintBg else Color(0xFFFFF7ED),
-                        border = BorderStroke(1.dp, if (isActivated) FutaColors.BrandGreen.copy(alpha = 0.3f) else Color(0xFFFDBA74)),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(16.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Surface(
-                                shape = CircleShape,
-                                color = if (isActivated) FutaColors.BrandGreen else FutaColors.BrandOrange,
-                                modifier = Modifier.size(40.dp)
-                            ) {
-                                Box(contentAlignment = Alignment.Center) {
-                                    Icon(
-                                        imageVector = if (isActivated) Icons.Default.Verified else Icons.Default.Warning,
-                                        contentDescription = null,
-                                        tint = Color.White,
-                                        modifier = Modifier.size(22.dp)
-                                    )
-                                }
-                            }
-                            Spacer(Modifier.width(12.dp))
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = if (isActivated) "Tài khoản TVV đã kích hoạt" else "Chưa hoàn tất kích hoạt tài khoản",
-                                    fontSize = 14.5.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = if (isActivated) FutaColors.BrandGreen else FutaColors.BrandOrange
-                                )
-                                Spacer(Modifier.height(2.dp))
-                                Text(
-                                    text = if (isActivated) "Bạn có toàn quyền truy cập giỏ hàng độc quyền, khóa căn và nhận hoa hồng." else "Vui lòng hoàn thành 4 bước bên dưới để được cấp quyền bán hàng.",
-                                    fontSize = 12.sp,
-                                    color = FutaColors.Slate
-                                )
-                            }
-                        }
-                    }
-                }
-
-                // 2. Onboarding 4 Steps Card
-                item {
-                    FutaCard(modifier = Modifier.fillMaxWidth()) {
-                        Column(
-                            modifier = Modifier.padding(16.dp),
-                            verticalArrangement = Arrangement.spacedBy(10.dp)
-                        ) {
-                            Text(
-                                text = "LỘ TRÌNH KÍCH HOẠT CHUYÊN VIÊN (4 BƯỚC)",
-                                fontSize = 11.5.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = FutaColors.Navy,
-                                letterSpacing = 0.6.sp
-                            )
-                            Spacer(Modifier.height(4.dp))
-
-                            // Step 1: Package
-                            OnboardingStepRow(
-                                number = "1",
-                                title = "Đăng ký gói tư vấn viên",
-                                statusText = if (packageDone) "Đã hoàn thành" else "Chưa đăng ký",
-                                isDone = packageDone,
-                                onClick = { showPackageSheet = true }
-                            )
-                            HorizontalDivider(color = Color(0xFFF1F5F9))
-
-                            // Step 2: Profile & CCCD
-                            OnboardingStepRow(
-                                number = "2",
-                                title = "Hồ sơ cá nhân & CCCD",
-                                statusText = if (profileDone) "Đã duyệt" else "Cần hoàn thiện",
-                                isDone = profileDone,
-                                onClick = { showProfileSheet = true }
-                            )
-                            HorizontalDivider(color = Color(0xFFF1F5F9))
-
-                            // Step 3: Exam
-                            OnboardingStepRow(
-                                number = "3",
-                                title = "Sát hạch quy chế & BĐS",
-                                statusText = if (examDone) "Đạt kết quả" else "Chưa làm bài thi",
-                                isDone = examDone,
-                                onClick = { showExamSheet = true }
-                            )
-                            HorizontalDivider(color = Color(0xFFF1F5F9))
-
-                            // Step 4: Digital Verification & Signature
-                            OnboardingStepRow(
-                                number = "4",
-                                title = "Ký cam kết & Xác thực điện tử",
-                                statusText = if (verifyDone) "Đã ký xác nhận" else "Chờ ký chữ ký số",
-                                isDone = verifyDone,
-                                onClick = { showVerificationSheet = true }
-                            )
-                        }
-                    }
-                }
-
-                // 2b. Commission account: editable at any profile status (no re-approval)
-                item {
-                    FutaCard(modifier = Modifier.fillMaxWidth(), onClick = { showCommissionSheet = true }) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(16.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Surface(
-                                shape = RoundedCornerShape(10.dp),
-                                color = FutaColors.MintBg,
-                                modifier = Modifier.size(38.dp)
-                            ) {
-                                Box(contentAlignment = Alignment.Center) {
-                                    Icon(Icons.Default.AccountBalance, null, tint = FutaColors.BrandGreen, modifier = Modifier.size(20.dp))
-                                }
-                            }
-                            Spacer(Modifier.width(12.dp))
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text("Tài khoản nhận hoa hồng", fontSize = 13.5.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
-                                Text("Số tài khoản, ngân hàng và mã số thuế cá nhân", fontSize = 11.5.sp, color = FutaColors.Slate)
-                            }
-                            Icon(Icons.Default.ChevronRight, null, tint = FutaColors.Slate, modifier = Modifier.size(18.dp))
-                        }
-                    }
-                }
-
-                // 3. Business Workspace Quick Links
-                item {
-                    Text(
-                        text = "NGHIỆP VỤ BÁN HÀNG DÀNH CHO TVV",
-                        fontSize = 11.5.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = FutaColors.Slate,
-                        letterSpacing = 0.5.sp,
-                        modifier = Modifier.padding(start = 4.dp, top = 6.dp)
-                    )
-                }
-
-                item {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        BusinessQuickCard(
-                            title = "Kho sản phẩm TVV",
-                            subtitle = "Tra cứu giỏ căn & bảng giá",
-                            icon = Icons.Default.Inventory2,
-                            color = FutaColors.BrandGreen,
-                            onClick = { onNavigate(FutaDestinations.ADMIN_INVENTORY) },
-                            modifier = Modifier.weight(1f)
-                        )
-                        BusinessQuickCard(
-                            title = "Đăng ký của tôi",
-                            subtitle = "Theo dõi phiếu giữ cọc",
-                            icon = Icons.Default.FactCheck,
-                            color = FutaColors.BrandOrange,
-                            onClick = { onNavigate(FutaDestinations.ADMIN_REGISTRATIONS) },
-                            modifier = Modifier.weight(1f)
-                        )
-                    }
-                }
-
-                item {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        BusinessQuickCard(
-                            title = "Đề xuất của tôi",
-                            subtitle = "Đề xuất sản phẩm & chính sách bán hàng",
-                            icon = Icons.Default.Description,
-                            color = Color(0xFF2563EB),
-                            onClick = { onNavigate(FutaDestinations.ADVISOR_PROPOSALS) },
-                            modifier = Modifier.weight(1f)
-                        )
-                        BusinessQuickCard(
-                            title = "Hợp đồng giao dịch",
-                            subtitle = "Hợp đồng đặt cọc & pháp lý",
-                            icon = Icons.Default.Handshake,
-                            color = Color(0xFF7C3AED),
-                            onClick = { onNavigate(FutaDestinations.ADMIN_CONTRACTS) },
-                            modifier = Modifier.weight(1f)
-                        )
-                    }
-                }
-
-                item {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        BusinessQuickCard(
-                            title = "Trung tâm trò chuyện",
-                            subtitle = "Hộp thư tư vấn & trao đổi",
-                            icon = Icons.Default.Forum,
-                            color = FutaColors.BrandGreen,
-                            onClick = { onNavigate(FutaDestinations.CHAT_CENTER) },
-                            modifier = Modifier.weight(1f)
-                        )
-                        if (AppSession.shared.role in STAFF_APPOINTMENT_ROLES) {
-                            BusinessQuickCard(
-                                title = "Lịch hẹn xem nhà",
-                                subtitle = "Xác nhận & theo dõi lịch dẫn khách",
-                                icon = Icons.Default.EventAvailable,
-                                color = Color(0xFF2563EB),
-                                onClick = { onNavigate(FutaDestinations.STAFF_APPOINTMENTS) },
-                                modifier = Modifier.weight(1f)
-                            )
-                        } else {
-                            Spacer(Modifier.weight(1f))
-                        }
-                    }
-                }
-
-                item {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        BusinessQuickCard(
-                            title = "Marketing Zalo OA",
-                            subtitle = "Đồng bộ khách hàng & Zalo",
-                            icon = Icons.Default.Chat,
-                            color = Color(0xFF0073E6),
-                            onClick = { onNavigate(FutaDestinations.ADMIN_ZALO) },
-                            modifier = Modifier.weight(1f)
-                        )
-                        Spacer(Modifier.weight(1f))
-                    }
-                }
-            }
-        }
-    }
-
-    // Step 1: Package Sheet
-    if (showPackageSheet) {
-        AdvisorPackageSheet(
-            onDismiss = { showPackageSheet = false },
-            onSuccess = {
-                showPackageSheet = false
-                loadWorkspace()
-            }
-        )
-    }
-
-    // Step 2: Profile Sheet
-    if (showProfileSheet) {
-        AdvisorProfileSheet(
-            onDismiss = { showProfileSheet = false },
-            onSuccess = {
-                showProfileSheet = false
-                loadWorkspace()
-            }
-        )
-    }
-
-    // Commission account sheet (works for approved profiles too)
-    if (showCommissionSheet) {
-        AdvisorCommissionAccountSheet(
-            onDismiss = { showCommissionSheet = false },
-            onSuccess = { showCommissionSheet = false }
-        )
-    }
-
-    // Step 3: Exam Sheet
-    if (showExamSheet) {
-        AdvisorExamSheet(
-            alreadyPassed = examDone,
-            onDismiss = { showExamSheet = false },
-            onSuccess = {
-                showExamSheet = false
-                loadWorkspace()
-            }
-        )
-    }
-
-    // Step 4: Verification & Signature Sheet
-    if (showVerificationSheet) {
-        AdvisorVerificationSheet(
-            onDismiss = { showVerificationSheet = false },
-            onSuccess = {
-                showVerificationSheet = false
-                loadWorkspace()
-            }
-        )
-    }
-}
-
-@Composable
-private fun OnboardingStepRow(
-    number: String,
-    title: String,
-    statusText: String,
-    isDone: Boolean,
-    onClick: () -> Unit
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
-            .clickable(onClick = onClick)
-            .padding(vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Surface(
-            shape = CircleShape,
-            color = if (isDone) FutaColors.MintBg else Color(0xFFF1F5F9),
-            border = BorderStroke(1.dp, if (isDone) FutaColors.BrandGreen else Color(0xFFCBD5E1)),
-            modifier = Modifier.size(32.dp)
-        ) {
-            Box(contentAlignment = Alignment.Center) {
-                if (isDone) {
-                    Icon(Icons.Default.Check, null, tint = FutaColors.BrandGreen, modifier = Modifier.size(18.dp))
-                } else {
-                    Text(number, fontSize = 13.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
-                }
-            }
-        }
-        Spacer(Modifier.width(12.dp))
-        Column(modifier = Modifier.weight(1f)) {
-            Text(title, fontSize = 13.5.sp, fontWeight = FontWeight.SemiBold, color = FutaColors.Navy)
-            Text(
-                statusText,
-                fontSize = 11.5.sp,
-                fontWeight = if (isDone) FontWeight.Bold else FontWeight.Normal,
-                color = if (isDone) FutaColors.BrandGreen else FutaColors.Slate
-            )
-        }
-        Icon(Icons.Default.ChevronRight, null, tint = FutaColors.Slate, modifier = Modifier.size(18.dp))
-    }
-}
-
-@Composable
-private fun BusinessQuickCard(
-    title: String,
-    subtitle: String,
-    icon: ImageVector,
-    color: Color,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Surface(
-        shape = RoundedCornerShape(16.dp),
-        color = Color.White,
-        border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
-        shadowElevation = 1.dp,
-        modifier = modifier.clickable(onClick = onClick)
-    ) {
-        Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Surface(
-                shape = RoundedCornerShape(10.dp),
-                color = color.copy(alpha = 0.12f),
-                modifier = Modifier.size(38.dp)
-            ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Icon(icon, null, tint = color, modifier = Modifier.size(20.dp))
-                }
-            }
-            Text(title, fontSize = 13.5.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
-            Text(subtitle, fontSize = 11.5.sp, color = FutaColors.Slate, lineHeight = 15.sp)
-        }
-    }
-}
-
-// -------------------------------------------------------------
-// Onboarding Step 1: Package Selection & VietQR Sheet
-// -------------------------------------------------------------
-@Composable
-private fun AdvisorPackageSheet(
-    onDismiss: () -> Unit,
-    onSuccess: () -> Unit
-) {
-    val scope = rememberCoroutineScope()
-    var selectedPlan by remember { mutableStateOf("starter") }
-    var isSubmitting by remember { mutableStateOf(false) }
-    // Package pricing is configured in CMS Site Settings, never hardcoded.
-    var yearlyPackagePrice by remember { mutableStateOf(0) }
-    var monthlyPackagePrice by remember { mutableStateOf(0) }
-
-    LaunchedEffect(Unit) {
+    suspend fun load() {
+        error = null
         try {
-            val res = APIClient.get().request("/cms/settings")
-            val banking = res["data"].valueAt("systemConfig.banking")
-            yearlyPackagePrice = banking["yearlyPackagePrice"].int
-            monthlyPackagePrice = banking["monthlyPackagePrice"].int
-        } catch (_: Exception) {
-            // Keep the price unknown rather than quoting an invented amount.
-        }
-    }
-
-    fun formatPrice(value: Int): String = String.format("%,d", value).replace(',', '.')
-    val proPriceLabel = when {
-        monthlyPackagePrice > 0 -> "${formatPrice(monthlyPackagePrice)} đ/tháng"
-        yearlyPackagePrice > 0 -> "${formatPrice(yearlyPackagePrice)} đ/năm"
-        else -> "Liên hệ để biết giá"
-    }
-
-    FutaBottomSheet(
-        visible = true,
-        onDismiss = onDismiss,
-        title = "Đăng ký Gói Chuyên viên FUTA"
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .verticalScroll(rememberScrollState())
-                .padding(bottom = 24.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
-        ) {
-            Text(
-                text = "Chọn gói dịch vụ để nhận tài liệu bán hàng, tiếp cận nguồn hàng độc quyền và đào tạo chuyên sâu.",
-                fontSize = 13.sp,
-                color = FutaColors.Slate,
-                lineHeight = 18.sp
-            )
-
-            listOf(
-                Triple("starter", "Gói Chuyên viên Tiêu chuẩn", "Miễn phí · Giữ chỗ tối đa 2 căn · Hoa hồng 1.5%"),
-                Triple("pro", "Gói Chuyên viên Cao cấp", "$proPriceLabel · Giữ chỗ 5 căn · Ưu tiên giỏ VIP · Hoa hồng 2.0%")
-            ).forEach { (key, name, desc) ->
-                val isSelected = selectedPlan == key
-                Surface(
-                    shape = RoundedCornerShape(14.dp),
-                    color = if (isSelected) FutaColors.MintBg else Color.White,
-                    border = BorderStroke(1.5.dp, if (isSelected) FutaColors.BrandGreen else Color(0xFFE2E8F0)),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { selectedPlan = key }
-                ) {
-                    Row(modifier = Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
-                        RadioButton(
-                            selected = isSelected,
-                            onClick = { selectedPlan = key },
-                            colors = RadioButtonDefaults.colors(selectedColor = FutaColors.BrandGreen)
-                        )
-                        Spacer(Modifier.width(8.dp))
-                        Column {
-                            Text(name, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
-                            Spacer(Modifier.height(2.dp))
-                            Text(desc, fontSize = 12.sp, color = FutaColors.Slate)
-                        }
-                    }
-                }
+            coroutineScope {
+                val ws = async { APIClient.get().request("/advisor/me") }
+                val dash = async { APIClient.get().request("/advisor/dashboard") }
+                workspace = ws.await()["data"]
+                dashboard = dash.await()["data"]
             }
-
-            Spacer(Modifier.height(8.dp))
-
-            FutaButton(
-                text = if (isSubmitting) "Đang xử lý..." else "Xác nhận đăng ký gói",
-                variant = FutaButtonVariant.PRIMARY,
-                enabled = !isSubmitting,
-                onClick = {
-                    scope.launch {
-                        isSubmitting = true
-                        try {
-                            APIClient.get().request(
-                                "/advisor/package",
-                                method = "POST",
-                                bodyJson = "{\"packageKey\":\"$selectedPlan\"}"
-                            )
-                            ToastCenter.show("Đăng ký gói tư vấn viên thành công!")
-                            onSuccess()
-                        } catch (e: Exception) {
-                            ToastCenter.show(e.message ?: "Không đăng ký được gói tư vấn viên", isError = true)
-                        } finally {
-                            isSubmitting = false
-                        }
-                    }
-                },
-                modifier = Modifier.fillMaxWidth()
-            )
-        }
-    }
-}
-
-// -------------------------------------------------------------
-// Onboarding Step 2: Profile & CCCD Upload Sheet
-// -------------------------------------------------------------
-@Composable
-private fun AdvisorProfileSheet(
-    onDismiss: () -> Unit,
-    onSuccess: () -> Unit
-) {
-    val scope = rememberCoroutineScope()
-    var idNumber by remember { mutableStateOf("") }
-    var idIssueDate by remember { mutableStateOf("01/01/2022") }
-    var idIssuePlace by remember { mutableStateOf("Cục CS QLHC về TTXH") }
-    var bankName by remember { mutableStateOf("VietinBank") }
-    var bankAccount by remember { mutableStateOf("") }
-    var bankHolder by remember { mutableStateOf("") }
-    var isSubmitting by remember { mutableStateOf(false) }
-
-    FutaBottomSheet(
-        visible = true,
-        onDismiss = onDismiss,
-        title = "Hồ sơ cá nhân & CCCD"
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .verticalScroll(rememberScrollState())
-                .padding(bottom = 24.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Text("Số Căn cước công dân (12 số) *", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
-            FutaInput(
-                value = idNumber,
-                onValueChange = { idNumber = it.filter { c -> c.isDigit() }.take(12) },
-                placeholder = "Ví dụ: 048095001234",
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next)
-            )
-
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text("Ngày cấp *", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
-                    FutaInput(value = idIssueDate, onValueChange = { idIssueDate = it }, placeholder = "dd/MM/yyyy")
-                }
-                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text("Nơi cấp *", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
-                    FutaInput(value = idIssuePlace, onValueChange = { idIssuePlace = it }, placeholder = "Nơi cấp CCCD")
-                }
-            }
-
-            Text("Ngân hàng nhận hoa hồng *", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
-            FutaInput(value = bankName, onValueChange = { bankName = it }, placeholder = "VietinBank, Vietcombank...")
-
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text("Số tài khoản *", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
-                    FutaInput(
-                        value = bankAccount,
-                        onValueChange = { bankAccount = it },
-                        placeholder = "Số tài khoản nhận tiền",
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next)
-                    )
-                }
-                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text("Chủ tài khoản *", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
-                    FutaInput(
-                        value = bankHolder,
-                        onValueChange = { bankHolder = it.uppercase() },
-                        placeholder = "NGUYEN VAN A",
-                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done)
-                    )
-                }
-            }
-
-            Spacer(Modifier.height(8.dp))
-
-            FutaButton(
-                text = if (isSubmitting) "Đang lưu..." else "Lưu & Gửi phê duyệt",
-                variant = FutaButtonVariant.PRIMARY,
-                enabled = !isSubmitting && idNumber.length >= 9 && bankAccount.isNotEmpty(),
-                onClick = {
-                    scope.launch {
-                        isSubmitting = true
-                        try {
-                            val body = "{\"idNumber\":\"$idNumber\",\"idIssueDate\":\"$idIssueDate\",\"idIssuePlace\":\"$idIssuePlace\",\"bankName\":\"$bankName\",\"bankAccount\":\"$bankAccount\",\"bankHolder\":\"$bankHolder\"}"
-                            APIClient.get().request("/advisor/profile", method = "POST", bodyJson = body)
-                            ToastCenter.show("Đã gửi hồ sơ CCCD & ngân hàng thành công!")
-                            onSuccess()
-                        } catch (e: Exception) {
-                            ToastCenter.show("Đã lưu hồ sơ TVV thành công!")
-                            onSuccess()
-                        } finally {
-                            isSubmitting = false
-                        }
-                    }
-                },
-                modifier = Modifier.fillMaxWidth()
-            )
-        }
-    }
-}
-
-// -------------------------------------------------------------
-// Commission account: PATCH /advisor/me/commission-account
-// Works at every profile status, including approved (no re-approval needed).
-// -------------------------------------------------------------
-@Composable
-private fun AdvisorCommissionAccountSheet(
-    onDismiss: () -> Unit,
-    onSuccess: () -> Unit
-) {
-    val scope = rememberCoroutineScope()
-    var loading by remember { mutableStateOf(true) }
-    var loadFailed by remember { mutableStateOf(false) }
-    var isSubmitting by remember { mutableStateOf(false) }
-    var bankAccount by remember { mutableStateOf("") }
-    var bankName by remember { mutableStateOf("") }
-    var taxCode by remember { mutableStateOf("") }
-    var saved by remember { mutableStateOf(Triple("", "", "")) }
-
-    LaunchedEffect(Unit) {
-        try {
-            val profile = APIClient.get().request("/advisor/me")["data"]["profile"]
-            bankAccount = profile["bankAccount"].string
-            bankName = profile["bankName"].string
-            taxCode = profile["taxCode"].string
-            saved = Triple(bankAccount.trim(), bankName.trim(), taxCode.trim())
+            hasData = true
         } catch (e: Exception) {
-            // Never allow saving after a failed load: it would overwrite the stored values with blanks.
-            loadFailed = true
-            ToastCenter.show(e.message ?: "Không tải được tài khoản nhận hoa hồng", isError = true)
+            error = e.message ?: tr("Không tải được dữ liệu")
         } finally {
             loading = false
         }
     }
 
-    val dirty = Triple(bankAccount.trim(), bankName.trim(), taxCode.trim()) != saved
-    val inputsEnabled = !loading && !loadFailed && !isSubmitting
+    // Runs again when returning from a step page, so statuses stay current.
+    LaunchedEffect(Unit) { load() }
 
-    FutaBottomSheet(
-        visible = true,
-        onDismiss = onDismiss,
-        title = "Tài khoản nhận hoa hồng"
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .verticalScroll(rememberScrollState())
-                .padding(bottom = 24.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Text("Số tài khoản nhận hoa hồng", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
-            FutaInput(
-                value = bankAccount,
-                onValueChange = { bankAccount = it },
-                placeholder = "Nhập số tài khoản",
-                enabled = inputsEnabled,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next)
-            )
+    val contract = AdvisorContractState(workspace)
+    val agreementsLocked = contract.needsProfileSubmission
+    val isActivated = workspace["isActivated"].bool
 
-            Text("Tên ngân hàng thụ hưởng", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
-            FutaInput(
-                value = bankName,
-                onValueChange = { bankName = it },
-                placeholder = "VietinBank, Vietcombank...",
-                enabled = inputsEnabled,
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next)
-            )
-
-            Text("Mã số thuế cá nhân", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
-            FutaInput(
-                value = taxCode,
-                onValueChange = { taxCode = it },
-                placeholder = "Nhập mã số thuế cá nhân",
-                enabled = inputsEnabled,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done)
-            )
-
-            Text(
-                "Bạn có thể cập nhật tài khoản hoa hồng bất cứ lúc nào, không cần duyệt lại hồ sơ.",
-                fontSize = 11.5.sp,
-                color = FutaColors.Slate
-            )
-
-            Spacer(Modifier.height(4.dp))
-
-            FutaButton(
-                text = if (isSubmitting) "Đang lưu..." else "Lưu tài khoản hoa hồng",
-                variant = FutaButtonVariant.PRIMARY,
-                enabled = inputsEnabled && dirty,
-                onClick = {
-                    scope.launch {
-                        isSubmitting = true
-                        try {
-                            val body = JSONObject()
-                                .put("bankAccount", bankAccount.trim())
-                                .put("bankName", bankName.trim())
-                                .put("taxCode", taxCode.trim())
-                                .toString()
-                            APIClient.get().request("/advisor/me/commission-account", method = "PATCH", bodyJson = body)
-                            ToastCenter.show("Đã cập nhật tài khoản hoa hồng")
-                            onSuccess()
-                        } catch (e: Exception) {
-                            ToastCenter.show(e.message ?: "Không thể lưu tài khoản hoa hồng", isError = true)
-                        } finally {
-                            isSubmitting = false
-                        }
-                    }
-                },
-                modifier = Modifier.fillMaxWidth()
-            )
-        }
+    fun openActivatedOnly(route: String) {
+        if (isActivated) onNavigate(route) else showNotAdvisorAlert = true
     }
-}
 
-// -------------------------------------------------------------
-// Onboarding Step 3: Exam Quiz Sheet
-// -------------------------------------------------------------
-@Composable
-private fun AdvisorExamSheet(
-    alreadyPassed: Boolean = false,
-    onDismiss: () -> Unit,
-    onSuccess: () -> Unit
-) {
-    val scope = rememberCoroutineScope()
-    var isSubmitting by remember { mutableStateOf(false) }
-    var ans1 by remember { mutableIntStateOf(0) }
-    var ans2 by remember { mutableIntStateOf(0) }
-    var ans3 by remember { mutableIntStateOf(0) }
-
-    FutaBottomSheet(
-        visible = true,
-        onDismiss = onDismiss,
-        title = "Sát hạch nghiệp vụ BĐS FUTA"
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .verticalScroll(rememberScrollState())
-                .padding(bottom = 24.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
-        ) {
-            if (alreadyPassed) {
-                Surface(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                    color = FutaColors.BrandGreen.copy(alpha = 0.1f)
+    Scaffold(
+        topBar = { AdvisorTopBar(title = "Tư vấn viên FutaLand", onBack = onBack) },
+        containerColor = Color(0xFFF7F8FA)
+    ) { padding ->
+        Box(modifier = Modifier.fillMaxSize().padding(padding)) {
+            when {
+                loading && !hasData -> AdvisorLoadingState()
+                error != null && !hasData -> AdvisorErrorState(
+                    message = error.orEmpty(),
+                    onRetry = { loading = true; scope.launch { load() } },
+                    modifier = Modifier.align(Alignment.Center)
+                )
+                else -> PullToRefreshBox(
+                    isRefreshing = refreshing,
+                    onRefresh = {
+                        refreshing = true
+                        scope.launch { load(); refreshing = false }
+                    },
+                    modifier = Modifier.fillMaxSize()
                 ) {
-                    Row(
-                        modifier = Modifier.padding(16.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .verticalScroll(rememberScrollState())
+                            .padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.CheckCircle,
-                            contentDescription = null,
-                            tint = FutaColors.BrandGreen,
-                            modifier = Modifier.size(28.dp)
-                        )
-                        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                            Text(
-                                "Bạn đã đạt bài kiểm tra này",
-                                fontSize = 15.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = FutaColors.BrandGreen
-                            )
-                            Text(
-                                "Kết quả đạt đã được hệ thống ghi nhận. Bạn không cần làm lại bài kiểm tra.",
-                                fontSize = 12.sp,
-                                color = FutaColors.Slate
-                            )
+                        ActivationBanner(workspace)
+                        if (workspace["isHoldingSuspended"].bool) HoldingSuspendedAlert(workspace)
+
+                        // Progress card
+                        FutaCard(modifier = Modifier.fillMaxWidth()) {
+                            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                Text("Tiến độ xác thực tài khoản", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
+                                Spacer(Modifier.height(6.dp))
+                                StatusStepRow(
+                                    title = "1. Đăng ký gói tư vấn viên",
+                                    statusText = packageStatusText(workspace),
+                                    isDone = workspace["packagePurchased"].bool,
+                                    onClick = { onNavigate(FutaDestinations.ADVISOR_PACKAGE) }
+                                )
+                                StatusStepRow(
+                                    title = "2. Hồ sơ cá nhân & CCCD",
+                                    statusText = profileStatusText(workspace),
+                                    isDone = workspace["profileStatus"].string == "approved",
+                                    onClick = { onNavigate(FutaDestinations.ADVISOR_PROFILE) }
+                                )
+                                StatusStepRow(
+                                    title = "3. Bài kiểm tra năng lực",
+                                    statusText = examStatusText(workspace),
+                                    isDone = hasPassedExam(workspace),
+                                    onClick = { onNavigate(FutaDestinations.ADVISOR_EXAM) }
+                                )
+                                StatusStepRow(
+                                    title = "4. Ký thỏa thuận & Xác minh",
+                                    statusText = when {
+                                        agreementsLocked -> "Cần nộp hồ sơ trước"
+                                        contract.hasCompletedSigning -> "Đã ký"
+                                        else -> "Chưa hoàn tất"
+                                    },
+                                    isDone = contract.hasCompletedSigning,
+                                    isLocked = agreementsLocked,
+                                    onClick = { onNavigate(FutaDestinations.ADVISOR_VERIFICATION) }
+                                )
+                            }
                         }
+
+                        // Onboarding tiles
+                        SectionTitle("Lộ trình kích hoạt & Hồ sơ")
+                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            MenuTile("Gói TVV", packageStatusText(workspace), Icons.Default.CardGiftcard, FutaColors.BrandOrange, Modifier.weight(1f)) {
+                                onNavigate(FutaDestinations.ADVISOR_PACKAGE)
+                            }
+                            MenuTile("Hồ sơ cá nhân", profileStatusText(workspace), Icons.Default.AccountBox, Color(0xFF2563EB), Modifier.weight(1f)) {
+                                onNavigate(FutaDestinations.ADVISOR_PROFILE)
+                            }
+                        }
+                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            MenuTile("Bài kiểm tra", examStatusText(workspace), Icons.Default.Quiz, Color(0xFF7C3AED), Modifier.weight(1f)) {
+                                onNavigate(FutaDestinations.ADVISOR_EXAM)
+                            }
+                            MenuTile(
+                                "Thỏa thuận & Ký",
+                                if (agreementsLocked) "Cần nộp hồ sơ trước" else "Xác thực số",
+                                Icons.Default.Draw,
+                                FutaColors.BrandGreen,
+                                Modifier.weight(1f),
+                                isLocked = agreementsLocked
+                            ) { onNavigate(FutaDestinations.ADVISOR_VERIFICATION) }
+                        }
+
+                        // Business shortcuts. Products and registrations are for activated advisors only.
+                        SectionTitle("Nghiệp vụ kinh doanh")
+                        ActionRow("Sản phẩm & Giữ chỗ", "Kho hàng BĐS, đặt giữ chỗ trực tuyến", Icons.Default.Apartment, Color(0xFF2563EB)) {
+                            openActivatedOnly(FutaDestinations.ADVISOR_PRODUCTS)
+                        }
+                        ActionRow("Đăng ký bán của tôi", "Theo dõi căn hộ đăng ký bán, cọc giữ chỗ", Icons.Default.Assignment, FutaColors.BrandGreen) {
+                            openActivatedOnly(FutaDestinations.ADVISOR_REGISTRATIONS)
+                        }
+                        if (AppSession.shared.role in STAFF_APPOINTMENT_ROLES) {
+                            ActionRow("Lịch hẹn xem nhà", "Xác nhận, đổi giờ & theo dõi buổi dẫn khách", Icons.Default.EventAvailable, Color(0xFF2563EB)) {
+                                onNavigate(FutaDestinations.STAFF_APPOINTMENTS)
+                            }
+                        }
+                        ActionRow("Đề xuất & Ý kiến", "Gửi đề xuất kinh doanh tới quản trị", Icons.Default.Lightbulb, Color(0xFFF29900)) {
+                            onNavigate(FutaDestinations.ADVISOR_PROPOSALS)
+                        }
+
+                        // Performance metrics
+                        SectionTitle("Hiệu suất hoạt động")
+                        val m = dashboard["metrics"]
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            MetricBox("Khách hàng", m["customers"]["value"].int, Modifier.weight(1f))
+                            MetricBox("Lượt xem", m["views"]["value"].int, Modifier.weight(1f))
+                            MetricBox("Tư vấn", m["consultations"]["value"].int, Modifier.weight(1f))
+                            MetricBox("Hợp đồng", m["contracts"]["value"].int, Modifier.weight(1f))
+                        }
+                        Spacer(Modifier.height(8.dp))
                     }
                 }
-                Spacer(Modifier.height(8.dp))
-                FutaButton(
-                    text = "Đóng",
-                    variant = FutaButtonVariant.OUTLINE,
-                    onClick = onDismiss
-                )
-                return@FutaBottomSheet
             }
-            Text(
-                text = "Trả lời đúng các câu hỏi kiểm tra để được hệ thống kích hoạt quyền giữ chỗ tự động.",
-                fontSize = 12.5.sp,
-                color = FutaColors.Slate
-            )
-
-            // Q1
-            Text("Câu 1: Thời hạn tối đa cho một lượt giữ chỗ cọc trực tuyến tại FUTA Land là bao lâu?", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
-            listOf("15 phút", "24 giờ", "48 giờ", "7 ngày").forEachIndexed { idx, opt ->
-                Row(
-                    modifier = Modifier.fillMaxWidth().clickable { ans1 = idx },
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    RadioButton(selected = ans1 == idx, onClick = { ans1 = idx }, colors = RadioButtonDefaults.colors(selectedColor = FutaColors.BrandGreen))
-                    Text(opt, fontSize = 13.sp, color = FutaColors.Navy)
-                }
-            }
-
-            // Q2
-            Text("Câu 2: Mức đặt cọc tiêu chuẩn cho mỗi vị trí căn hộ mở bán là bao nhiêu?", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
-            listOf("20 triệu VNĐ", "50 triệu VNĐ (hoàn 100% trong 24h)", "100 triệu VNĐ").forEachIndexed { idx, opt ->
-                Row(
-                    modifier = Modifier.fillMaxWidth().clickable { ans2 = idx },
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    RadioButton(selected = ans2 == idx, onClick = { ans2 = idx }, colors = RadioButtonDefaults.colors(selectedColor = FutaColors.BrandGreen))
-                    Text(opt, fontSize = 13.sp, color = FutaColors.Navy)
-                }
-            }
-
-            // Q3
-            Text("Câu 3: Chuyên viên tư vấn có được phép thu tiền mặt trực tiếp từ khách hàng không?", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
-            listOf("Được phép nếu khách yêu cầu", "Tuyệt đối không, mọi giao dịch phải qua tài khoản ngân hàng chính thức FUTA Land").forEachIndexed { idx, opt ->
-                Row(
-                    modifier = Modifier.fillMaxWidth().clickable { ans3 = idx },
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    RadioButton(selected = ans3 == idx, onClick = { ans3 = idx }, colors = RadioButtonDefaults.colors(selectedColor = FutaColors.BrandGreen))
-                    Text(opt, fontSize = 13.sp, color = FutaColors.Navy)
-                }
-            }
-
-            Spacer(Modifier.height(6.dp))
-
-            FutaButton(
-                text = if (isSubmitting) "Đang chấm điểm..." else "Nộp bài kiểm tra",
-                variant = FutaButtonVariant.PRIMARY,
-                enabled = !isSubmitting,
-                onClick = {
-                    scope.launch {
-                        isSubmitting = true
-                        try {
-                            APIClient.get().request("/advisor/me/exam", method = "POST", bodyJson = "{\"answers\":{\"q1\":$ans1,\"q2\":$ans2,\"q3\":$ans3},\"submissionReason\":\"manual\"}")
-                            ToastCenter.show("Chúc mừng! Bạn đã đạt 100% điểm bài kiểm tra.")
-                            onSuccess()
-                        } catch (e: Exception) {
-                            ToastCenter.show("Chúc mừng! Đã hoàn thành sát hạch TVV.")
-                            onSuccess()
-                        } finally {
-                            isSubmitting = false
-                        }
-                    }
-                },
-                modifier = Modifier.fillMaxWidth()
-            )
         }
+    }
+
+    FutaDialog(
+        visible = showNotAdvisorAlert,
+        onDismiss = { showNotAdvisorAlert = false },
+        title = "Bạn chưa là tư vấn viên",
+        confirmText = "Đã hiểu",
+        onConfirm = {},
+        cancelText = null
+    ) {
+        Text(
+            "Hoàn tất gói tư vấn viên, hồ sơ cá nhân và bài kiểm tra để kích hoạt tài khoản.",
+            fontSize = 13.5.sp,
+            color = FutaColors.Slate
+        )
     }
 }
 
 // -------------------------------------------------------------
-// Onboarding Step 4: Digital Verification & Signature Sheet
+// Status helpers (same wording as iOS)
 // -------------------------------------------------------------
-@Composable
-private fun AdvisorVerificationSheet(
-    onDismiss: () -> Unit,
-    onSuccess: () -> Unit
-) {
-    val scope = rememberCoroutineScope()
-    var isSubmitting by remember { mutableStateOf(false) }
 
-    FutaBottomSheet(
-        visible = true,
-        onDismiss = onDismiss,
-        title = "Ký Thỏa thuận Hợp tác TVV"
+internal fun packageStatusText(ws: JSONValue): String {
+    if (ws["packagePurchased"].bool) return "Đã đăng ký"
+    return when (ws["packagePaymentStatus"].string) {
+        "pending" -> "Chờ duyệt TT"
+        "approved" -> "Đã kích hoạt"
+        "rejected" -> "Bị từ chối"
+        else -> "Chưa mua gói"
+    }
+}
+
+internal fun profileStatusText(ws: JSONValue): String = when (ws["profileStatus"].string) {
+    "approved" -> "Đã duyệt"
+    "pending" -> "Đang xét duyệt"
+    "rejected" -> "Cần bổ sung"
+    else -> "Chưa hoàn tất"
+}
+
+internal fun hasPassedExam(ws: JSONValue): Boolean =
+    ws["examStatus"].string == "passed" || ws["attempts"].array.any { it["status"].string == "passed" }
+
+internal fun examStatusText(ws: JSONValue): String {
+    val attempts = ws["attempts"].array
+    if (hasPassedExam(ws)) {
+        val maxScore = maxOf(ws["lastScore"].int, attempts.maxOfOrNull { it["score"].int } ?: 0)
+        return tr("Đạt ({0}đ)", maxScore)
+    }
+    return when (ws["examStatus"].string) {
+        "failed" -> tr("Chưa đạt ({0}đ)", ws["lastScore"].int)
+        else -> "Chưa làm bài"
+    }
+}
+
+private fun activationDescription(act: String): String = when (act) {
+    "active" -> "Bạn có toàn quyền truy cập các tính năng bán hàng và giữ chỗ."
+    "package_required" -> "Vui lòng đăng ký gói tư vấn viên để bắt đầu."
+    "package_pending" -> "Hệ thống đang xác thực khoản thanh toán gói của bạn."
+    "profile_pending" -> "Hồ sơ của bạn đang được ban quản trị xét duyệt."
+    "exam_pending" -> "Vui lòng hoàn thành bài kiểm tra năng lực tư vấn."
+    "expired" -> "Gói tư vấn viên đã hết hạn. Vui lòng gia hạn."
+    else -> "Hoàn tất các bước xác thực bên dưới để kích hoạt tài khoản."
+}
+
+/**
+ * Signed agreements (iOS `AdvisorContractState`). `profile.signedContracts` is either an object
+ * or a JSON string keyed by contract type.
+ */
+internal class AdvisorContractState(private val workspace: JSONValue) {
+    val signatures: JSONValue = run {
+        val raw = workspace["profile"]["signedContracts"]
+        if (raw.element is kotlinx.serialization.json.JsonObject) raw else JSONValue.parse(raw.string)
+    }
+
+    fun signature(contract: AdvisorContract): JSONValue = signatures[contract.wire]
+    fun isSigned(contract: AdvisorContract): Boolean {
+        val saved = signature(contract)
+        return saved["signatureDataUrl"].string.isNotEmpty() && saved["signedAt"].string.isNotEmpty()
+    }
+
+    val isReadOnly: Boolean get() = workspace["profileStatus"].string == "approved"
+
+    /** The contract to sign depends on the profile (broker certificate or not). */
+    val needsProfileSubmission: Boolean get() = workspace["profileStatus"].string == "draft"
+
+    val requiredContracts: List<AdvisorContract>
+        get() = if (workspace["profile"]["brokerCertificateExempt"].string == "true")
+            listOf(AdvisorContract.SERVICE, AdvisorContract.ACCEPTANCE) else listOf(AdvisorContract.BROKER)
+
+    val hasCompletedSigning: Boolean get() = requiredContracts.all { isSigned(it) }
+    fun canSign(contract: AdvisorContract): Boolean = !isReadOnly && !isSigned(contract)
+}
+
+internal enum class AdvisorContract(val wire: String, val tabTitle: String, val settingsKey: String) {
+    SERVICE("service_contract", "Hợp đồng dịch vụ", "serviceContract"),
+    BROKER("broker_contract", "Hợp đồng môi giới", "brokerContract"),
+    ACCEPTANCE("acceptance_report", "Biên bản nghiệm thu", "acceptanceReport")
+}
+
+// -------------------------------------------------------------
+// Building blocks
+// -------------------------------------------------------------
+
+@Composable
+private fun ActivationBanner(ws: JSONValue) {
+    val isAct = ws["isActivated"].bool
+    val tint = if (isAct) FutaColors.BrandGreen else FutaColors.BrandOrange
+    Surface(
+        shape = RoundedCornerShape(14.dp),
+        color = tint.copy(alpha = 0.12f),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(modifier = Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+            Icon(if (isAct) Icons.Default.Verified else Icons.Default.Warning, null, tint = tint, modifier = Modifier.size(28.dp))
+            Spacer(Modifier.width(12.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    if (isAct) "Tài khoản tư vấn viên đã kích hoạt" else "Chưa hoàn tất kích hoạt tài khoản",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = FutaColors.Navy
+                )
+                Spacer(Modifier.height(2.dp))
+                Text(activationDescription(ws["activationStatus"].string), fontSize = 12.sp, color = FutaColors.Slate)
+            }
+        }
+    }
+}
+
+@Composable
+private fun HoldingSuspendedAlert(ws: JSONValue) {
+    val red = Color(0xFFDC2626)
+    Surface(shape = RoundedCornerShape(12.dp), color = red.copy(alpha = 0.1f), modifier = Modifier.fillMaxWidth()) {
+        Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.Top) {
+            Icon(Icons.Default.PanTool, null, tint = red, modifier = Modifier.size(18.dp))
+            Spacer(Modifier.width(10.dp))
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text("Tạm dừng quyền giữ chỗ bất động sản", fontSize = 13.5.sp, fontWeight = FontWeight.Bold, color = red)
+                val reason = ws["holdingSuspendedReason"].string
+                if (reason.isNotEmpty()) Text(tr("Lý do: {0}", reason), fontSize = 12.sp, color = FutaColors.Navy)
+                val until = ws["holdingSuspendedUntil"].string
+                if (until.isNotEmpty()) Text(tr("Hiệu lực đến: {0}", shortDate(until)), fontSize = 11.sp, color = FutaColors.Slate)
+            }
+        }
+    }
+}
+
+@Composable
+private fun SectionTitle(text: String) {
+    Text(text, fontSize = 15.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
+}
+
+private fun showAgreementsLockedMessage() {
+    ToastCenter.show(tr("Vui lòng nộp hồ sơ cá nhân trước khi ký thỏa thuận."))
+}
+
+@Composable
+private fun StatusStepRow(
+    title: String,
+    statusText: String,
+    isDone: Boolean,
+    isLocked: Boolean = false,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(10.dp))
+            .clickable { if (isLocked) showAgreementsLockedMessage() else onClick() }
+            .alpha(if (isLocked) 0.55f else 1f)
+            .padding(vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            imageVector = when {
+                isLocked -> Icons.Default.Lock
+                isDone -> Icons.Default.CheckCircle
+                else -> Icons.Default.RadioButtonUnchecked
+            },
+            contentDescription = null,
+            tint = if (isDone) FutaColors.BrandGreen else FutaColors.Slate,
+            modifier = Modifier.size(18.dp)
+        )
+        Spacer(Modifier.width(10.dp))
+        Text(title, fontSize = 13.5.sp, color = FutaColors.Navy, modifier = Modifier.weight(1f))
+        Text(
+            statusText,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Medium,
+            color = if (isDone) FutaColors.BrandGreen else FutaColors.Slate,
+            textAlign = TextAlign.End
+        )
+        Icon(Icons.Default.ChevronRight, null, tint = FutaColors.Slate.copy(alpha = 0.6f), modifier = Modifier.size(16.dp))
+    }
+}
+
+@Composable
+private fun MenuTile(
+    title: String,
+    subtitle: String,
+    icon: ImageVector,
+    color: Color,
+    modifier: Modifier = Modifier,
+    isLocked: Boolean = false,
+    onClick: () -> Unit
+) {
+    Surface(
+        shape = RoundedCornerShape(14.dp),
+        color = Color.White,
+        border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+        modifier = modifier
+            .alpha(if (isLocked) 0.55f else 1f)
+            .clip(RoundedCornerShape(14.dp))
+            .clickable { if (isLocked) showAgreementsLockedMessage() else onClick() }
+    ) {
+        Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(icon, null, tint = color, modifier = Modifier.size(22.dp))
+                Spacer(Modifier.weight(1f))
+                if (isLocked) Icon(Icons.Default.Lock, null, tint = FutaColors.Slate, modifier = Modifier.size(14.dp))
+            }
+            Text(title, fontSize = 13.5.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
+            Text(subtitle, fontSize = 11.sp, color = FutaColors.Slate, maxLines = 1)
+        }
+    }
+}
+
+@Composable
+private fun ActionRow(title: String, subtitle: String, icon: ImageVector, color: Color, onClick: () -> Unit) {
+    Surface(
+        shape = RoundedCornerShape(14.dp),
+        color = Color.White,
+        border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(14.dp))
+            .clickable(onClick = onClick)
+    ) {
+        Row(modifier = Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+            Box(
+                modifier = Modifier
+                    .size(36.dp)
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(color.copy(alpha = 0.12f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(icon, null, tint = color, modifier = Modifier.size(20.dp))
+            }
+            Spacer(Modifier.width(14.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(title, fontSize = 13.5.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
+                Text(subtitle, fontSize = 12.sp, color = FutaColors.Slate)
+            }
+            Icon(Icons.Default.ChevronRight, null, tint = FutaColors.Slate.copy(alpha = 0.6f), modifier = Modifier.size(18.dp))
+        }
+    }
+}
+
+@Composable
+private fun MetricBox(title: String, value: Int, modifier: Modifier = Modifier) {
+    Surface(
+        shape = RoundedCornerShape(10.dp),
+        color = Color.White,
+        border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+        modifier = modifier
     ) {
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .verticalScroll(rememberScrollState())
-                .padding(bottom = 36.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
+            modifier = Modifier.padding(vertical = 10.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
-            Text(
-                text = "Quy chế cam kết chuyên viên FUTA Land",
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Bold,
-                color = FutaColors.Navy
-            )
-            Surface(
-                shape = RoundedCornerShape(12.dp),
-                color = Color(0xFFF8FAFC),
-                border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text(
-                    text = "1. Chuyên viên cam kết tư vấn trung thực, đúng giá niêm yết từ Chủ đầu tư FUTA Land.\n2. Bảo mật toàn bộ thông tin cá nhân và số điện thoại của khách hàng.\n3. Tuân thủ nghiêm ngặt quy chế đặt chỗ và giữ căn trên hệ thống ERP.\n4. Chữ ký số bên dưới có giá trị pháp lý ràng buộc tư cách chuyên viên hợp tác.",
-                    fontSize = 12.5.sp,
-                    color = FutaColors.Slate,
-                    lineHeight = 18.sp,
-                    modifier = Modifier.padding(14.dp)
-                )
-            }
-
-            // Digital Signature Pad
-            FutaSignaturePad(
-                title = "Chữ ký điện tử của Chuyên viên",
-                subtitle = "Dùng ngón tay hoặc bút cảm ứng ký vào ô bên dưới",
-                onCancel = onDismiss,
-                onSave = { signatureDataUrl ->
-                    scope.launch {
-                        isSubmitting = true
-                        try {
-                            APIClient.get().request(
-                                "/advisor/me/signature",
-                                method = "PATCH",
-                                bodyJson = "{\"contractType\":\"service\",\"signatureDataUrl\":\"$signatureDataUrl\"}"
-                            )
-                            ToastCenter.show("Kích hoạt tài khoản Chuyên viên FUTA thành công!")
-                            onSuccess()
-                        } catch (_: Exception) {
-                            ToastCenter.show("Đã ký xác nhận thành công!")
-                            onSuccess()
-                        } finally {
-                            isSubmitting = false
-                        }
-                    }
-                }
-            )
+            vn.futaland.app.core.i18n.VerbatimText("$value", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
+            Text(title, fontSize = 10.5.sp, color = FutaColors.Slate, maxLines = 1)
         }
     }
 }

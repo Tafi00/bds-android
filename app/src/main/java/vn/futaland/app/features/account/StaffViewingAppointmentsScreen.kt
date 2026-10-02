@@ -1,5 +1,7 @@
 package vn.futaland.app.features.account
 
+import vn.futaland.app.core.i18n.tr
+import vn.futaland.app.core.i18n.Text
 import android.app.DatePickerDialog
 import android.app.TimePickerDialog
 import android.content.Context
@@ -122,9 +124,9 @@ private fun formatPattern(time: ZonedDateTime, pattern: String): String = time.f
 private fun dayHeader(date: LocalDate, today: LocalDate): String {
     val base = date.format(DateTimeFormatter.ofPattern(if (date.year == today.year) "dd/MM" else "dd/MM/yyyy"))
     return when (date) {
-        today -> "Hôm nay · $base"
-        today.plusDays(1) -> "Ngày mai · $base"
-        today.minusDays(1) -> "Hôm qua · $base"
+        today -> tr("Hôm nay · {0}", base)
+        today.plusDays(1) -> tr("Ngày mai · {0}", base)
+        today.minusDays(1) -> tr("Hôm qua · {0}", base)
         else -> "${weekdayName(date.dayOfWeek)} · $base"
     }
 }
@@ -138,11 +140,11 @@ private fun relativeLabel(time: ZonedDateTime, now: ZonedDateTime): String {
     val minutes = Duration.between(now, time).toMinutes()
     val span = abs(minutes)
     val text = when {
-        span < 60 -> "${max(span, 1)} phút"
-        span < 60 * 24 -> "${span / 60} giờ"
-        else -> "${span / (60 * 24)} ngày"
+        span < 60 -> tr("{0} phút", max(span, 1))
+        span < 60 * 24 -> tr("{0} giờ", span / 60)
+        else -> tr("{0} ngày", span / (60 * 24))
     }
-    return if (minutes >= 0) "Còn $text" else "Đã qua $text"
+    return if (minutes >= 0) tr("Còn {0}", text) else tr("Đã qua {0}", text)
 }
 
 private fun isOverdue(item: JSONValue, now: ZonedDateTime): Boolean {
@@ -176,8 +178,8 @@ private fun sms(context: Context, phone: String) {
 }
 
 private fun statusToast(status: ApptStatus, name: String) = when (status) {
-    ApptStatus.CONFIRMED -> "Đã xác nhận lịch hẹn với $name"
-    ApptStatus.COMPLETED -> "Đã ghi nhận $name đã xem nhà"
+    ApptStatus.CONFIRMED -> tr("Đã xác nhận lịch hẹn với {0}", name)
+    ApptStatus.COMPLETED -> tr("Đã ghi nhận {0} đã xem nhà", name)
     ApptStatus.CANCELLED -> "Đã hủy lịch hẹn"
     ApptStatus.PENDING -> "Đã mở lại lịch hẹn"
 }
@@ -404,7 +406,7 @@ fun StaffViewingAppointmentsScreen(onBack: () -> Unit, onOpenDetail: (String) ->
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = if (loading && items.isEmpty()) "Đang tải…" else "$totalForTab lịch hẹn",
+                    text = if (loading && items.isEmpty()) "Đang tải…" else tr("{0} lịch hẹn", totalForTab),
                     fontSize = 12.5.sp,
                     fontWeight = FontWeight.SemiBold,
                     color = FutaColors.Slate,
@@ -476,7 +478,7 @@ fun StaffViewingAppointmentsScreen(onBack: () -> Unit, onOpenDetail: (String) ->
                                     when {
                                         loadingMore -> CircularProgressIndicator(Modifier.size(22.dp), color = FutaColors.BrandGreen, strokeWidth = 2.dp)
                                         page >= totalPages && items.size > 4 -> Text(
-                                            "Đã hiển thị tất cả ${items.size} lịch hẹn",
+                                            tr("Đã hiển thị tất cả {0} lịch hẹn", items.size),
                                             fontSize = 12.sp,
                                             color = Color(0xFF94A3B8)
                                         )
@@ -615,7 +617,7 @@ private fun DayHeader(header: ApptRow.Header) {
             fontWeight = FontWeight.Bold,
             color = if (header.isToday) FutaColors.BrandGreen else FutaColors.Navy
         )
-        Text("  ·  ${header.count} lịch", fontSize = 12.sp, color = FutaColors.Slate)
+        Text(tr("  ·  {0} lịch", header.count), fontSize = 12.sp, color = FutaColors.Slate)
     }
 }
 
@@ -752,7 +754,7 @@ private fun AppointmentCard(
                     Icon(Icons.Default.ErrorOutline, null, tint = DangerRed, modifier = Modifier.size(15.dp))
                     Spacer(Modifier.width(6.dp))
                     Text(
-                        "Quá giờ hẹn (${relativeLabel(time, now).lowercase()}) — cập nhật kết quả",
+                        tr("Quá giờ hẹn ({0}) — cập nhật kết quả", relativeLabel(time, now).lowercase()),
                         fontSize = 12.sp,
                         fontWeight = FontWeight.SemiBold,
                         color = DangerRed
@@ -999,7 +1001,7 @@ fun StaffViewingAppointmentDetailScreen(
         onConfirm = { changeStatus(ApptStatus.CANCELLED) }
     ) {
         Text(
-            "Lịch hẹn xem nhà của $customerName sẽ chuyển sang \"Đã hủy\" và các bên liên quan sẽ nhận được thông báo.",
+            tr("Lịch hẹn xem nhà của {0} sẽ chuyển sang \"Đã hủy\" và các bên liên quan sẽ nhận được thông báo.", customerName),
             fontSize = 14.sp,
             color = FutaColors.SubLabel,
             lineHeight = 20.sp
@@ -1191,7 +1193,7 @@ private fun AppointmentDetailContent(
             val reminder = item["reminderSentAt"].string
             if (reminder.isNotBlank()) {
                 Spacer(Modifier.height(8.dp))
-                InfoLine(Icons.Default.NotificationsActive, "Đã gửi nhắc hẹn lúc ${shortDateTime(reminder)}")
+                InfoLine(Icons.Default.NotificationsActive, tr("Đã gửi nhắc hẹn lúc {0}", shortDateTime(reminder)))
             }
         }
 

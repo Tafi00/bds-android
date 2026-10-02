@@ -1,5 +1,7 @@
 package vn.futaland.app.features.account
 
+import vn.futaland.app.core.i18n.tr
+import vn.futaland.app.core.i18n.Text
 import androidx.compose.animation.*
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -470,7 +472,7 @@ fun WorkspaceScreen(
                                     color = Color(0xFFE2E8F0).copy(alpha = 0.6f)
                                 ) {
                                     Text(
-                                        text = "${itemsInGroup.size} mục",
+                                        text = tr("{0} mục", itemsInGroup.size),
                                         fontSize = 11.sp,
                                         fontWeight = FontWeight.Bold,
                                         color = FutaColors.Slate,

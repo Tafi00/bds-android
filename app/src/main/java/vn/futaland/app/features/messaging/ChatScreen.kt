@@ -1,5 +1,7 @@
 package vn.futaland.app.features.messaging
 
+import vn.futaland.app.core.i18n.tr
+import vn.futaland.app.core.i18n.Text
 import android.media.RingtoneManager
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.border
@@ -40,6 +42,8 @@ import kotlinx.coroutines.launch
 import kotlinx.serialization.json.add
 import kotlinx.serialization.json.addJsonObject
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
+import kotlinx.serialization.json.putJsonObject
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
 import vn.futaland.app.R
@@ -91,7 +95,9 @@ data class ChatMessage(
     val pending: Boolean = false,
     val failed: Boolean = false,
     val detectedLanguage: String = "",
-    val translations: Map<String, String> = emptyMap()
+    val translations: Map<String, String> = emptyMap(),
+    // Photo attached via /upload/document and sent as metadata.imageUrl (iOS parity).
+    val imageUrl: String = ""
 )
 
 enum class BubbleGroupPosition {
@@ -497,8 +503,8 @@ fun ChatScreen(
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         val unreadTotal = conversations.sumOf { it.unreadCount }
                         listOf(
-                            "all" to "Tất cả (${conversations.size})",
-                            "unread" to (if (unreadTotal > 0) "Chưa đọc ($unreadTotal)" else "Chưa đọc")
+                            "all" to tr("Tất cả ({0})", conversations.size),
+                            "unread" to (if (unreadTotal > 0) tr("Chưa đọc ({0})", unreadTotal) else "Chưa đọc")
                         ).forEach { (tab, label) ->
                             val isSelected = filterTab == tab
                             Surface(
@@ -825,8 +831,62 @@ fun ChatScreen(
             isAiChat -> true
             else -> false
         }
+        fun mapServerMessage(m: JSONValue): ChatMessage {
+            val sType = m["senderType"].string
+            val senderId = m["senderId"].string
+            val isMe = isOwnChatMessage(senderId, sType, myUserId, viewerIsCustomer = !isStaff, viewerIsParticipant = viewerIsParticipant, userPhone = myPhone)
+            val cards = parseChatPropertyCards(m["metadata"])
+            val transMap = mutableMapOf<String, String>()
+            (m["translations"].element as? kotlinx.serialization.json.JsonObject)?.forEach { (k, v) ->
+                transMap[k] = (v as? kotlinx.serialization.json.JsonPrimitive)?.content ?: ""
+            }
+            return ChatMessage(
+                id = m.id,
+                senderId = senderId,
+                senderName = if (isMe && viewerIsParticipant) "Tôi" else (if (sType == "bot") "Trợ lý AI FUTA Land" else if (sType == "staff") "Tư vấn viên" else "Khách hàng"),
+                content = m["content"].string,
+                isMe = isMe,
+                time = formatChatTime(m["createdAt"].string),
+                propertyCard = cards.firstOrNull(),
+                propertyCards = cards,
+                createdAt = m["createdAt"].string,
+                readAt = m["readAt"].string,
+                detectedLanguage = m["detectedLanguage"].string,
+                translations = transMap,
+                imageUrl = m["metadata"]["imageUrl"].string
+            )
+        }
+
+        var loadingOlder by remember { mutableStateOf(false) }
+        // "Tải tin nhắn cũ hơn" — same cursor contract as web/iOS (nextCursor = oldest id).
+        fun loadOlderMessages() {
+            val convId = activeConversationId ?: return
+            val cursor = messagesCursor ?: return
+            if (loadingOlder || convId == "ai_agent") return
+            scope.launch {
+                loadingOlder = true
+                try {
+                    val res = APIClient.get().request(
+                        "/chat/conversations/$convId/messages",
+                        query = mapOf("limit" to "50", "cursor" to cursor)
+                    )
+                    val existing = messages.map { it.id }.toSet()
+                    val older = res["data"].array.filter { !existing.contains(it.id) }
+                        .sortedBy { it["createdAt"].string }
+                        .map { mapServerMessage(it) }
+                    messages.addAll(0, older)
+                    messagesCursor = res["nextCursor"].string.ifEmpty { null }
+                } catch (e: Exception) {
+                    ToastCenter.show(e.message ?: tr("Không thể tải tin nhắn"), isError = true)
+                } finally {
+                    loadingOlder = false
+                }
+            }
+        }
+
         val isImeVisible = WindowInsets.isImeVisible
-        LaunchedEffect(isImeVisible, messages.size) {
+        // Keyed on the newest message so prepending an older page does not jump to the bottom.
+        LaunchedEffect(isImeVisible, messages.lastOrNull()?.id) {
             if (messages.isNotEmpty()) {
                 listState.animateScrollToItem(messages.size - 1)
             }
@@ -852,36 +912,11 @@ fun ChatScreen(
                         val msgList = msgRes["data"].array
                         messagesCursor = msgRes["nextCursor"].string.ifEmpty { null }
                         messages.clear()
-                        val currentUserId = AppSession.shared.user?.id.orEmpty()
-                        val myPhone = AppSession.shared.user?.get("phone")?.string.orEmpty()
-                        val sorted = msgList.sortedBy { it["createdAt"].string }
-                        for (m in sorted) {
-                            val sType = m["senderType"].string
-                            val senderId = m["senderId"].string
-                            val isMe = isOwnChatMessage(senderId, sType, currentUserId, viewerIsCustomer = !isStaff, viewerIsParticipant = viewerIsParticipant, userPhone = myPhone)
-                            val timeStr = formatChatTime(m["createdAt"].string)
-                            val cards = parseChatPropertyCards(m["metadata"])
-                            val transMap = mutableMapOf<String, String>()
-                            (m["translations"].element as? kotlinx.serialization.json.JsonObject)?.forEach { (k, v) ->
-                                transMap[k] = (v as? kotlinx.serialization.json.JsonPrimitive)?.content ?: ""
-                            }
-                            messages.add(
-                                ChatMessage(
-                                    id = m.id,
-                                    senderId = m["senderId"].string,
-                                    senderName = if (isMe && viewerIsParticipant) "Tôi" else (if (sType == "bot") "Trợ lý AI FUTA Land" else if (sType == "staff") "Tư vấn viên" else "Khách hàng"),
-                                    content = m["content"].string,
-                                    isMe = isMe,
-                                    time = timeStr,
-                                    propertyCard = cards.firstOrNull(),
-                                    propertyCards = cards,
-                                    createdAt = m["createdAt"].string,
-                                    readAt = m["readAt"].string,
-                                    detectedLanguage = m["detectedLanguage"].string,
-                                    translations = transMap
-                                )
-                            )
-                        }
+                        messages.addAll(msgList.sortedBy { it["createdAt"].string }.map { mapServerMessage(it) })
+                        // Persist the read state server-side too (iOS markRead), not only over the socket.
+                        try {
+                            APIClient.get().request("/chat/conversations/$convId/read", method = "PATCH")
+                        } catch (_: Exception) {}
                     } catch (_: Exception) {}
                 }
             }
@@ -920,7 +955,8 @@ fun ChatScreen(
                         createdAt = jsonMsg["createdAt"].string,
                         readAt = jsonMsg["readAt"].string,
                         detectedLanguage = jsonMsg["detectedLanguage"].string,
-                        translations = transMap
+                        translations = transMap,
+                        imageUrl = jsonMsg["metadata"]["imageUrl"].string
                     )
                     mergeIncomingChatMessage(messages, newMsg)
                     val isBot = jsonMsg["senderType"].string == "bot"
@@ -969,6 +1005,58 @@ fun ChatScreen(
                 ChatWebSocketManager.shared.onMessageTranslated = null
             }
         }
+
+        val chatContext = androidx.compose.ui.platform.LocalContext.current
+        var uploadingAttachment by remember { mutableStateOf(false) }
+
+        /** iOS uploadAndSendPhoto: POST /upload/document, then a "[Hình ảnh]" message with metadata.imageUrl. */
+        fun sendPhoto(uri: android.net.Uri) {
+            scope.launch {
+                uploadingAttachment = true
+                try {
+                    val resolver = chatContext.contentResolver
+                    val mime = resolver.getType(uri)?.takeIf { it.startsWith("image/") } ?: "image/jpeg"
+                    val bytes = resolver.openInputStream(uri)?.use { it.readBytes() } ?: throw IllegalStateException(tr("Không đọc được ảnh"))
+                    val ext = when (mime) { "image/png" -> "png"; "image/webp" -> "webp"; else -> "jpg" }
+                    val uploadRes = APIClient.get().upload(
+                        data = bytes,
+                        filename = "chat-${java.util.UUID.randomUUID()}.$ext",
+                        mimeType = mime,
+                        path = "/upload/document",
+                        field = "document"
+                    )
+                    val url = uploadRes["data"]["url"].string.ifEmpty { uploadRes["url"].string }
+                    if (url.isEmpty()) throw IllegalStateException(tr("Không tải được ảnh lên"))
+
+                    var targetConvId = activeConversationId ?: "ai_agent"
+                    if (targetConvId == "ai_agent") {
+                        val createRes = APIClient.get().request("/chat/conversations", method = "POST", bodyJson = conversationBody())
+                        val newConv = createRes["data"]
+                        if (newConv.id.isNotEmpty()) {
+                            targetConvId = newConv.id
+                            activeConversationId = newConv.id
+                            ChatWebSocketManager.shared.join(newConv.id)
+                        }
+                    }
+                    val body = buildJsonObject {
+                        put("content", "[Hình ảnh]")
+                        putJsonObject("metadata") { put("imageUrl", url) }
+                    }.toString()
+                    val res = APIClient.get().request("/chat/conversations/$targetConvId/messages", method = "POST", bodyJson = body)
+                    val saved = res["data"]
+                    if (saved.id.isNotEmpty() && messages.none { it.id == saved.id }) {
+                        messages.add(mapServerMessage(saved).copy(isMe = true, senderName = "Tôi", imageUrl = url))
+                    }
+                } catch (e: Exception) {
+                    ToastCenter.show(tr("Lỗi gửi ảnh: {0}", e.message.orEmpty()), isError = true)
+                } finally {
+                    uploadingAttachment = false
+                }
+            }
+        }
+        val photoPicker = androidx.activity.compose.rememberLauncherForActivityResult(
+            androidx.activity.result.contract.ActivityResultContracts.GetContent()
+        ) { uri -> if (uri != null) sendPhoto(uri) }
 
         fun sendMessage(customText: String? = null) {
             val textToSend = (customText ?: messageText).trim()
@@ -1023,7 +1111,8 @@ fun ChatScreen(
                                             isMe = false,
                                             time = formatChatTime(newBot["createdAt"].string),
                                             propertyCard = cards.firstOrNull(),
-                                            propertyCards = cards
+                                            propertyCards = cards,
+                                            imageUrl = newBot["metadata"]["imageUrl"].string
                                         )
                                         mergeIncomingChatMessage(messages, botMsg)
                                         isAiThinking = false
@@ -1055,11 +1144,10 @@ fun ChatScreen(
                     }
                     // 2. Post via REST like the web — the socket echo replaces
                     // the optimistic bubble when it arrives.
-                    val escaped = textToSend.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n")
                     val res = APIClient.get().request(
                         "/chat/conversations/$targetConvId/messages",
                         method = "POST",
-                        bodyJson = "{\"content\":\"$escaped\"}"
+                        bodyJson = buildJsonObject { put("content", textToSend) }.toString()
                     )
                     val saved = res["data"]
                     if (!saved.id.isEmpty()) {
@@ -1297,10 +1385,14 @@ fun ChatScreen(
                                 color = Color(0xFFF1F5F9),
                                 modifier = Modifier
                                     .size(38.dp)
-                                    .clickable { ToastCenter.show("Tính năng gửi tệp/hình ảnh") }
+                                    .clickable(enabled = !uploadingAttachment) { photoPicker.launch("image/*") }
                             ) {
                                 Box(contentAlignment = Alignment.Center) {
-                                    Icon(Icons.Default.Add, "Đính kèm", tint = FutaColors.BrandGreen, modifier = Modifier.size(20.dp))
+                                    if (uploadingAttachment) {
+                                        CircularProgressIndicator(color = FutaColors.BrandGreen, strokeWidth = 2.dp, modifier = Modifier.size(18.dp))
+                                    } else {
+                                        Icon(Icons.Default.Add, tr("Đính kèm"), tint = FutaColors.BrandGreen, modifier = Modifier.size(20.dp))
+                                    }
                                 }
                             }
                             Spacer(Modifier.width(8.dp))
@@ -1352,6 +1444,25 @@ fun ChatScreen(
                 // group-aware padding so consecutive same-sender bubbles merge.
                 verticalArrangement = Arrangement.spacedBy(0.dp)
             ) {
+                if (!messagesCursor.isNullOrEmpty() && messages.isNotEmpty()) {
+                    item(key = "load_older_messages") {
+                        Box(modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp), contentAlignment = Alignment.Center) {
+                            Surface(
+                                shape = CircleShape,
+                                color = Color(0xFFF1F5F9),
+                                modifier = Modifier.clickable(enabled = !loadingOlder) { loadOlderMessages() }
+                            ) {
+                                Text(
+                                    if (loadingOlder) "Đang tải…" else "Tải tin nhắn cũ hơn",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = FutaColors.BrandGreen,
+                                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp)
+                                )
+                            }
+                        }
+                    }
+                }
                 if (messages.isEmpty() && !isStaff && isCurrentConversationAi) {
                     val activeConv = conversations.find { it.id == activeConversationId }
                     val contextProjectName = activeConv?.contextProjectName.orEmpty()
@@ -1527,9 +1638,9 @@ private fun AiAssistantWelcomeCard(
     val suggestions = buildList {
         if (contextProjectName.isNotEmpty()) {
             if (contextCode.isNotEmpty()) {
-                add("Căn $contextCode thuộc $contextProjectName còn chính sách ưu đãi nào?")
+                add(tr("Căn {0} thuộc {1} còn chính sách ưu đãi nào?", contextCode, contextProjectName))
             }
-            add("$contextProjectName còn những căn nào đang mở bán?")
+            add(tr("{0} còn những căn nào đang mở bán?", contextProjectName))
         } else {
             add("Những dự án nào đang mở bán tại Đà Nẵng?")
         }
@@ -1557,8 +1668,8 @@ private fun AiAssistantWelcomeCard(
             Spacer(Modifier.height(8.dp))
             Text(
                 text = when {
-                    contextCode.isNotEmpty() -> "Trợ lý AI FUTA Land đang hỗ trợ căn $contextCode"
-                    contextProjectName.isNotEmpty() -> "Trợ lý AI FUTA Land đang hỗ trợ dự án $contextProjectName"
+                    contextCode.isNotEmpty() -> tr("Trợ lý AI FUTA Land đang hỗ trợ căn {0}", contextCode)
+                    contextProjectName.isNotEmpty() -> tr("Trợ lý AI FUTA Land đang hỗ trợ dự án {0}", contextProjectName)
                     else -> "Bạn đang trò chuyện với Trợ lý AI FUTA Land"
                 },
                 fontSize = 14.sp,
@@ -1569,7 +1680,7 @@ private fun AiAssistantWelcomeCard(
             Spacer(Modifier.height(4.dp))
             Text(
                 text = if (contextProjectName.isNotEmpty()) {
-                    "Trợ lý AI sẵn sàng giải đáp 24/7 về $contextProjectName: bảng hàng, tiến độ mở bán, chính sách ưu đãi và dòng tiền."
+                    tr("Trợ lý AI sẵn sàng giải đáp 24/7 về {0}: bảng hàng, tiến độ mở bán, chính sách ưu đãi và dòng tiền.", contextProjectName)
                 } else {
                     "Trợ lý AI sẵn sàng giải đáp 24/7 về thông tin dự án, tiến độ mở bán và chính sách căn hộ."
                 },
@@ -1960,7 +2071,8 @@ private fun GuestAdvisorChatView(
             propertyCard = cards.firstOrNull(),
             propertyCards = cards,
             createdAt = m["createdAt"].string,
-            readAt = m["readAt"].string
+            readAt = m["readAt"].string,
+            imageUrl = m["metadata"]["imageUrl"].string
         )
     }
 
@@ -2071,7 +2183,7 @@ private fun GuestAdvisorChatView(
             } catch (e: Exception) {
                 val localIndex = messages.indexOfFirst { it.id == localId }
                 if (localIndex >= 0) messages[localIndex] = messages[localIndex].copy(pending = false, failed = true)
-                ToastCenter.show("Lỗi gửi tin nhắn: ${e.message.orEmpty()}", isError = true)
+                ToastCenter.show(tr("Lỗi gửi tin nhắn: {0}", e.message.orEmpty()), isError = true)
             } finally {
                 sending = false
             }
@@ -2227,7 +2339,7 @@ private fun GuestAdvisorChatView(
                 }
                 Spacer(Modifier.height(8.dp))
                 Text(
-                    "Trò chuyện với $displayName",
+                    tr("Trò chuyện với {0}", displayName),
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Bold,
                     color = FutaColors.Navy,
@@ -2336,7 +2448,7 @@ private fun GuestAdvisorChatView(
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
                             Text(
-                                "Bạn đang trò chuyện với $displayName",
+                                tr("Bạn đang trò chuyện với {0}", displayName),
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = FutaColors.Navy,
@@ -2521,7 +2633,7 @@ private fun MessageBubble(
 
                     val cards = msg.propertyCards.ifEmpty { listOfNotNull(msg.propertyCard) }
                     for (card in cards) {
-                        val title = card["title"].string.ifEmpty { "Căn hộ ${card["propertyCode"].string}" }
+                        val title = card["title"].string.ifEmpty { tr("Căn hộ {0}", card["propertyCode"].string) }
                         val projectName = card["zone"].string
                         val price = card["price"].double
                         val imgUrl = PropertyFormatters.resolveImageUrl(card["imageUrl"].string)
@@ -2609,12 +2721,36 @@ private fun MessageBubble(
                         }
                     }
 
-                    Text(
-                        text = parseMarkdownToAnnotatedString(msg.content),
-                        fontSize = 13.5.sp,
-                        color = if (msg.isMe) Color.White else FutaColors.Navy,
-                        lineHeight = 20.sp
-                    )
+                    if (msg.imageUrl.isNotEmpty()) {
+                        val context = androidx.compose.ui.platform.LocalContext.current
+                        val resolvedImage = PropertyFormatters.resolveImageUrl(msg.imageUrl).ifEmpty { msg.imageUrl }
+                        AsyncImage(
+                            model = resolvedImage,
+                            contentDescription = tr("Hình ảnh"),
+                            contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                            modifier = Modifier
+                                .widthIn(max = 240.dp)
+                                .fillMaxWidth()
+                                .height(160.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                                .clickable {
+                                    try {
+                                        context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(resolvedImage)))
+                                    } catch (_: Exception) {}
+                                }
+                        )
+                        Spacer(Modifier.height(6.dp))
+                    }
+
+                    // "[Hình ảnh]" is only the placeholder text of a photo message.
+                    if (msg.content.isNotEmpty() && !(msg.imageUrl.isNotEmpty() && msg.content == "[Hình ảnh]")) {
+                        Text(
+                            text = parseMarkdownToAnnotatedString(msg.content),
+                            fontSize = 13.5.sp,
+                            color = if (msg.isMe) Color.White else FutaColors.Navy,
+                            lineHeight = 20.sp
+                        )
+                    }
 
                     Spacer(Modifier.height(3.dp))
                     Row(

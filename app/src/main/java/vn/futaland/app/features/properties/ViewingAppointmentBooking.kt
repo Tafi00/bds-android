@@ -1,5 +1,7 @@
 package vn.futaland.app.features.properties
 
+import vn.futaland.app.core.i18n.tr
+import vn.futaland.app.core.i18n.Text
 import android.app.DatePickerDialog
 import android.app.TimePickerDialog
 import androidx.compose.foundation.layout.*
@@ -45,8 +47,8 @@ fun ViewingAppointmentBooking(
             Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedTextField(name, { name = it }, label = { Text("Họ và tên") }, singleLine = true)
                 OutlinedTextField(phone, { phone = it }, label = { Text("Số điện thoại") }, singleLine = true)
-                if (projectName.isNotBlank()) Text("Dự án: $projectName")
-                if (advisorName.isNotBlank()) Text("Tư vấn viên: $advisorName")
+                if (projectName.isNotBlank()) Text(tr("Dự án: {0}", projectName))
+                if (advisorName.isNotBlank()) Text(tr("Tư vấn viên: {0}", advisorName))
                 OutlinedButton(onClick = {
                     val initial = Calendar.getInstance().apply { add(Calendar.DAY_OF_MONTH, 1) }
                     DatePickerDialog(context, { _, year, month, day ->

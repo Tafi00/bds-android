@@ -1,5 +1,7 @@
 package vn.futaland.app.core.update
 
+import vn.futaland.app.core.i18n.tr
+import vn.futaland.app.core.i18n.Text
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
@@ -14,7 +16,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -106,7 +107,7 @@ fun AppUpdateDialog(
                     if (installedVersionName.isNotBlank()) {
                         Spacer(Modifier.height(2.dp))
                         Text(
-                            text = "Đang dùng phiên bản $installedVersionName",
+                            text = tr("Đang dùng phiên bản {0}", installedVersionName),
                             fontSize = 14.sp,
                             color = FutaColors.Slate,
                             textAlign = TextAlign.Center

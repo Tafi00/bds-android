@@ -1,5 +1,6 @@
 package vn.futaland.app.core.network
 
+import vn.futaland.app.core.i18n.tr
 import android.content.Context
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
@@ -37,6 +38,17 @@ class APIClient private constructor(context: Context) {
         }
 
         val apiBaseUrl = "https://bds.futaland.vn/api"
+
+        /** ws(s):// URL for a root service such as `/ws/chat`, derived from [apiBaseUrl] (iOS webSocketURL). */
+        fun webSocketUrl(path: String): String {
+            val root = apiBaseUrl.removeSuffix("/").removeSuffix("/api")
+            val wsRoot = when {
+                root.startsWith("https://") -> "wss://" + root.removePrefix("https://")
+                root.startsWith("http://") -> "ws://" + root.removePrefix("http://")
+                else -> root
+            }
+            return wsRoot + (if (path.startsWith("/")) path else "/$path")
+        }
         val publicWebUrl = "https://bds.futaland.vn"
 
         // Public legal pages. These must stay reachable: Google Play rejects the
@@ -77,7 +89,9 @@ class APIClient private constructor(context: Context) {
             requestBuilder.addHeader("Authorization", "Bearer $token")
         }
 
-        val requestBody = bodyJson?.toRequestBody("application/json; charset=utf-8".toMediaType())
+        // OkHttp rejects POST/PUT/PATCH without a body: send an empty JSON object for bodiless actions.
+        val payload = bodyJson ?: if (method.uppercase() in setOf("POST", "PUT", "PATCH")) "{}" else null
+        val requestBody = payload?.toRequestBody("application/json; charset=utf-8".toMediaType())
         requestBuilder.method(method, requestBody)
 
         val wasAuthenticated = bearerToken == null && effectiveToken != null
@@ -116,7 +130,10 @@ class APIClient private constructor(context: Context) {
         val parsed = runCatching { JSONValue.parse(respBody) }.getOrNull()
         val message = parsed?.get("error")?.get("message")?.string?.takeIf { it.isNotBlank() }
             ?: parsed?.get("message")?.string?.takeIf { it.isNotBlank() }
-        return message ?: "Lỗi HTTP $code"
+            // The messaging module (/zalo/*) answers `{error: "text"}`, or plain text for Hono HTTPExceptions.
+            ?: parsed?.get("error")?.string?.takeIf { it.isNotBlank() }
+            ?: respBody.trim().takeIf { parsed?.isNull != false && it.isNotEmpty() && it.length <= 200 && !it.startsWith("<") }
+        return message ?: tr("Lỗi HTTP {0}", code)
     }
 
     suspend fun upload(

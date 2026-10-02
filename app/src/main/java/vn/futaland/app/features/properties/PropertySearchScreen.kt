@@ -1,5 +1,11 @@
 package vn.futaland.app.features.properties
 
+import vn.futaland.app.core.i18n.LocalizedDirection
+import vn.futaland.app.core.i18n.Text
+import vn.futaland.app.core.i18n.tr
+import vn.futaland.app.core.i18n.LocalizedPrice
+import vn.futaland.app.core.i18n.I18n
+import vn.futaland.app.core.i18n.AppLanguage
 import android.app.Activity
 import android.content.Intent
 import android.net.Uri
@@ -60,14 +66,42 @@ fun PropertySearchScreen(
     var minArea by remember { mutableStateOf("") }
     var maxArea by remember { mutableStateOf("") }
 
+    // Voice search (iOS VoiceSearch): speech → /speech/parse-filters (local fallback) → review → apply.
+    var voiceTranscript by remember { mutableStateOf<String?>(null) }
+    var voiceParsed by remember { mutableStateOf<ParsedVoiceFilters?>(null) }
+    var voiceParsing by remember { mutableStateOf(false) }
+
+    fun parseVoice(text: String) {
+        voiceTranscript = text
+        voiceParsed = null
+        voiceParsing = true
+        scope.launch {
+            voiceParsed = parseVoiceFilters(text)
+            voiceParsing = false
+        }
+    }
+
     val speechLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
     ) { result ->
         if (result.resultCode == Activity.RESULT_OK) {
             val spoken = result.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)?.firstOrNull()
             if (!spoken.isNullOrBlank()) {
-                keyword = spoken
+                parseVoice(spoken)
             }
+        }
+    }
+
+    fun startSpeech() {
+        val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE, "vi-VN")
+            putExtra(RecognizerIntent.EXTRA_PROMPT, tr("Tìm kiếm bất động sản FUTA Land..."))
+        }
+        try {
+            speechLauncher.launch(intent)
+        } catch (_: Exception) {
+            ToastCenter.show(tr("Thiết bị không hỗ trợ nhận diện giọng nói"), isError = true)
         }
     }
     var showFilterSheet by remember { mutableStateOf(false) }
@@ -253,18 +287,7 @@ fun PropertySearchScreen(
                                         tint = FutaColors.BrandGreen,
                                         modifier = Modifier
                                             .size(20.dp)
-                                            .clickable {
-                                                val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
-                                                    putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-                                                    putExtra(RecognizerIntent.EXTRA_LANGUAGE, "vi-VN")
-                                                    putExtra(RecognizerIntent.EXTRA_PROMPT, "Tìm kiếm bất động sản FUTA Land...")
-                                                }
-                                                try {
-                                                    speechLauncher.launch(intent)
-                                                } catch (_: Exception) {
-                                                    ToastCenter.show("Thiết bị không hỗ trợ nhận diện giọng nói", isError = true)
-                                                }
-                                            }
+                                            .clickable { startSpeech() }
                                     )
                                 }
                             },
@@ -432,15 +455,9 @@ fun PropertySearchScreen(
                     itemsIndexed(results, key = { idx, property -> (property.id.ifEmpty { "search" }) + "-$idx" }) { _, property ->
                         FutaPropertyCard(
                             property = property,
-                            isFavorited = false,
                             onFavoriteClick = {
                                 if (AppSession.shared.isAuthenticated) {
-                                    scope.launch {
-                                        try {
-                                            APIClient.get().request("/favorites/${property.id}", method = "POST")
-                                            ToastCenter.show("Đã cập nhật yêu thích")
-                                        } catch (_: Exception) {}
-                                    }
+                                    scope.launch { vn.futaland.app.core.auth.FavoritesStore.toggle(property.id) }
                                 } else {
                                     onNavigate(FutaDestinations.AUTH)
                                 }
@@ -456,7 +473,7 @@ fun PropertySearchScreen(
                                 context.startActivity(Intent.createChooser(sendIntent, "Chia sẻ sản phẩm"))
                             },
                             onCallClick = {
-                                val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:02363575757"))
+                                val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:0903715757"))
                                 context.startActivity(intent)
                             },
                             onChatClick = { onNavigate(FutaDestinations.INBOX) },
@@ -482,7 +499,7 @@ fun PropertySearchScreen(
                             )
 
                             Text(
-                                text = "Trang $page / $totalPages ($totalCount BĐS)",
+                                text = tr("Trang {0} / {1} ({2} BĐS)", page, totalPages, totalCount),
                                 fontSize = 12.sp,
                                 color = FutaColors.Slate,
                                 fontWeight = FontWeight.Medium
@@ -535,7 +552,7 @@ fun PropertySearchScreen(
                     modifier = Modifier.weight(1f)
                 )
                 FutaButton(
-                    text = if (totalCount > 0) "Xem $totalCount bất động sản" else "Áp dụng bộ lọc",
+                    text = if (totalCount > 0) tr("Xem {0} bất động sản", totalCount) else "Áp dụng bộ lọc",
                     variant = FutaButtonVariant.PRIMARY,
                     onClick = {
                         showFilterSheet = false
@@ -563,8 +580,8 @@ fun PropertySearchScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text("KHOẢNG GIÁ", fontSize = 11.5.sp, fontWeight = FontWeight.Bold, color = FutaColors.Slate)
-                val minLabel = if (priceSliderRange.start <= 0.1f) "0" else String.format(java.util.Locale.US, "%.1f", priceSliderRange.start) + " tỷ"
-                val maxLabel = if (priceSliderRange.endInclusive >= 19.9f) "Trên 20 tỷ" else String.format(java.util.Locale.US, "%.1f", priceSliderRange.endInclusive) + " tỷ"
+                val minLabel = if (priceSliderRange.start <= 0.1f) "0" else if (I18n.language != AppLanguage.VI) LocalizedPrice.compact(priceSliderRange.start * 1e9) else String.format(java.util.Locale.US, "%.1f", priceSliderRange.start) + tr(" tỷ")
+                val maxLabel = if (priceSliderRange.endInclusive >= 19.9f) tr("Trên 20 tỷ") else if (I18n.language != AppLanguage.VI) LocalizedPrice.compact(priceSliderRange.endInclusive * 1e9) else String.format(java.util.Locale.US, "%.1f", priceSliderRange.endInclusive) + tr(" tỷ")
                 Text("$minLabel - $maxLabel", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = FutaColors.BrandGreen)
             }
 
@@ -711,7 +728,7 @@ fun PropertySearchScreen(
             ) {
                 listOf("", "Đông", "Tây", "Nam", "Bắc", "Đông Nam", "Đông Bắc", "Tây Nam", "Tây Bắc").forEach { dir ->
                     val isSelected = direction == dir
-                    QuickChip(title = dir.ifEmpty { "Tất cả" }, isSelected = isSelected) {
+                    QuickChip(title = if (dir.isEmpty()) "Tất cả" else LocalizedDirection.name(dir), isSelected = isSelected) {
                         direction = if (isSelected && dir.isNotEmpty()) "" else dir
                     }
                 }
@@ -767,6 +784,38 @@ fun PropertySearchScreen(
 
             Spacer(Modifier.height(10.dp))
         }
+    }
+
+    voiceTranscript?.let { transcript ->
+        VoiceFilterReviewSheet(
+            parsing = voiceParsing,
+            parsed = voiceParsed,
+            transcript = transcript,
+            onReparse = { parseVoice(it) },
+            onApply = { parsed ->
+                // Reset first so stale criteria never contradict the spoken request (iOS applyVoiceFilters).
+                keyword = parsed.searchText.orEmpty()
+                listingType = "sell"
+                propertyType = parsed.propertyType.firstOrNull().orEmpty()
+                zone = ""
+                hasVideo = false
+                has360 = false
+                bedrooms = parsed.bedrooms.firstOrNull().orEmpty()
+                direction = parsed.direction.firstOrNull().orEmpty()
+                furniture = parsed.furniture.firstOrNull().orEmpty()
+                minPrice = parsed.priceMin?.toLong()?.toString().orEmpty()
+                maxPrice = parsed.priceMax?.toLong()?.toString().orEmpty()
+                minArea = parsed.areaMin?.toInt()?.toString().orEmpty()
+                maxArea = parsed.areaMax?.toInt()?.toString().orEmpty()
+                voiceTranscript = null
+                search(1)
+            },
+            onSpeakAgain = {
+                voiceTranscript = null
+                startSpeech()
+            },
+            onDismiss = { voiceTranscript = null }
+        )
     }
 }
 

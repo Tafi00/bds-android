@@ -1,0 +1,1364 @@
+{
+ "Lỗi HTTP {0}": {
+  "en": "HTTP error {0}",
+  "zh": "HTTP 错误 {0}",
+  "ru": "Ошибка HTTP {0}",
+  "ko": "HTTP 오류 {0}"
+ },
+ "Chưa cập nhật thông tin liên hệ": {
+  "en": "Contact info not updated yet",
+  "zh": "尚未更新联系信息",
+  "ru": "Контактная информация не указана",
+  "ko": "연락처 정보가 아직 업데이트되지 않았습니다"
+ },
+ "Không thể xóa tài khoản": {
+  "en": "Unable to delete account",
+  "zh": "无法删除账号",
+  "ru": "Не удалось удалить аккаунт",
+  "ko": "계정을 삭제할 수 없습니다"
+ },
+ "FUTA Land - Thành viên Tập đoàn FUTA (Phương Trang)": {
+  "en": "FUTA Land - Member of FUTA Group (Phuong Trang)",
+  "zh": "FUTA Land - FUTA 集团(芳庄)成员",
+  "ru": "FUTA Land - член группы FUTA (Phuong Trang)",
+  "ko": "FUTA Land - FUTA 그룹(Phuong Trang) 계열사"
+ },
+ "Tiên phong kiến tạo chuẩn mực bất động sản công nghệ, mang đến giải pháp giao dịch minh bạch, tiện lợi và an tâm tuyệt đối cho khách hàng và nhà đầu tư.": {
+  "en": "Pioneering the standard for tech-driven real estate, delivering transparent, convenient and fully secure transaction solutions for customers and investors.",
+  "zh": "引领科技地产新标准,为客户和投资者提供透明、便捷、绝对安心的交易解决方案。",
+  "ru": "Мы задаём стандарт технологичной недвижимости и предлагаем клиентам и инвесторам прозрачные, удобные и абсолютно надёжные решения для сделок.",
+  "ko": "테크 기반 부동산의 새로운 기준을 선도하며, 고객과 투자자에게 투명하고 편리하며 완벽히 안심할 수 있는 거래 솔루션을 제공합니다."
+ },
+ "Hotline: 0903 715 757\nĐịa chỉ: TP. Hồ Chí Minh & Đà Nẵng": {
+  "en": "Hotline: 0903 715 757\nAddress: Ho Chi Minh City & Da Nang",
+  "zh": "热线:0903 715 757\n地址:胡志明市和岘港",
+  "ru": "Горячая линия: 0903 715 757\nАдрес: Хошимин и Дананг",
+  "ko": "핫라인: 0903 715 757\n주소: 호치민시 & 다낭"
+ },
+ "Điều khoản & Quy chế": {
+  "en": "Terms & Regulations",
+  "zh": "条款与规章",
+  "ru": "Условия и регламент",
+  "ko": "약관 및 운영 규정"
+ },
+ "Đồng ý": {
+  "en": "Agree",
+  "zh": "同意",
+  "ru": "Согласен",
+  "ko": "동의"
+ },
+ "Quy chế hoạt động sàn TMĐT BĐS FUTA Land": {
+  "en": "FUTA Land Real Estate E-commerce Platform Operating Regulations",
+  "zh": "FUTA Land 房地产电商平台运营规章",
+  "ru": "Регламент работы платформы электронной торговли недвижимостью FUTA Land",
+  "ko": "FUTA Land 부동산 전자상거래 플랫폼 운영 규정"
+ },
+ "1. Mọi thông tin bất động sản, giá bán và tình trạng pháp lý được kiểm duyệt minh bạch trước khi niêm yết.\n2. Thông tin khách hàng và giao dịch được bảo mật tuyệt đối theo tiêu chuẩn an toàn dữ liệu.\n3. Thành viên tham gia tuân thủ đúng quy định pháp luật hiện hành và chính sách của FUTA Land.": {
+  "en": "1. All property information, prices and legal status are transparently reviewed before listing.\n2. Customer and transaction information is strictly protected under data security standards.\n3. Participating members must comply with current laws and FUTA Land policies.",
+  "zh": "1. 所有房产信息、售价和法律状况在上架前均经过透明审核。\n2. 客户和交易信息按数据安全标准严格保密。\n3. 参与成员须遵守现行法律法规及 FUTA Land 的政策。",
+  "ru": "1. Вся информация о недвижимости, цены и юридический статус проходят прозрачную проверку перед публикацией.\n2. Данные клиентов и сделок строго защищены в соответствии со стандартами безопасности данных.\n3. Участники обязаны соблюдать действующее законодательство и политику FUTA Land.",
+  "ko": "1. 모든 부동산 정보, 판매가 및 법적 상태는 등록 전에 투명하게 검수됩니다.\n2. 고객 및 거래 정보는 데이터 보안 기준에 따라 철저히 보호됩니다.\n3. 참여 회원은 현행 법규와 FUTA Land의 정책을 준수해야 합니다."
+ },
+ "Tên hiển thị (ví dụ: Provider chính)": {
+  "en": "Display name (e.g. Primary provider)",
+  "zh": "显示名称(例如:主要服务商)",
+  "ru": "Отображаемое имя (например: основной провайдер)",
+  "ko": "표시 이름 (예: 기본 공급자)"
+ },
+ "Mã Model (gpt-4o, qwen...)": {
+  "en": "Model ID (gpt-4o, qwen...)",
+  "zh": "模型代码(gpt-4o、qwen...)",
+  "ru": "ID модели (gpt-4o, qwen...)",
+  "ko": "모델 ID (gpt-4o, qwen...)"
+ },
+ "Để trống để giữ key ({0})": {
+  "en": "Leave blank to keep key ({0})",
+  "zh": "留空以保留密钥({0})",
+  "ru": "Оставьте пустым, чтобы сохранить ключ ({0})",
+  "ko": "비워 두면 키를 유지합니다 ({0})"
+ },
+ "Đang test...": {
+  "en": "Testing...",
+  "zh": "正在测试...",
+  "ru": "Проверка...",
+  "ko": "테스트 중..."
+ },
+ "Kết nối API thành công!": {
+  "en": "API connected successfully!",
+  "zh": "API 连接成功!",
+  "ru": "API успешно подключён!",
+  "ko": "API 연결 성공!"
+ },
+ "Lên": {
+  "en": "Up",
+  "zh": "上移",
+  "ru": "Вверх",
+  "ko": "위로"
+ },
+ "Xuống": {
+  "en": "Down",
+  "zh": "下移",
+  "ru": "Вниз",
+  "ko": "아래로"
+ },
+ "+ Thêm fallback provider": {
+  "en": "+ Add fallback provider",
+  "zh": "+ 添加备用服务商",
+  "ru": "+ Добавить резервного провайдера",
+  "ko": "+ 대체 공급자 추가"
+ },
+ "Cấu hình Provider": {
+  "en": "Provider Settings",
+  "zh": "服务商配置",
+  "ru": "Настройка провайдера",
+  "ko": "공급자 설정"
+ },
+ "Đã index lại toàn bộ tài liệu!": {
+  "en": "All documents re-indexed!",
+  "zh": "已重新索引全部文档!",
+  "ru": "Все документы переиндексированы!",
+  "ko": "모든 문서를 다시 인덱싱했습니다!"
+ },
+ "Nạp tài liệu mới để xây dựng kho RAG.": {
+  "en": "Upload new documents to build the RAG knowledge base.",
+  "zh": "上传新文档以构建 RAG 知识库。",
+  "ru": "Загрузите новые документы, чтобы создать базу знаний RAG.",
+  "ko": "새 문서를 업로드하여 RAG 지식 저장소를 구축하세요."
+ },
+ "Đã rollback về phiên bản này!": {
+  "en": "Rolled back to this version!",
+  "zh": "已回滚到此版本!",
+  "ru": "Выполнен откат к этой версии!",
+  "ko": "이 버전으로 롤백했습니다!"
+ },
+ "Đã lưu nháp phiên bản mới!": {
+  "en": "New version saved as draft!",
+  "zh": "新版本草稿已保存!",
+  "ru": "Черновик новой версии сохранён!",
+  "ko": "새 버전 초안을 저장했습니다!"
+ },
+ "Đã publish prompt thành công!": {
+  "en": "Prompt published successfully!",
+  "zh": "提示词发布成功!",
+  "ru": "Промпт успешно опубликован!",
+  "ko": "프롬프트를 게시했습니다!"
+ },
+ "Dùng câu hỏi này": {
+  "en": "Use this question",
+  "zh": "使用此问题",
+  "ru": "Использовать этот вопрос",
+  "ko": "이 질문 사용"
+ },
+ "Feedback sẽ được tự động ghi nhận từ phản hồi đánh giá của khách hàng.": {
+  "en": "Feedback is recorded automatically from customer ratings.",
+  "zh": "反馈将根据客户评价自动记录。",
+  "ru": "Обратная связь автоматически собирается из оценок клиентов.",
+  "ko": "피드백은 고객 평가 응답에서 자동으로 기록됩니다."
+ },
+ "Đưa vào RAG": {
+  "en": "Add to RAG",
+  "zh": "加入 RAG",
+  "ru": "Добавить в RAG",
+  "ko": "RAG에 추가"
+ },
+ "Đã đưa câu trả lời chuẩn vào FAQ/RAG!": {
+  "en": "Standard answer added to FAQ/RAG!",
+  "zh": "标准答案已加入 FAQ/RAG!",
+  "ru": "Эталонный ответ добавлен в FAQ/RAG!",
+  "ko": "표준 답변을 FAQ/RAG에 추가했습니다!"
+ },
+ "Chuyển sales": {
+  "en": "Hand over to sales",
+  "zh": "转交销售",
+  "ru": "Передать в продажи",
+  "ko": "영업팀으로 전달"
+ },
+ "Đã chuyển sales xử lý!": {
+  "en": "Handed over to sales!",
+  "zh": "已转交销售处理!",
+  "ru": "Передано отделу продаж!",
+  "ko": "영업팀에 전달했습니다!"
+ },
+ "Nạp tài liệu mới vào RAG": {
+  "en": "Upload New Document to RAG",
+  "zh": "向 RAG 上传新文档",
+  "ru": "Загрузить новый документ в RAG",
+  "ko": "RAG에 새 문서 업로드"
+ },
+ "Nhập nội dung tài liệu...": {
+  "en": "Enter document content...",
+  "zh": "输入文档内容...",
+  "ru": "Введите содержимое документа...",
+  "ko": "문서 내용을 입력하세요..."
+ },
+ "Đang nạp...": {
+  "en": "Uploading...",
+  "zh": "正在上传...",
+  "ru": "Загрузка...",
+  "ko": "업로드 중..."
+ },
+ "Đã nạp và index tài liệu thành công!": {
+  "en": "Document uploaded and indexed successfully!",
+  "zh": "文档上传并索引成功!",
+  "ru": "Документ успешно загружен и проиндексирован!",
+  "ko": "문서를 업로드하고 인덱싱했습니다!"
+ },
+ "Provider chính": {
+  "en": "Primary provider",
+  "zh": "主要服务商",
+  "ru": "Основной провайдер",
+  "ko": "기본 공급자"
+ },
+ "Cấu hình API & Nhà cung cấp": {
+  "en": "API & Provider Settings",
+  "zh": "API 与服务商配置",
+  "ru": "Настройка API и провайдеров",
+  "ko": "API 및 공급자 설정"
+ },
+ "Danh sách nhà cung cấp (Thứ tự ưu tiên)": {
+  "en": "Provider list (priority order)",
+  "zh": "服务商列表(按优先级排序)",
+  "ru": "Список провайдеров (по приоритету)",
+  "ko": "공급자 목록 (우선순위 순)"
+ },
+ "Không tìm thấy hồ sơ đăng ký tư vấn viên cần duyệt.": {
+  "en": "No advisor applications pending review.",
+  "zh": "没有待审核的顾问注册资料。",
+  "ru": "Нет заявок консультантов на проверку.",
+  "ko": "검토할 상담사 등록 서류가 없습니다."
+ },
+ "Giới thiệu: {0}": {
+  "en": "Referred by: {0}",
+  "zh": "推荐人:{0}",
+  "ru": "Рекомендация: {0}",
+  "ko": "추천: {0}"
+ },
+ "Từ chối hồ sơ TVV": {
+  "en": "Reject Advisor Application",
+  "zh": "拒绝顾问资料",
+  "ru": "Отклонить заявку консультанта",
+  "ko": "상담사 서류 반려"
+ },
+ "Đã từ chối hồ sơ!": {
+  "en": "Application rejected!",
+  "zh": "已拒绝资料!",
+  "ru": "Заявка отклонена!",
+  "ko": "서류를 반려했습니다!"
+ },
+ "Nhập lý do từ chối...": {
+  "en": "Enter rejection reason...",
+  "zh": "输入拒绝原因...",
+  "ru": "Укажите причину отказа...",
+  "ko": "반려 사유를 입력하세요..."
+ },
+ "Tạo, sửa, xuất bản bài viết": {
+  "en": "Create, edit and publish articles",
+  "zh": "创建、编辑和发布文章",
+  "ru": "Создание, редактирование и публикация статей",
+  "ko": "게시글 작성, 수정, 게시"
+ },
+ "Hero banner, khối AI, popup, liên hệ": {
+  "en": "Hero banner, AI block, popup, contact",
+  "zh": "主横幅、AI 模块、弹窗、联系方式",
+  "ru": "Главный баннер, блок ИИ, всплывающее окно, контакты",
+  "ko": "히어로 배너, AI 블록, 팝업, 연락처"
+ },
+ "Quy chế hoạt động và các trang chính sách": {
+  "en": "Operating regulations and policy pages",
+  "zh": "运营规章和政策页面",
+  "ru": "Регламент работы и страницы политик",
+  "ko": "운영 규정 및 정책 페이지"
+ },
+ "Tỉnh thành, loại BĐS, phân khu, nhãn": {
+  "en": "Provinces/cities, property types, zones, labels",
+  "zh": "省市、房产类型、分区、标签",
+  "ru": "Города/провинции, типы недвижимости, зоны, метки",
+  "ko": "시/도, 부동산 유형, 구역, 라벨"
+ },
+ "Không thể tải bài viết": {
+  "en": "Unable to load articles",
+  "zh": "无法加载文章",
+  "ru": "Не удалось загрузить статьи",
+  "ko": "게시글을 불러올 수 없습니다"
+ },
+ "{0} bài viết": {
+  "en": "{0} articles",
+  "zh": "{0} 篇文章",
+  "ru": "Статей: {0}",
+  "ko": "게시글 {0}개"
+ },
+ "Bấm nút + để tạo bài viết đầu tiên.": {
+  "en": "Tap the + button to create your first article.",
+  "zh": "点击 + 按钮创建第一篇文章。",
+  "ru": "Нажмите +, чтобы создать первую статью.",
+  "ko": "+ 버튼을 눌러 첫 게시글을 작성하세요."
+ },
+ "Không thể xoá bài viết": {
+  "en": "Unable to delete article",
+  "zh": "无法删除文章",
+  "ru": "Не удалось удалить статью",
+  "ko": "게시글을 삭제할 수 없습니다"
+ },
+ "Cập nhật {0}": {
+  "en": "Updated {0}",
+  "zh": "更新于 {0}",
+  "ru": "Обновлено {0}",
+  "ko": "{0} 업데이트"
+ },
+ "Không thể lưu bài viết": {
+  "en": "Unable to save article",
+  "zh": "无法保存文章",
+  "ru": "Не удалось сохранить статью",
+  "ko": "게시글을 저장할 수 없습니다"
+ },
+ "Vui lòng tải lên ảnh bìa": {
+  "en": "Please upload a cover image",
+  "zh": "请上传封面图片",
+  "ru": "Загрузите обложку",
+  "ko": "커버 이미지를 업로드해 주세요"
+ },
+ "Ảnh đang được tải lên, vui lòng đợi": {
+  "en": "Image is uploading, please wait",
+  "zh": "图片正在上传,请稍候",
+  "ru": "Изображение загружается, подождите",
+  "ko": "이미지를 업로드 중입니다. 잠시만 기다려 주세요"
+ },
+ "Tác giả": {
+  "en": "Author",
+  "zh": "作者",
+  "ru": "Автор",
+  "ko": "작성자"
+ },
+ "Ngày xuất bản": {
+  "en": "Publish date",
+  "zh": "发布日期",
+  "ru": "Дата публикации",
+  "ko": "게시일"
+ },
+ "Đang xoá…": {
+  "en": "Deleting…",
+  "zh": "正在删除…",
+  "ru": "Удаление…",
+  "ko": "삭제 중…"
+ },
+ "Xuất bản bài viết?": {
+  "en": "Publish article?",
+  "zh": "发布文章?",
+  "ru": "Опубликовать статью?",
+  "ko": "게시글을 게시할까요?"
+ },
+ "Gỡ xuất bản bài viết?": {
+  "en": "Unpublish article?",
+  "zh": "取消发布文章?",
+  "ru": "Снять статью с публикации?",
+  "ko": "게시글 게시를 취소할까요?"
+ },
+ "Bài viết sẽ hiển thị công khai trên website và ứng dụng.": {
+  "en": "The article will be publicly visible on the website and app.",
+  "zh": "文章将在网站和应用中公开显示。",
+  "ru": "Статья будет публично отображаться на сайте и в приложении.",
+  "ko": "게시글이 웹사이트와 앱에 공개됩니다."
+ },
+ "Bài viết sẽ chuyển về bản nháp và không còn hiển thị công khai.": {
+  "en": "The article will revert to draft and will no longer be publicly visible.",
+  "zh": "文章将变回草稿,不再公开显示。",
+  "ru": "Статья вернётся в черновики и перестанет отображаться публично.",
+  "ko": "게시글이 초안으로 전환되며 더 이상 공개되지 않습니다."
+ },
+ "Gỡ xuất bản": {
+  "en": "Unpublish",
+  "zh": "取消发布",
+  "ru": "Снять с публикации",
+  "ko": "게시 취소"
+ },
+ "Vui lòng không để trống các trường đã có nội dung": {
+  "en": "Please don't leave fields that already have content empty",
+  "zh": "请勿清空已有内容的字段",
+  "ru": "Не оставляйте пустыми поля, в которых уже есть содержимое",
+  "ko": "내용이 있던 항목을 비워 두지 마세요"
+ },
+ "Liên kết phải là URL http(s) hoặc đường dẫn nội bộ": {
+  "en": "Link must be an http(s) URL or an internal path",
+  "zh": "链接必须是 http(s) URL 或站内路径",
+  "ru": "Ссылка должна быть URL http(s) или внутренним путём",
+  "ko": "링크는 http(s) URL 또는 내부 경로여야 합니다"
+ },
+ "Không thể lưu cài đặt": {
+  "en": "Unable to save settings",
+  "zh": "无法保存设置",
+  "ru": "Не удалось сохранить настройки",
+  "ko": "설정을 저장할 수 없습니다"
+ },
+ "Ảnh Hero Banner": {
+  "en": "Hero Banner Image",
+  "zh": "主横幅图片",
+  "ru": "Изображение главного баннера",
+  "ko": "히어로 배너 이미지"
+ },
+ "Ảnh khối AI": {
+  "en": "AI Block Image",
+  "zh": "AI 模块图片",
+  "ru": "Изображение блока ИИ",
+  "ko": "AI 블록 이미지"
+ },
+ "Dự án 1 - Ảnh banner": {
+  "en": "Project 1 - Banner image",
+  "zh": "项目 1 - 横幅图片",
+  "ru": "Проект 1 - изображение баннера",
+  "ko": "프로젝트 1 - 배너 이미지"
+ },
+ "Dự án 2 - Ảnh banner": {
+  "en": "Project 2 - Banner image",
+  "zh": "项目 2 - 横幅图片",
+  "ru": "Проект 2 - изображение баннера",
+  "ko": "프로젝트 2 - 배너 이미지"
+ },
+ "https://… hoặc /du-an/…": {
+  "en": "https://… or /du-an/…",
+  "zh": "https://… 或 /du-an/…",
+  "ru": "https://… или /du-an/…",
+  "ko": "https://… 또는 /du-an/…"
+ },
+ "Chưa cấu hình quy chế": {
+  "en": "Regulations not configured",
+  "zh": "尚未配置规章",
+  "ru": "Регламент не настроен",
+  "ko": "운영 규정이 설정되지 않았습니다"
+ },
+ "Phiên bản {0} • {1} điều": {
+  "en": "Version {0} • {1} articles",
+  "zh": "版本 {0} • {1} 条",
+  "ru": "Версия {0} • статей: {1}",
+  "ko": "버전 {0} • {1}개 조항"
+ },
+ "Tìm theo tên, đường dẫn…": {
+  "en": "Search by name or path…",
+  "zh": "按名称、路径搜索…",
+  "ru": "Поиск по названию или пути…",
+  "ko": "이름, 경로로 검색…"
+ },
+ "Bấm nút + để thêm trang chính sách.": {
+  "en": "Tap the + button to add a policy page.",
+  "zh": "点击 + 按钮添加政策页面。",
+  "ru": "Нажмите +, чтобы добавить страницу политики.",
+  "ko": "+ 버튼을 눌러 정책 페이지를 추가하세요."
+ },
+ "Truy cập công khai": {
+  "en": "Open public page",
+  "zh": "访问公开页面",
+  "ru": "Открыть публичную страницу",
+  "ko": "공개 페이지 열기"
+ },
+ "Xóa tài liệu?": {
+  "en": "Delete document?",
+  "zh": "删除文档?",
+  "ru": "Удалить документ?",
+  "ko": "문서를 삭제할까요?"
+ },
+ "Trang chính sách \"{0}\" sẽ bị gỡ khỏi website.": {
+  "en": "The policy page \"{0}\" will be removed from the website.",
+  "zh": "政策页面“{0}”将从网站移除。",
+  "ru": "Страница политики «{0}» будет удалена с сайта.",
+  "ko": "정책 페이지 \"{0}\"이(가) 웹사이트에서 제거됩니다."
+ },
+ "Không thể xóa tài liệu": {
+  "en": "Unable to delete document",
+  "zh": "无法删除文档",
+  "ru": "Не удалось удалить документ",
+  "ko": "문서를 삭제할 수 없습니다"
+ },
+ "Chính sách FUTA Land": {
+  "en": "FUTA Land Policy",
+  "zh": "FUTA Land 政策",
+  "ru": "Политика FUTA Land",
+  "ko": "FUTA Land 정책"
+ },
+ "Điều khoản chung": {
+  "en": "General Terms",
+  "zh": "通用条款",
+  "ru": "Общие условия",
+  "ko": "일반 약관"
+ },
+ "Vui lòng nhập tên tài liệu": {
+  "en": "Please enter the document name",
+  "zh": "请输入文档名称",
+  "ru": "Введите название документа",
+  "ko": "문서 이름을 입력해 주세요"
+ },
+ "Đường dẫn chỉ gồm chữ thường, số và dấu gạch ngang": {
+  "en": "Path may only contain lowercase letters, numbers and hyphens",
+  "zh": "路径只能包含小写字母、数字和连字符",
+  "ru": "Путь может содержать только строчные буквы, цифры и дефисы",
+  "ko": "경로에는 소문자, 숫자, 하이픈만 사용할 수 있습니다"
+ },
+ "Đường dẫn trang chính sách không được trùng nhau": {
+  "en": "Policy page paths must be unique",
+  "zh": "政策页面路径不能重复",
+  "ru": "Пути страниц политик не должны повторяться",
+  "ko": "정책 페이지 경로는 중복될 수 없습니다"
+ },
+ "Vui lòng nhập tiêu đề hiển thị": {
+  "en": "Please enter the display title",
+  "zh": "请输入显示标题",
+  "ru": "Введите отображаемый заголовок",
+  "ko": "표시 제목을 입력해 주세요"
+ },
+ "Cần ít nhất một điều khoản": {
+  "en": "At least one article is required",
+  "zh": "至少需要一条条款",
+  "ru": "Нужна хотя бы одна статья",
+  "ko": "조항이 최소 1개 필요합니다"
+ },
+ "Mỗi điều khoản cần có số thứ tự, tiêu đề và nội dung": {
+  "en": "Each article needs a number, title and content",
+  "zh": "每条条款都需要有序号、标题和内容",
+  "ru": "У каждой статьи должны быть номер, заголовок и текст",
+  "ko": "각 조항에는 번호, 제목, 내용이 필요합니다"
+ },
+ "Không thể lưu": {
+  "en": "Unable to save",
+  "zh": "无法保存",
+  "ru": "Не удалось сохранить",
+  "ko": "저장할 수 없습니다"
+ },
+ "Thêm tài liệu": {
+  "en": "Add Document",
+  "zh": "添加文档",
+  "ru": "Добавить документ",
+  "ko": "문서 추가"
+ },
+ "Nội dung trang": {
+  "en": "Page content",
+  "zh": "页面内容",
+  "ru": "Содержимое страницы",
+  "ko": "페이지 내용"
+ },
+ "Các điều khoản ({0})": {
+  "en": "Articles ({0})",
+  "zh": "条款({0})",
+  "ru": "Статьи ({0})",
+  "ko": "조항 ({0})"
+ },
+ "Điều {0}": {
+  "en": "Article {0}",
+  "zh": "第 {0} 条",
+  "ru": "Статья {0}",
+  "ko": "제{0}조"
+ },
+ "Tiêu đề điều khoản": {
+  "en": "Article title",
+  "zh": "条款标题",
+  "ru": "Заголовок статьи",
+  "ko": "조항 제목"
+ },
+ "Thêm điều khoản": {
+  "en": "Add article",
+  "zh": "添加条款",
+  "ru": "Добавить статью",
+  "ko": "조항 추가"
+ },
+ "Khối liên hệ": {
+  "en": "Contact block",
+  "zh": "联系模块",
+  "ru": "Блок контактов",
+  "ko": "연락처 블록"
+ },
+ "Tiêu đề liên hệ": {
+  "en": "Contact title",
+  "zh": "联系标题",
+  "ru": "Заголовок контактов",
+  "ko": "연락처 제목"
+ },
+ "Mô tả liên hệ": {
+  "en": "Contact description",
+  "zh": "联系说明",
+  "ru": "Описание контактов",
+  "ko": "연락처 설명"
+ },
+ "Nhãn nút liên hệ": {
+  "en": "Contact button label",
+  "zh": "联系按钮文字",
+  "ru": "Подпись кнопки контактов",
+  "ko": "연락처 버튼 문구"
+ },
+ "Xóa điều khoản?": {
+  "en": "Delete article?",
+  "zh": "删除条款?",
+  "ru": "Удалить статью?",
+  "ko": "조항을 삭제할까요?"
+ },
+ "Điều khoản sẽ bị xóa khỏi tài liệu khi bạn lưu.": {
+  "en": "The article will be removed from the document when you save.",
+  "zh": "保存后,该条款将从文档中删除。",
+  "ru": "Статья будет удалена из документа после сохранения.",
+  "ko": "저장하면 이 조항이 문서에서 삭제됩니다."
+ },
+ "Đánh dấu mới": {
+  "en": "Mark as new",
+  "zh": "标记为新",
+  "ru": "Пометить как новое",
+  "ko": "신규 표시"
+ },
+ "Thông thường": {
+  "en": "Regular",
+  "zh": "普通",
+  "ru": "Обычный",
+  "ko": "일반"
+ },
+ "Có địa chỉ": {
+  "en": "Has address",
+  "zh": "有地址",
+  "ru": "С адресом",
+  "ko": "주소 있음"
+ },
+ "Chưa có địa chỉ": {
+  "en": "No address",
+  "zh": "无地址",
+  "ru": "Без адреса",
+  "ko": "주소 없음"
+ },
+ "Tìm theo tên, mã…": {
+  "en": "Search by name or code…",
+  "zh": "按名称、代码搜索…",
+  "ru": "Поиск по названию или коду…",
+  "ko": "이름, 코드로 검색…"
+ },
+ "Xóa {0}?": {
+  "en": "Delete {0}?",
+  "zh": "删除 {0}?",
+  "ru": "Удалить {0}?",
+  "ko": "{0}을(를) 삭제할까요?"
+ },
+ "\"{0}\" sẽ bị xóa và gỡ khỏi các tin đăng đang dùng mục này.": {
+  "en": "\"{0}\" will be deleted and removed from listings using it.",
+  "zh": "“{0}”将被删除,并从使用该项的房源中移除。",
+  "ru": "«{0}» будет удалено и убрано из объявлений, где оно используется.",
+  "ko": "\"{0}\"이(가) 삭제되며, 이 항목을 사용하는 매물에서 제거됩니다."
+ },
+ "Đã xóa thành công": {
+  "en": "Deleted successfully",
+  "zh": "删除成功",
+  "ru": "Успешно удалено",
+  "ko": "삭제되었습니다"
+ },
+ "Không thể xóa": {
+  "en": "Unable to delete",
+  "zh": "无法删除",
+  "ru": "Не удалось удалить",
+  "ko": "삭제할 수 없습니다"
+ },
+ "Đã cập nhật thành công": {
+  "en": "Updated successfully",
+  "zh": "更新成功",
+  "ru": "Успешно обновлено",
+  "ko": "업데이트되었습니다"
+ },
+ "Đã thêm thành công": {
+  "en": "Added successfully",
+  "zh": "添加成功",
+  "ru": "Успешно добавлено",
+  "ko": "추가되었습니다"
+ },
+ "Vui lòng nhập tên hiển thị": {
+  "en": "Please enter a display name",
+  "zh": "请输入显示名称",
+  "ru": "Введите отображаемое имя",
+  "ko": "표시 이름을 입력해 주세요"
+ },
+ "Vui lòng nhập mã / giá trị": {
+  "en": "Please enter a code / value",
+  "zh": "请输入代码/值",
+  "ru": "Введите код / значение",
+  "ko": "코드/값을 입력해 주세요"
+ },
+ "Mã màu phải có dạng #RRGGBB": {
+  "en": "Color code must be in #RRGGBB format",
+  "zh": "颜色代码格式必须为 #RRGGBB",
+  "ru": "Код цвета должен быть в формате #RRGGBB",
+  "ko": "색상 코드는 #RRGGBB 형식이어야 합니다"
+ },
+ "Ví dụ: Hà Nội, Chung cư": {
+  "en": "E.g. Hanoi, Apartment",
+  "zh": "例如:河内、公寓",
+  "ru": "Например: Ханой, Квартира",
+  "ko": "예: 하노이, 아파트"
+ },
+ "Mã / Giá trị": {
+  "en": "Code / Value",
+  "zh": "代码/值",
+  "ru": "Код / значение",
+  "ko": "코드 / 값"
+ },
+ "Tự tạo theo tên nếu để trống": {
+  "en": "Auto-generated from the name if left blank",
+  "zh": "留空则根据名称自动生成",
+  "ru": "Если оставить пустым, создаётся автоматически по названию",
+  "ko": "비워 두면 이름에 따라 자동 생성됩니다"
+ },
+ "Ví dụ: ha-noi, apartment": {
+  "en": "E.g. ha-noi, apartment",
+  "zh": "例如:ha-noi、apartment",
+  "ru": "Например: ha-noi, apartment",
+  "ko": "예: ha-noi, apartment"
+ },
+ "Đổi mã sẽ cập nhật toàn bộ tin đăng đang dùng mã này.": {
+  "en": "Changing the code will update all listings using this code.",
+  "zh": "更改代码将更新所有使用该代码的房源。",
+  "ru": "Изменение кода обновит все объявления, использующие этот код.",
+  "ko": "코드를 변경하면 이 코드를 사용하는 모든 매물이 업데이트됩니다."
+ },
+ "Đánh dấu loại BĐS mới": {
+  "en": "Mark property type as new",
+  "zh": "将房产类型标记为新",
+  "ru": "Пометить тип недвижимости как новый",
+  "ko": "새 부동산 유형으로 표시"
+ },
+ "Xóa {0}": {
+  "en": "Delete {0}",
+  "zh": "删除 {0}",
+  "ru": "Удалить {0}",
+  "ko": "{0} 삭제"
+ },
+ "Mục này sẽ bị xóa và gỡ khỏi các tin đăng đang dùng.": {
+  "en": "This item will be deleted and removed from the listings using it.",
+  "zh": "此项将被删除,并从使用它的房源中移除。",
+  "ru": "Этот элемент будет удалён и убран из объявлений, где он используется.",
+  "ko": "이 항목이 삭제되며, 이를 사용하는 매물에서 제거됩니다."
+ },
+ "Đổi mã danh mục?": {
+  "en": "Change category code?",
+  "zh": "更改分类代码?",
+  "ru": "Изменить код категории?",
+  "ko": "카테고리 코드를 변경할까요?"
+ },
+ "Mã \"{0}\" sẽ đổi thành \"{1}\" trên toàn bộ tin đăng liên quan.": {
+  "en": "Code \"{0}\" will be changed to \"{1}\" across all related listings.",
+  "zh": "代码“{0}”将在所有相关房源中更改为“{1}”。",
+  "ru": "Код «{0}» будет заменён на «{1}» во всех связанных объявлениях.",
+  "ko": "관련된 모든 매물에서 코드 \"{0}\"이(가) \"{1}\"(으)로 변경됩니다."
+ },
+ "Đổi mã": {
+  "en": "Change code",
+  "zh": "更改代码",
+  "ru": "Изменить код",
+  "ko": "코드 변경"
+ },
+ "Mã: A → Z": {
+  "en": "Code: A → Z",
+  "zh": "代码:A → Z",
+  "ru": "Код: А → Я",
+  "ko": "코드: A → Z"
+ },
+ "Số tin: Nhiều nhất": {
+  "en": "Listings: Most",
+  "zh": "房源数:最多",
+  "ru": "Объявлений: больше всего",
+  "ko": "매물 수: 많은 순"
+ },
+ "Không lưu được": {
+  "en": "Unable to save",
+  "zh": "无法保存",
+  "ru": "Не удалось сохранить",
+  "ko": "저장할 수 없습니다"
+ },
+ "Ghi chú ({0})": {
+  "en": "Notes ({0})",
+  "zh": "备注({0})",
+  "ru": "Заметки ({0})",
+  "ko": "메모 ({0})"
+ },
+ "Đang xoá...": {
+  "en": "Deleting...",
+  "zh": "正在删除...",
+  "ru": "Удаление...",
+  "ko": "삭제 중..."
+ },
+ "Số điện thoại đã tồn tại": {
+  "en": "Phone number already exists",
+  "zh": "手机号已存在",
+  "ru": "Номер телефона уже существует",
+  "ko": "이미 등록된 전화번호입니다"
+ },
+ "Chuyển khách hàng sang \"{0}\"?": {
+  "en": "Move customer to \"{0}\"?",
+  "zh": "将客户转为“{0}”?",
+  "ru": "Перевести клиента в статус «{0}»?",
+  "ko": "고객을 \"{0}\"(으)로 변경할까요?"
+ },
+ "Trạng thái không hợp lệ": {
+  "en": "Invalid status",
+  "zh": "状态无效",
+  "ru": "Недопустимый статус",
+  "ko": "유효하지 않은 상태입니다"
+ },
+ "Đã cập nhật độ ưu tiên": {
+  "en": "Priority updated",
+  "zh": "已更新优先级",
+  "ru": "Приоритет обновлён",
+  "ko": "우선순위가 업데이트되었습니다"
+ },
+ "Thiếu tên hoặc số điện thoại": {
+  "en": "Missing name or phone number",
+  "zh": "缺少姓名或手机号",
+  "ru": "Не указано имя или номер телефона",
+  "ko": "이름 또는 전화번호가 없습니다"
+ },
+ "Đã cập nhật phân công": {
+  "en": "Assignment updated",
+  "zh": "已更新分配",
+  "ru": "Назначение обновлено",
+  "ko": "담당 배정이 업데이트되었습니다"
+ },
+ "Khách hàng này cùng ghi chú và lịch sử chăm sóc sẽ bị xoá vĩnh viễn.": {
+  "en": "This customer, along with notes and care history, will be permanently deleted.",
+  "zh": "该客户及其备注和跟进记录将被永久删除。",
+  "ru": "Этот клиент вместе с заметками и историей работы будет удалён безвозвратно.",
+  "ko": "이 고객과 메모, 관리 이력이 영구적으로 삭제됩니다."
+ },
+ "Không xoá được": {
+  "en": "Unable to delete",
+  "zh": "无法删除",
+  "ru": "Не удалось удалить",
+  "ko": "삭제할 수 없습니다"
+ },
+ "Tên khách hàng không được để trống": {
+  "en": "Customer name cannot be empty",
+  "zh": "客户姓名不能为空",
+  "ru": "Имя клиента не может быть пустым",
+  "ko": "고객 이름은 비워 둘 수 없습니다"
+ },
+ "Số điện thoại không được để trống": {
+  "en": "Phone number cannot be empty",
+  "zh": "手机号不能为空",
+  "ru": "Номер телефона не может быть пустым",
+  "ko": "전화번호는 비워 둘 수 없습니다"
+ },
+ "Họ và tên khách hàng": {
+  "en": "Customer full name",
+  "zh": "客户姓名",
+  "ru": "Полное имя клиента",
+  "ko": "고객 성명"
+ },
+ "Facebook, Zalo, giới thiệu...": {
+  "en": "Facebook, Zalo, referral...",
+  "zh": "Facebook、Zalo、推荐...",
+  "ru": "Facebook, Zalo, рекомендация...",
+  "ko": "Facebook, Zalo, 소개..."
+ },
+ "Ví dụ: 3 - 4 tỷ": {
+  "en": "E.g. 3 - 4 billion",
+  "zh": "例如:30亿-40亿",
+  "ru": "Например: 3 - 4 млрд",
+  "ko": "예: 30억 - 40억"
+ },
+ "Quận, dự án...": {
+  "en": "District, project...",
+  "zh": "区、项目...",
+  "ru": "Район, проект...",
+  "ko": "구, 프로젝트..."
+ },
+ "Tự động phân bổ theo nhóm": {
+  "en": "Auto-assign by group",
+  "zh": "按分组自动分配",
+  "ru": "Автоназначение по группе",
+  "ko": "그룹별 자동 배정"
+ },
+ "Đã thêm {0} khách hàng, bỏ qua {1}": {
+  "en": "Added {0} customers, skipped {1}",
+  "zh": "已添加 {0} 位客户,跳过 {1} 位",
+  "ru": "Добавлено клиентов: {0}, пропущено: {1}",
+  "ko": "고객 {0}명 추가, {1}명 건너뜀"
+ },
+ "Thêm {0} khách hàng": {
+  "en": "Add {0} customers",
+  "zh": "添加 {0} 位客户",
+  "ru": "Добавить клиентов: {0}",
+  "ko": "고객 {0}명 추가"
+ },
+ "Mỗi dòng một khách hàng: Họ tên, Số điện thoại, Nhu cầu, Ngân sách, Nguồn (phân cách bằng dấu phẩy hoặc tab). Có thể dán trực tiếp từ Excel.": {
+  "en": "One customer per line: Full name, Phone, Needs, Budget, Source (separated by commas or tabs). You can paste directly from Excel.",
+  "zh": "每行一位客户:姓名、手机号、需求、预算、来源(以逗号或制表符分隔)。可直接从 Excel 粘贴。",
+  "ru": "Один клиент на строку: ФИО, телефон, потребность, бюджет, источник (через запятую или табуляцию). Можно вставить напрямую из Excel.",
+  "ko": "한 줄에 고객 한 명: 성명, 전화번호, 요구사항, 예산, 유입 경로 (쉼표 또는 탭으로 구분). Excel에서 바로 붙여넣을 수 있습니다."
+ },
+ "Nguyễn Văn A, 0901234567, Căn 2PN, 3 tỷ, Facebook": {
+  "en": "Nguyễn Văn A, 0901234567, 2BR unit, 3 billion, Facebook",
+  "zh": "Nguyễn Văn A, 0901234567, 两居室, 30亿, Facebook",
+  "ru": "Nguyễn Văn A, 0901234567, 2-спальная квартира, 3 млрд, Facebook",
+  "ko": "Nguyễn Văn A, 0901234567, 2룸 세대, 30억, Facebook"
+ },
+ "{0} dòng hợp lệ": {
+  "en": "{0} valid rows",
+  "zh": "{0} 行有效",
+  "ru": "Корректных строк: {0}",
+  "ko": "유효한 행 {0}개"
+ },
+ "{0} dòng lỗi": {
+  "en": "{0} rows with errors",
+  "zh": "{0} 行有误",
+  "ru": "Строк с ошибками: {0}",
+  "ko": "오류 행 {0}개"
+ },
+ "và {0} khách hàng khác": {
+  "en": "and {0} more customers",
+  "zh": "以及另外 {0} 位客户",
+  "ru": "и ещё клиентов: {0}",
+  "ko": "외 고객 {0}명"
+ },
+ "Tên nhóm không được để trống": {
+  "en": "Group name cannot be empty",
+  "zh": "分组名称不能为空",
+  "ru": "Название группы не может быть пустым",
+  "ko": "그룹 이름은 비워 둘 수 없습니다"
+ },
+ "Tên nhóm khách hàng": {
+  "en": "Customer group name",
+  "zh": "客户分组名称",
+  "ru": "Название группы клиентов",
+  "ko": "고객 그룹 이름"
+ },
+ "Ví dụ: Khách quan tâm dự án A": {
+  "en": "E.g. Customers interested in Project A",
+  "zh": "例如:关注 A 项目的客户",
+  "ru": "Например: клиенты, интересующиеся проектом A",
+  "ko": "예: A 프로젝트에 관심 있는 고객"
+ },
+ "Màu nhận diện": {
+  "en": "Identity color",
+  "zh": "识别颜色",
+  "ru": "Цвет группы",
+  "ko": "식별 색상"
+ },
+ "Leads mới được giao tự động cho nhân sự trong nhóm theo chế độ đã chọn.": {
+  "en": "New leads are automatically assigned to group members according to the selected mode.",
+  "zh": "新线索将按所选模式自动分配给分组内成员。",
+  "ru": "Новые лиды автоматически назначаются сотрудникам группы в выбранном режиме.",
+  "ko": "신규 리드는 선택한 방식에 따라 그룹 내 직원에게 자동 배정됩니다."
+ },
+ "Nhân sự trong nhóm": {
+  "en": "Group members",
+  "zh": "分组成员",
+  "ru": "Сотрудники группы",
+  "ko": "그룹 구성원"
+ },
+ "Chưa chọn nhân sự": {
+  "en": "No members selected",
+  "zh": "未选择成员",
+  "ru": "Сотрудники не выбраны",
+  "ko": "선택된 구성원 없음"
+ },
+ "Tự động phân bổ lead mới": {
+  "en": "Auto-assign new leads",
+  "zh": "自动分配新线索",
+  "ru": "Автоназначение новых лидов",
+  "ko": "신규 리드 자동 배정"
+ },
+ "Nhân sự nhận leads": {
+  "en": "Members receiving leads",
+  "zh": "接收线索的成员",
+  "ru": "Сотрудники, получающие лиды",
+  "ko": "리드를 받을 구성원"
+ },
+ "Nhóm chưa có nhân sự. Hãy cấu hình nhóm trước khi phân bổ.": {
+  "en": "This group has no members. Configure the group before assigning.",
+  "zh": "该分组暂无成员。请先配置分组再进行分配。",
+  "ru": "В группе нет сотрудников. Настройте группу перед назначением.",
+  "ko": "그룹에 구성원이 없습니다. 배정하기 전에 그룹을 설정하세요."
+ },
+ "Toàn bộ leads trong nhóm sẽ được giao lại cho nhân sự.": {
+  "en": "All leads in the group will be reassigned to members.",
+  "zh": "分组内所有线索将重新分配给成员。",
+  "ru": "Все лиды группы будут переназначены сотрудникам.",
+  "ko": "그룹 내 모든 리드가 구성원에게 다시 배정됩니다."
+ },
+ "Các leads chưa giao sẽ được giao cho nhân sự trong nhóm.": {
+  "en": "Unassigned leads will be assigned to members of the group.",
+  "zh": "未分配的线索将分配给分组内成员。",
+  "ru": "Неназначенные лиды будут назначены сотрудникам группы.",
+  "ko": "배정되지 않은 리드가 그룹 구성원에게 배정됩니다."
+ },
+ "Không thực hiện được": {
+  "en": "Unable to complete action",
+  "zh": "无法执行",
+  "ru": "Не удалось выполнить действие",
+  "ko": "작업을 수행할 수 없습니다"
+ },
+ "Xoá khách hàng đã chọn?": {
+  "en": "Delete selected customers?",
+  "zh": "删除所选客户?",
+  "ru": "Удалить выбранных клиентов?",
+  "ko": "선택한 고객을 삭제할까요?"
+ },
+ "Xác nhận thao tác hàng loạt?": {
+  "en": "Confirm bulk action?",
+  "zh": "确认批量操作?",
+  "ru": "Подтвердить массовое действие?",
+  "ko": "일괄 작업을 확인하시겠습니까?"
+ },
+ "{0} khách hàng sẽ bị xoá vĩnh viễn.": {
+  "en": "{0} customers will be permanently deleted.",
+  "zh": "{0} 位客户将被永久删除。",
+  "ru": "Клиентов будет удалено безвозвратно: {0}.",
+  "ko": "고객 {0}명이 영구적으로 삭제됩니다."
+ },
+ "Giao {0} khách hàng cho nhân viên đã chọn?": {
+  "en": "Assign {0} customers to the selected staff member?",
+  "zh": "将 {0} 位客户分配给所选员工?",
+  "ru": "Назначить клиентов ({0}) выбранному сотруднику?",
+  "ko": "고객 {0}명을 선택한 직원에게 배정할까요?"
+ },
+ "Chuyển {0} khách hàng sang \"{1}\"?": {
+  "en": "Move {0} customers to \"{1}\"?",
+  "zh": "将 {0} 位客户转为“{1}”?",
+  "ru": "Перевести клиентов ({0}) в статус «{1}»?",
+  "ko": "고객 {0}명을 \"{1}\"(으)로 변경할까요?"
+ },
+ "Chưa có giai đoạn": {
+  "en": "No stages yet",
+  "zh": "暂无阶段",
+  "ru": "Этапов пока нет",
+  "ko": "단계가 없습니다"
+ },
+ "Thiết lập lại phễu theo chuẩn: Mới → Đã phân bổ → Đã liên hệ → Quan tâm → Đã hẹn xem → Đàm phán → Chốt / Rớt.": {
+  "en": "Reset the funnel to the standard: New → Assigned → Contacted → Interested → Viewing scheduled → Negotiating → Won / Lost.",
+  "zh": "将漏斗重置为标准流程:新建 → 已分配 → 已联系 → 有意向 → 已约看房 → 谈判中 → 成交 / 流失。",
+  "ru": "Сбросить воронку к стандартной: Новый → Назначен → Связались → Интерес → Назначен просмотр → Переговоры → Сделка / Потерян.",
+  "ko": "퍼널을 표준으로 재설정합니다: 신규 → 배정됨 → 연락함 → 관심 → 방문 예약 → 협상 → 성사 / 이탈."
+ },
+ "Khôi phục quy trình mặc định?": {
+  "en": "Restore default pipeline?",
+  "zh": "恢复默认流程?",
+  "ru": "Восстановить процесс по умолчанию?",
+  "ko": "기본 프로세스를 복원할까요?"
+ },
+ "Các giai đoạn tuỳ chỉnh sẽ được thay bằng phễu mặc định.": {
+  "en": "Custom stages will be replaced by the default funnel.",
+  "zh": "自定义阶段将被默认漏斗替换。",
+  "ru": "Пользовательские этапы будут заменены воронкой по умолчанию.",
+  "ko": "사용자 지정 단계가 기본 퍼널로 대체됩니다."
+ },
+ "Không nhập được dữ liệu": {
+  "en": "Unable to import data",
+  "zh": "无法导入数据",
+  "ru": "Не удалось импортировать данные",
+  "ko": "데이터를 가져올 수 없습니다"
+ },
+ "Nhóm nhập khẩu": {
+  "en": "Import group",
+  "zh": "导入分组",
+  "ru": "Группа импорта",
+  "ko": "가져오기 그룹"
+ },
+ "Nhóm khách hàng đồng bộ": {
+  "en": "Synced customer group",
+  "zh": "同步客户分组",
+  "ru": "Синхронизированная группа клиентов",
+  "ko": "동기화된 고객 그룹"
+ },
+ "Không tải được dữ liệu": {
+  "en": "Unable to load data",
+  "zh": "无法加载数据",
+  "ru": "Не удалось загрузить данные",
+  "ko": "데이터를 불러올 수 없습니다"
+ },
+ "Họ tên,Số điện thoại,Email,Nhu cầu,Nguồn,Trạng thái,Độ ưu tiên,Ngân sách,Khu vực,Phụ trách,Ngày tạo": {
+  "en": "Full name,Phone,Email,Needs,Source,Status,Priority,Budget,Area,Assignee,Created date",
+  "zh": "姓名,手机号,邮箱,需求,来源,状态,优先级,预算,区域,负责人,创建日期",
+  "ru": "ФИО,Телефон,Email,Потребность,Источник,Статус,Приоритет,Бюджет,Район,Ответственный,Дата создания",
+  "ko": "성명,전화번호,이메일,요구사항,유입 경로,상태,우선순위,예산,지역,담당자,생성일"
+ },
+ "Không có dữ liệu để xuất": {
+  "en": "No data to export",
+  "zh": "没有可导出的数据",
+  "ru": "Нет данных для экспорта",
+  "ko": "내보낼 데이터가 없습니다"
+ },
+ "Không xuất được dữ liệu": {
+  "en": "Unable to export data",
+  "zh": "无法导出数据",
+  "ru": "Не удалось экспортировать данные",
+  "ko": "데이터를 내보낼 수 없습니다"
+ },
+ "Thêm nhiều khách hàng": {
+  "en": "Add Multiple Customers",
+  "zh": "批量添加客户",
+  "ru": "Добавить нескольких клиентов",
+  "ko": "고객 여러 명 추가"
+ },
+ "Đang xuất...": {
+  "en": "Exporting...",
+  "zh": "正在导出...",
+  "ru": "Экспорт...",
+  "ko": "내보내는 중..."
+ },
+ "Ưu tiên: {0}": {
+  "en": "Priority: {0}",
+  "zh": "优先级:{0}",
+  "ru": "Приоритет: {0}",
+  "ko": "우선순위: {0}"
+ },
+ "Nguồn: {0}": {
+  "en": "Source: {0}",
+  "zh": "来源:{0}",
+  "ru": "Источник: {0}",
+  "ko": "유입 경로: {0}"
+ },
+ "Không tìm thấy khách hàng khớp với từ khoá hoặc bộ lọc hiện tại.": {
+  "en": "No customers match the current keyword or filters.",
+  "zh": "没有符合当前关键词或筛选条件的客户。",
+  "ru": "Нет клиентов, соответствующих текущему запросу или фильтрам.",
+  "ko": "현재 검색어 또는 필터와 일치하는 고객이 없습니다."
+ },
+ "Cân bằng theo khối lượng": {
+  "en": "Balance by workload",
+  "zh": "按工作量均衡",
+  "ru": "Баланс по нагрузке",
+  "ko": "업무량 기준 균형 배정"
+ },
+ "Một nhân sự phụ trách": {
+  "en": "Single assignee",
+  "zh": "单一负责人",
+  "ru": "Один ответственный",
+  "ko": "단일 담당자"
+ },
+ "Không xoá được nhóm": {
+  "en": "Unable to delete group",
+  "zh": "无法删除分组",
+  "ru": "Не удалось удалить группу",
+  "ko": "그룹을 삭제할 수 없습니다"
+ },
+ "Chưa có nhóm khách hàng": {
+  "en": "No customer groups yet",
+  "zh": "暂无客户分组",
+  "ru": "Групп клиентов пока нет",
+  "ko": "고객 그룹이 없습니다"
+ },
+ "Tạo nhóm để bắt đầu quản lý và phân bổ khách hàng tiềm năng.": {
+  "en": "Create a group to start managing and assigning potential customers.",
+  "zh": "创建分组以开始管理和分配潜在客户。",
+  "ru": "Создайте группу, чтобы начать управлять потенциальными клиентами и распределять их.",
+  "ko": "그룹을 만들어 잠재 고객을 관리하고 배정해 보세요."
+ },
+ "Mới tạo": {
+  "en": "Newest",
+  "zh": "最新创建",
+  "ru": "Новые",
+  "ko": "최신 생성순"
+ },
+ "Tên A-Z": {
+  "en": "Name A-Z",
+  "zh": "名称 A-Z",
+  "ru": "Название А-Я",
+  "ko": "이름 A-Z"
+ },
+ "Ưu tiên cao trước": {
+  "en": "High priority first",
+  "zh": "高优先级优先",
+  "ru": "Сначала высокий приоритет",
+  "ko": "높은 우선순위 먼저"
+ },
+ "Không cập nhật được": {
+  "en": "Unable to update",
+  "zh": "无法更新",
+  "ru": "Не удалось обновить",
+  "ko": "업데이트할 수 없습니다"
+ },
+ "Không thể tải chiến dịch": {
+  "en": "Unable to load campaigns",
+  "zh": "无法加载活动",
+  "ru": "Не удалось загрузить кампании",
+  "ko": "캠페인을 불러올 수 없습니다"
+ },
+ "Chưa có chiến dịch": {
+  "en": "No campaigns yet",
+  "zh": "暂无活动",
+  "ru": "Кампаний пока нет",
+  "ko": "캠페인이 없습니다"
+ },
+ "Chưa có chiến dịch bán hàng nào được tạo.": {
+  "en": "No sales campaigns have been created yet.",
+  "zh": "尚未创建任何销售活动。",
+  "ru": "Ни одной кампании продаж ещё не создано.",
+  "ko": "생성된 판매 캠페인이 없습니다."
+ },
+ "Hiển thị {0}–{1} / {2} chiến dịch": {
+  "en": "Showing {0}–{1} of {2} campaigns",
+  "zh": "显示第 {0}–{1} 个,共 {2} 个活动",
+  "ru": "Показано {0}–{1} из {2} кампаний",
+  "ko": "캠페인 {2}개 중 {0}–{1}번째 표시"
+ },
+ "Hình thức: {0}": {
+  "en": "Type: {0}",
+  "zh": "形式:{0}",
+  "ru": "Форма: {0}",
+  "ko": "형태: {0}"
+ },
+ "Chính sách ưu đãi dành cho khách hàng ({0})": {
+  "en": "Customer incentive policies ({0})",
+  "zh": "客户优惠政策({0})",
+  "ru": "Политики скидок для клиентов ({0})",
+  "ko": "고객 혜택 정책 ({0})"
+ },
+ "Chiết khấu phải từ 0 đến 100%": {
+  "en": "Discount must be between 0 and 100%",
+  "zh": "折扣必须在 0 到 100% 之间",
+  "ru": "Скидка должна быть от 0 до 100%",
+  "ko": "할인율은 0~100% 사이여야 합니다"
+ },
+ "Tỷ lệ hoa hồng phải từ 0 đến 100%": {
+  "en": "Commission rate must be between 0 and 100%",
+  "zh": "佣金比例必须在 0 到 100% 之间",
+  "ru": "Ставка комиссии должна быть от 0 до 100%",
+  "ko": "수수료율은 0~100% 사이여야 합니다"
+ },
+ "Thời hạn quyền bán phải từ 1 đến 365 ngày": {
+  "en": "Sales rights duration must be between 1 and 365 days",
+  "zh": "销售权期限必须在 1 到 365 天之间",
+  "ru": "Срок права продажи должен быть от 1 до 365 дней",
+  "ko": "판매권 기간은 1~365일 사이여야 합니다"
+ },
+ "Thời hạn quyền bán TVV (ngày)": {
+  "en": "Advisor sales rights duration (days)",
+  "zh": "顾问销售权期限(天)",
+  "ru": "Срок права продажи консультанта (дней)",
+  "ko": "상담사 판매권 기간 (일)"
+ },
+ "ƯU ĐÃI ĐẶC BIỆT": {
+  "en": "SPECIAL OFFER",
+  "zh": "特别优惠",
+  "ru": "СПЕЦИАЛЬНОЕ ПРЕДЛОЖЕНИЕ",
+  "ko": "특별 혜택"
+ },
+ "Không tìm thấy hợp đồng giao dịch nào phù hợp với bộ lọc.": {
+  "en": "No transaction contracts match the filters.",
+  "zh": "没有符合筛选条件的交易合同。",
+  "ru": "Нет договоров сделок, соответствующих фильтрам.",
+  "ko": "필터와 일치하는 거래 계약이 없습니다."
+ },
+ "Bộ lọc hợp đồng": {
+  "en": "Contract Filters",
+  "zh": "合同筛选",
+  "ru": "Фильтры договоров",
+  "ko": "계약 필터"
+ },
+ "Không ký được hợp đồng": {
+  "en": "Unable to sign contract",
+  "zh": "无法签署合同",
+  "ru": "Не удалось подписать договор",
+  "ko": "계약에 서명할 수 없습니다"
+ },
+ "HỢP ĐỒNG BẤT ĐỘNG SẢN FUTALAND": {
+  "en": "FUTALAND REAL ESTATE CONTRACT",
+  "zh": "FUTALAND 房地产合同",
+  "ru": "ДОГОВОР НА НЕДВИЖИМОСТЬ FUTALAND",
+  "ko": "FUTALAND 부동산 계약서"
+ },
+ "Mã căn hộ: {0}": {
+  "en": "Unit code: {0}",
+  "zh": "房号:{0}",
+  "ru": "Код квартиры: {0}",
+  "ko": "세대 코드: {0}"
+ },
+ "Khách hàng: {0}": {
+  "en": "Customer: {0}",
+  "zh": "客户:{0}",
+  "ru": "Клиент: {0}",
+  "ko": "고객: {0}"
+ },
+ "Số điện thoại: {0}": {
+  "en": "Phone: {0}",
+  "zh": "手机号:{0}",
+  "ru": "Телефон: {0}",
+  "ko": "전화번호: {0}"
+ },
+ "Giá trị: {0}": {
+  "en": "Value: {0}",
+  "zh": "价值:{0}",
+  "ru": "Стоимость: {0}",
+  "ko": "금액: {0}"
+ },
+ "Tiền cọc: {0}": {
+  "en": "Deposit: {0}",
+  "zh": "定金:{0}",
+  "ru": "Задаток: {0}",
+  "ko": "계약금: {0}"
+ },
+ "Tiền giữ chỗ: {0}": {
+  "en": "Holding fee: {0}",
+  "zh": "占位费:{0}",
+  "ru": "Бронь: {0}",
+  "ko": "예약금: {0}"
+ },
+ "Thời hạn: {0}": {
+  "en": "Term: {0}",
+  "zh": "期限:{0}",
+  "ru": "Срок: {0}",
+  "ko": "기간: {0}"
+ },
+ "Người tạo: {0}": {
+  "en": "Created by: {0}",
+  "zh": "创建人:{0}",
+  "ru": "Создал: {0}",
+  "ko": "작성자: {0}"
+ },
+ "Nhân sự cùng phụ trách": {
+  "en": "Co-assignees",
+  "zh": "共同负责人",
+  "ru": "Совместно ответственные",
+  "ko": "공동 담당자"
+ },
+ "Đổi trạng thái hợp đồng?": {
+  "en": "Change contract status?",
+  "zh": "更改合同状态?",
+  "ru": "Изменить статус договора?",
+  "ko": "계약 상태를 변경할까요?"
+ },
+ "Chuyển hợp đồng sang \"{0}\"?": {
+  "en": "Move contract to \"{0}\"?",
+  "zh": "将合同转为“{0}”?",
+  "ru": "Перевести договор в статус «{0}»?",
+  "ko": "계약을 \"{0}\"(으)로 변경할까요?"
+ },
+ "Hợp đồng sẽ bị xoá vĩnh viễn và không thể khôi phục.": {
+  "en": "The contract will be permanently deleted and cannot be recovered.",
+  "zh": "合同将被永久删除且无法恢复。",
+  "ru": "Договор будет удалён безвозвратно, восстановить его будет невозможно.",
+  "ko": "계약이 영구적으로 삭제되며 복구할 수 없습니다."
+ },
+ "1 năm": {
+  "en": "1 year",
+  "zh": "1 年",
+  "ru": "1 год",
+  "ko": "1년"
+ },
+ "Không tải được danh sách căn hộ": {
+  "en": "Unable to load apartment list",
+  "zh": "无法加载房源列表",
+  "ru": "Не удалось загрузить список квартир",
+  "ko": "세대 목록을 불러올 수 없습니다"
+ },
+ "Vui lòng nhập giá thuê / giá bán": {
+  "en": "Please enter the rental / sale price",
+  "zh": "请输入租金/售价",
+  "ru": "Введите цену аренды / продажи",
+  "ko": "임대가/판매가를 입력해 주세요"
+ },
+ "Thời hạn hợp đồng không được để trống": {
+  "en": "Contract term cannot be empty",
+  "zh": "合同期限不能为空",
+  "ru": "Срок договора не может быть пустым",
+  "ko": "계약 기간은 비워 둘 수 없습니다"
+ },
+ "SĐT khách hàng không được để trống": {
+  "en": "Customer phone number cannot be empty",
+  "zh": "客户手机号不能为空",
+  "ru": "Телефон клиента не может быть пустым",
+  "ko": "고객 전화번호는 비워 둘 수 없습니다"
+ },
+ "Ngày kết thúc phải sau ngày bắt đầu": {
+  "en": "End date must be after start date",
+  "zh": "结束日期必须晚于开始日期",
+  "ru": "Дата окончания должна быть позже даты начала",
+  "ko": "종료일은 시작일 이후여야 합니다"
+ }
+}

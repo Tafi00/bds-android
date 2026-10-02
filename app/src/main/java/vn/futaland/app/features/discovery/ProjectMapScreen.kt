@@ -1,5 +1,7 @@
 package vn.futaland.app.features.discovery
 
+import vn.futaland.app.core.i18n.tr
+import vn.futaland.app.core.i18n.Text
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -374,7 +376,7 @@ fun ProjectMapScreen(
                                 .background(FutaColors.BrandGreen)
                         )
                         Text(
-                            text = "${filteredPins.size} dự án",
+                            text = tr("{0} dự án", filteredPins.size),
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Bold,
                             color = Color(0xFF0F172A)
@@ -554,7 +556,7 @@ fun ProjectMapScreen(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Text(
-                                    text = "${pin.totalUnits} sản phẩm",
+                                    text = tr("{0} sản phẩm", pin.totalUnits),
                                     fontSize = 12.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = FutaColors.BrandGreen

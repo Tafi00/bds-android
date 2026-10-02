@@ -1,5 +1,7 @@
 package vn.futaland.app.features.properties
 
+import vn.futaland.app.core.i18n.tr
+import vn.futaland.app.core.i18n.Text
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.background
@@ -10,8 +12,10 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.FavoriteBorder
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import vn.futaland.app.core.auth.FavoritesStore
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -25,6 +29,7 @@ import vn.futaland.app.core.network.JSONValue
 import vn.futaland.app.designsystem.*
 import vn.futaland.app.navigation.FutaDestinations
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SavedPropertiesScreen(
     onNavigate: (String) -> Unit
@@ -33,29 +38,39 @@ fun SavedPropertiesScreen(
     val scope = rememberCoroutineScope()
     var items by remember { mutableStateOf<List<JSONValue>>(emptyList()) }
     var loading by remember { mutableStateOf(true) }
-    var selectedFolder by remember { mutableStateOf("all") }
+    var error by remember { mutableStateOf<String?>(null) }
+    var refreshing by remember { mutableStateOf(false) }
+    val favoriteIds by FavoritesStore.ids.collectAsState()
+
+    // iOS SavedPropertiesView: ids from the shared favorites store, then the
+    // property DTOs via /apartments?recordIds=… in the saved order.
     fun loadFavorites() {
         scope.launch {
             loading = true
+            error = null
             try {
-                val favRes = APIClient.get().request("/favorites")
-                val ids = favRes["data"].array.map { it.string }.filter { it.isNotEmpty() }
+                FavoritesStore.load(force = true)
+                val ids = FavoritesStore.ids.value.toList()
                 if (ids.isEmpty()) {
                     items = emptyList()
                 } else {
+                    val chunk = ids.take(200)
                     val propertiesRes = APIClient.get().request(
                         "/apartments",
                         query = mapOf(
-                            "ids" to ids.take(50).joinToString(","),
-                            "limit" to "50"
+                            "recordIds" to chunk.joinToString(","),
+                            "limit" to maxOf(24, chunk.size).toString()
                         )
                     )
-                    items = propertiesRes["data"].array
+                    val loaded = propertiesRes["data"].array
+                    items = chunk.mapNotNull { id -> loaded.firstOrNull { it["recordId"].string.ifEmpty { it.id } == id || it.id == id } }
                 }
-            } catch (_: Exception) {
+            } catch (e: Exception) {
                 items = emptyList()
+                error = e.message
             } finally {
                 loading = false
+                refreshing = false
             }
         }
     }
@@ -89,38 +104,11 @@ fun SavedPropertiesScreen(
                     )
                 }
 
-                // Folder Filter Chips
-                val folders = listOf(
-                    "all" to "Tất cả (${items.size})",
-                    "interested" to "Căn hộ quan tâm",
-                    "following" to "Đang theo dõi",
-                    "contacted" to "Đã liên hệ"
-                )
-                androidx.compose.foundation.lazy.LazyRow(
-                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    items(folders.size) { idx ->
-                        val (key, label) = folders[idx]
-                        val isSelected = selectedFolder == key
-                        Surface(
-                            shape = CircleShape,
-                            color = if (isSelected) FutaColors.BrandGreen else Color(0xFFF1F5F9),
-                            modifier = androidx.compose.ui.Modifier.clickable { selectedFolder = key }
-                        ) {
-                            Text(
-                                text = label,
-                                fontSize = 12.sp,
-                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                color = if (isSelected) Color.White else FutaColors.Navy,
-                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
-                            )
-                        }
-                    }
-                }
             }
         }
-        if (loading) {
+        // Unfavorited items disappear immediately (heart tapped here or on the detail page).
+        val visibleItems = items.filter { favoriteIds.contains(it["recordId"].string.ifEmpty { it.id }) || favoriteIds.contains(it.id) }
+        if (loading && items.isEmpty()) {
             Column(
                 modifier = Modifier.padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(14.dp)
@@ -129,28 +117,33 @@ fun SavedPropertiesScreen(
                     FutaPropertyCardSkeleton()
                 }
             }
-        } else if (items.isEmpty()) {
+        } else if (error != null && items.isEmpty()) {
+            FutaEmptyState(
+                title = "Không thể tải dữ liệu",
+                message = error ?: "",
+                actionButton = { FutaButton(text = "Thử lại", onClick = { loadFavorites() }, variant = FutaButtonVariant.OUTLINE) }
+            )
+        } else if (visibleItems.isEmpty()) {
             FutaEmptyState(
                 icon = Icons.Default.FavoriteBorder,
                 title = "Chưa có tin yêu thích",
                 message = "Nhấn vào biểu tượng trái tim ở các tin đăng để lưu lại tại đây."
             )
         } else {
+            PullToRefreshBox(
+                isRefreshing = refreshing,
+                onRefresh = { refreshing = true; loadFavorites() },
+                modifier = Modifier.fillMaxSize()
+            ) {
             LazyColumn(
                 contentPadding = PaddingValues(16.dp),
                 verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
-                itemsIndexed(items, key = { idx, property -> (property.id.ifEmpty { "fav" }) + "-$idx" }) { _, property ->
+                itemsIndexed(visibleItems, key = { idx, property -> (property.id.ifEmpty { "fav" }) + "-$idx" }) { _, property ->
                     FutaPropertyCard(
                         property = property,
-                        isFavorited = true,
                         onFavoriteClick = {
-                            scope.launch {
-                                try {
-                                    APIClient.get().request("/favorites/${property.id}", method = "POST")
-                                    loadFavorites()
-                                } catch (_: Exception) {}
-                            }
+                            scope.launch { FavoritesStore.toggle(property["recordId"].string.ifEmpty { property.id }) }
                         },
                         onShareClick = {
                             val shareUrl = PropertyFormatters.shareUrl(property)
@@ -163,13 +156,14 @@ fun SavedPropertiesScreen(
                             context.startActivity(Intent.createChooser(sendIntent, "Chia sẻ sản phẩm"))
                         },
                         onCallClick = {
-                            val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:02363575757"))
+                            val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:0903715757"))
                             context.startActivity(intent)
                         },
                         onChatClick = { onNavigate(FutaDestinations.INBOX) },
                         onClick = { onNavigate(FutaDestinations.propertyDetail(property.id)) }
                     )
                 }
+            }
             }
         }
     }

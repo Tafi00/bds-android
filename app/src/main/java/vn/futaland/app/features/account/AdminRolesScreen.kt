@@ -1,5 +1,7 @@
 package vn.futaland.app.features.account
 
+import vn.futaland.app.core.i18n.tr
+import vn.futaland.app.core.i18n.Text
 import androidx.compose.animation.*
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -22,6 +24,10 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 import vn.futaland.app.core.network.APIClient
 import vn.futaland.app.core.network.JSONValue
 import vn.futaland.app.designsystem.*
@@ -47,6 +53,9 @@ fun AdminRolesScreen(
     var isEditingRole by remember { mutableStateOf(false) }
     var editRoleName by remember { mutableStateOf("") }
     var editRoleDesc by remember { mutableStateOf("") }
+
+    var isDeletingRole by remember { mutableStateOf(false) }
+    var deleteBusy by remember { mutableStateOf(false) }
 
     // Expanded groups map
     val expandedGroups = remember { mutableStateMapOf<String, Boolean>() }
@@ -88,13 +97,14 @@ fun AdminRolesScreen(
         scope.launch {
             isSaving = true
             try {
-                val permsJson = selectedPermissions.sorted().joinToString(",") { "\"$it\"" }
-                val body = "{\"permissions\":[$permsJson]}"
+                val body = buildJsonObject {
+                    put("permissions", JsonArray(selectedPermissions.sorted().map { JsonPrimitive(it) }))
+                }.toString()
                 APIClient.get().request("/users/role-permissions/$selectedRoleCode", method = "PUT", bodyJson = body)
-                ToastCenter.show("Đã lưu phân quyền vai trò $selectedRoleCode thành công!")
+                ToastCenter.show(tr("Đã lưu phân quyền vai trò {0} thành công!", selectedRoleCode))
                 loadData()
             } catch (e: Exception) {
-                ToastCenter.show("Lỗi: ${e.message}", isError = true)
+                ToastCenter.show(tr("Lỗi: {0}", e.message), isError = true)
             } finally {
                 isSaving = false
             }
@@ -213,7 +223,7 @@ fun AdminRolesScreen(
                                                             overflow = TextOverflow.Ellipsis
                                                         )
                                                         Text(
-                                                            text = "$permsCount quyền",
+                                                            text = tr("{0} quyền", permsCount),
                                                             fontSize = 11.sp,
                                                             color = if (isSelected) Color.White.copy(alpha = 0.85f) else FutaColors.Slate
                                                         )
@@ -249,6 +259,17 @@ fun AdminRolesScreen(
                                         )
                                     }
 
+                                    if (currentRole != null && !currentRole["isSystem"].bool) {
+                                        Text(
+                                            text = "Xóa vai trò",
+                                            fontSize = 13.sp,
+                                            fontWeight = FontWeight.SemiBold,
+                                            color = Color(0xFFDC2626),
+                                            modifier = Modifier
+                                                .clickable(enabled = !deleteBusy) { isDeletingRole = true }
+                                                .padding(end = 12.dp)
+                                        )
+                                    }
                                     if (currentRole != null) {
                                         Text(
                                             text = "Sửa thông tin",
@@ -271,7 +292,7 @@ fun AdminRolesScreen(
                 // Section 2: Inset Grouped Permission Categories (Exact iOS List Style)
                 item {
                     Text(
-                        text = "Ma trận quyền cho: $selectedRoleName",
+                        text = tr("Ma trận quyền cho: {0}", selectedRoleName),
                         fontSize = 13.sp,
                         fontWeight = FontWeight.SemiBold,
                         color = FutaColors.Slate
@@ -406,14 +427,12 @@ fun AdminRolesScreen(
             onConfirm = {
                 scope.launch {
                     try {
-                        val body = """
-                            {
-                                "code": "${newRoleCode.trim().lowercase()}",
-                                "name": "${newRoleName.trim()}",
-                                "description": "${newRoleDesc.trim()}",
-                                "permissions": []
-                            }
-                        """.trimIndent()
+                        val body = buildJsonObject {
+                            put("code", newRoleCode.trim().lowercase())
+                            put("name", newRoleName.trim())
+                            put("description", newRoleDesc.trim())
+                            put("permissions", JsonArray(emptyList()))
+                        }.toString()
                         APIClient.get().request("/users/roles", method = "POST", bodyJson = body)
                         ToastCenter.show("Đã tạo vai trò mới thành công!")
                         isCreatingRole = false
@@ -422,7 +441,7 @@ fun AdminRolesScreen(
                         newRoleDesc = ""
                         loadData()
                     } catch (e: Exception) {
-                        ToastCenter.show("Lỗi: ${e.message}", isError = true)
+                        ToastCenter.show(tr("Lỗi: {0}", e.message), isError = true)
                     }
                 }
             },
@@ -439,6 +458,41 @@ fun AdminRolesScreen(
         }
     }
 
+    // Confirm delete custom role (DELETE /users/roles/:code, iOS AdminRolesView)
+    if (isDeletingRole && currentRole != null) {
+        val users = currentRole["userCount"].int
+        FutaDialog(
+            visible = true,
+            title = "Xóa vai trò?",
+            confirmText = if (deleteBusy) "Đang xóa…" else "Xóa vai trò",
+            confirmVariant = FutaButtonVariant.DANGER,
+            onConfirm = {
+                if (deleteBusy) return@FutaDialog
+                scope.launch {
+                    deleteBusy = true
+                    try {
+                        APIClient.get().request("/users/roles/${android.net.Uri.encode(selectedRoleCode)}", method = "DELETE")
+                        ToastCenter.show(tr("Đã xóa vai trò {0}", selectedRoleName))
+                        isDeletingRole = false
+                        selectedRoleCode = "admin"
+                        loadData()
+                    } catch (e: Exception) {
+                        ToastCenter.show(tr("Lỗi: {0}", e.message), isError = true)
+                    } finally {
+                        deleteBusy = false
+                    }
+                }
+            },
+            onDismiss = { if (!deleteBusy) isDeletingRole = false }
+        ) {
+            Text(
+                if (users > 0) tr("Vai trò \"{0}\" đang được gán cho {1} người dùng. Các tài khoản này sẽ quay về vai trò hệ thống và mất quyền tuỳ chỉnh.", selectedRoleName, users)
+                else tr("Bạn có chắc muốn xóa vai trò \"{0}\"? Thao tác không thể hoàn tác.", selectedRoleName),
+                fontSize = 13.5.sp, color = FutaColors.Slate
+            )
+        }
+    }
+
     // Dialog Edit Role Metadata
     if (isEditingRole && currentRole != null) {
         FutaDialog(
@@ -448,20 +502,17 @@ fun AdminRolesScreen(
             onConfirm = {
                 scope.launch {
                     try {
-                        val permsJson = selectedPermissions.sorted().joinToString(",") { "\"$it\"" }
-                        val body = """
-                            {
-                                "name": "${editRoleName.trim()}",
-                                "description": "${editRoleDesc.trim()}",
-                                "permissions": [$permsJson]
-                            }
-                        """.trimIndent()
+                        val body = buildJsonObject {
+                            put("name", editRoleName.trim())
+                            put("description", editRoleDesc.trim())
+                            put("permissions", JsonArray(selectedPermissions.sorted().map { JsonPrimitive(it) }))
+                        }.toString()
                         APIClient.get().request("/users/roles/$selectedRoleCode", method = "PUT", bodyJson = body)
                         ToastCenter.show("Đã cập nhật thông tin vai trò thành công!")
                         isEditingRole = false
                         loadData()
                     } catch (e: Exception) {
-                        ToastCenter.show("Lỗi: ${e.message}", isError = true)
+                        ToastCenter.show(tr("Lỗi: {0}", e.message), isError = true)
                     }
                 }
             },

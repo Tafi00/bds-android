@@ -1,5 +1,7 @@
 package vn.futaland.app.features.messaging
 
+import vn.futaland.app.core.i18n.tr
+import vn.futaland.app.core.i18n.Text
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.ui.draw.clip
@@ -181,6 +183,11 @@ fun NotificationsScreen(
     val pageSize = 20
     val hasMore = notifications.size < total
 
+    // Keep the home bell badge in step with what was read/deleted here.
+    LaunchedEffect(serverUnreadCount, loading) {
+        if (!loading && isLoggedIn) NotificationUnreadBadge.set(serverUnreadCount)
+    }
+
     suspend fun fetchPage(requestedPage: Int, append: Boolean) {
         if (!isLoggedIn) {
             notifications = emptyList()
@@ -293,7 +300,7 @@ fun NotificationsScreen(
                 APIClient.get().request("/notifications/${item.id}", method = "DELETE")
                 ToastCenter.show("Đã xóa thông báo")
             } catch (e: Exception) {
-                ToastCenter.show("Không xóa được thông báo: ${e.message}", isError = true)
+                ToastCenter.show(tr("Không xóa được thông báo: {0}", e.message), isError = true)
             }
             mutating = false
         }
@@ -310,7 +317,7 @@ fun NotificationsScreen(
                 total = 0
                 ToastCenter.show("Đã xóa toàn bộ thông báo")
             } catch (e: Exception) {
-                ToastCenter.show("Không xóa được: ${e.message}", isError = true)
+                ToastCenter.show(tr("Không xóa được: {0}", e.message), isError = true)
             }
             mutating = false
         }
@@ -698,7 +705,7 @@ fun NotificationsScreen(
                     item {
                         Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
                             FutaButton(
-                                text = if (loadingMore) "Đang tải…" else "Xem thêm (${notifications.size}/$total)",
+                                text = if (loadingMore) "Đang tải…" else tr("Xem thêm ({0}/{1})", notifications.size, total),
                                 variant = FutaButtonVariant.OUTLINE,
                                 enabled = !loadingMore,
                                 onClick = { loadMore() }
@@ -797,7 +804,7 @@ fun NotificationsScreen(
             cancelText = "Hủy",
             onCancel = { deletingItem = null }
         ) {
-            Text("Thông báo \"${item.title}\" sẽ bị xóa vĩnh viễn. Thao tác này không thể hoàn tác.", fontSize = 13.sp, color = FutaColors.Slate)
+            Text(tr("Thông báo \"{0}\" sẽ bị xóa vĩnh viễn. Thao tác này không thể hoàn tác.", item.title), fontSize = 13.sp, color = FutaColors.Slate)
         }
     }
 
@@ -824,6 +831,97 @@ fun NotificationsScreen(
         onDismiss = { selectedNotification = null },
         onNavigate = onNavigate
     )
+}
+
+/**
+ * Push permission status on this device + server registration (iOS NotificationPermissionSection):
+ * request the Android 13+ permission, open system settings, and (re)register with the backend.
+ */
+@Composable
+private fun NotificationPermissionSection() {
+    val context = LocalContext.current
+    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    var permitted by remember { mutableStateOf(androidx.core.app.NotificationManagerCompat.from(context).areNotificationsEnabled()) }
+    var registered by remember { mutableStateOf(FcmRegistrar.isRegistered(context)) }
+    var activating by remember { mutableStateOf(false) }
+    val isLoggedIn = AppSession.shared.isAuthenticated
+
+    fun refresh() {
+        permitted = androidx.core.app.NotificationManagerCompat.from(context).areNotificationsEnabled()
+        registered = FcmRegistrar.isRegistered(context)
+    }
+
+    DisposableEffect(lifecycleOwner) {
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) refresh()
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
+    fun openSettings() {
+        val intent = android.content.Intent(android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+            .putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, context.packageName)
+        try { context.startActivity(intent) } catch (_: Exception) {}
+    }
+
+    fun registerDevice() {
+        FcmRegistrar.ensureRegistered(context)
+        activating = true
+        // Registration completes asynchronously (FCM token → /devices/register).
+        android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+            refresh()
+            activating = false
+            if (FcmRegistrar.isRegistered(context)) ToastCenter.show(tr("Đã cho phép và đăng ký thông báo đẩy trên thiết bị này"))
+        }, 2500)
+    }
+
+    val permissionLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        refresh()
+        if (granted) registerDevice() else ToastCenter.show(tr("Chưa được cấp quyền thông báo. Bạn có thể bật trong Cài đặt."), isError = true)
+    }
+
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+        Text("Thông báo đẩy trên thiết bị", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
+        Row(modifier = Modifier.fillMaxWidth()) {
+            Text("Quyền Android", fontSize = 13.sp, color = FutaColors.Slate, modifier = Modifier.weight(1f))
+            Text(if (permitted) "Đã cho phép" else "Chưa cho phép", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = if (permitted) FutaColors.BrandGreen else Color(0xFFDC2626))
+        }
+        Row(modifier = Modifier.fillMaxWidth()) {
+            Text("Đăng ký máy chủ", fontSize = 13.sp, color = FutaColors.Slate, modifier = Modifier.weight(1f))
+            Text(if (registered) "Đã đăng ký" else "Chưa đăng ký", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = if (registered) FutaColors.BrandGreen else FutaColors.Slate)
+        }
+        if (!permitted || !registered) {
+            FutaButton(
+                text = if (activating) "Đang kích hoạt…" else "Kích hoạt thông báo đẩy",
+                enabled = !activating && isLoggedIn,
+                onClick = {
+                    when {
+                        permitted -> registerDevice()
+                        android.os.Build.VERSION.SDK_INT >= 33 &&
+                            androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.POST_NOTIFICATIONS) !=
+                            android.content.pm.PackageManager.PERMISSION_GRANTED ->
+                            permissionLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+                        // Permission granted but notifications blocked at the system level.
+                        else -> openSettings()
+                    }
+                },
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+        FutaButton(
+            text = "Mở Cài đặt",
+            icon = Icons.Default.Settings,
+            variant = FutaButtonVariant.OUTLINE,
+            onClick = { openSettings() },
+            modifier = Modifier.fillMaxWidth()
+        )
+        if (!isLoggedIn) {
+            Text("Đăng nhập để đăng ký thông báo đẩy cho tài khoản.", fontSize = 11.5.sp, color = FutaColors.Slate)
+        }
+    }
 }
 
 @Composable
@@ -857,6 +955,8 @@ private fun NotificationSettingsSheet(
         title = "Cài đặt thông báo"
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+            NotificationPermissionSection()
+            HorizontalDivider(color = Color(0xFFF1F5F9))
             if (prefs == null && !loadError) {
                 FutaSkeletonBlock(height = 44.dp, radius = 10.dp)
                 FutaSkeletonBlock(height = 44.dp, radius = 10.dp)
@@ -891,15 +991,15 @@ private fun NotificationSettingsSheet(
                                 saving = true
                                 scope.launch {
                                     try {
-                                        val body = buildString {
-                                            append("{\"preferences\":{")
-                                            append(current.entries.joinToString(",") { (k, v) -> "\"$k\":${if (k == key) checked else v}" })
-                                            append("}}")
-                                        }
+                                        val body = kotlinx.serialization.json.buildJsonObject {
+                                            put("preferences", kotlinx.serialization.json.buildJsonObject {
+                                                current.forEach { (k, v) -> put(k, kotlinx.serialization.json.JsonPrimitive(if (k == key) checked else v)) }
+                                            })
+                                        }.toString()
                                         APIClient.get().request("/devices/$deviceId/preferences", method = "PATCH", bodyJson = body)
                                     } catch (e: Exception) {
                                         prefs = current
-                                        ToastCenter.show("Không lưu được cài đặt: ${e.message}", isError = true)
+                                        ToastCenter.show(tr("Không lưu được cài đặt: {0}", e.message), isError = true)
                                     }
                                     saving = false
                                 }

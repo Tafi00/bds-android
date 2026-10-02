@@ -1,5 +1,7 @@
 package vn.futaland.app.features.discovery
 
+import vn.futaland.app.core.i18n.translated
+import vn.futaland.app.core.i18n.Text
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.background
@@ -43,13 +45,27 @@ fun ProjectDetailScreen(
 
     LaunchedEffect(projectId) {
         loading = true
-        try {
-            val pRes = APIClient.get().request("/projects/$projectId")
-            project = pRes["data"]
+        // 1. Direct fetch by id; 2. fall back to the project list matching id/code/name (iOS).
+        var found: JSONValue? = try {
+            APIClient.get().request("/projects/${android.net.Uri.encode(projectId)}")["data"].takeIf { !it.isNull && it.id.isNotEmpty() }
         } catch (_: Exception) {
-        } finally {
-            loading = false
+            null
         }
+        if (found == null) {
+            found = try {
+                val query = android.net.Uri.decode(projectId).trim().lowercase()
+                APIClient.get().request("/projects")["data"].array.firstOrNull { p ->
+                    p.id.lowercase() == query ||
+                        p["code"].string.lowercase() == query ||
+                        p["name"].string.lowercase().contains(query) ||
+                        p["displayName"].string.lowercase().contains(query)
+                }
+            } catch (_: Exception) {
+                null
+            }
+        }
+        project = found
+        loading = false
     }
     Scaffold(
         topBar = {
@@ -104,7 +120,14 @@ fun ProjectDetailScreen(
             }
         }
     ) { padding ->
-        if (loading || project == null) {
+        if (!loading && project == null) {
+            Box(modifier = Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
+                FutaEmptyState(
+                    title = "Không tìm thấy thông tin dự án",
+                    message = "Dự án có thể đã bị ẩn hoặc đường dẫn không còn hiệu lực."
+                )
+            }
+        } else if (loading || project == null) {
             Column(
                 modifier = Modifier
                     .fillMaxSize()
@@ -118,9 +141,9 @@ fun ProjectDetailScreen(
             }
         } else {
             val p = project!!
-            val title = p["displayName"].string.ifEmpty { p["name"].string }
+            val title = p["displayName"].string.ifEmpty { p["name"].string }.translated("project")
             val banner = PropertyFormatters.resolveProjectBanner(p)
-            val location = p["address"].string.ifEmpty { p["location"].string }.ifEmpty { p["province"].string }
+            val location = p["address"].string.ifEmpty { p["location"].string }.ifEmpty { p["province"].string }.translated("project")
             val developer = p["developer"].string
 
             Column(

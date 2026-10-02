@@ -1,5 +1,8 @@
 package vn.futaland.app.features.properties
 
+import vn.futaland.app.core.i18n.Text
+import vn.futaland.app.core.i18n.tr
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.background
@@ -24,6 +27,7 @@ import vn.futaland.app.core.network.JSONValue
 import vn.futaland.app.designsystem.*
 import vn.futaland.app.navigation.FutaDestinations
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ViewHistoryScreen(
     onBack: () -> Unit,
@@ -33,17 +37,39 @@ fun ViewHistoryScreen(
     val scope = rememberCoroutineScope()
     var items by remember { mutableStateOf<List<JSONValue>>(emptyList()) }
     var loading by remember { mutableStateOf(true) }
+    var refreshing by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf<String?>(null) }
+    var showClearConfirm by remember { mutableStateOf(false) }
+    var clearing by remember { mutableStateOf(false) }
 
+    // GET /apartments/user/view-history returns the viewed property DTOs, newest first.
     fun loadHistory() {
         scope.launch {
             loading = true
+            error = null
             try {
-                val res = APIClient.get().request("/apartments", query = mapOf("limit" to "10"))
+                val res = APIClient.get().request("/apartments/user/view-history")
                 items = res["data"].array
-            } catch (_: Exception) {
-                items = emptyList()
+            } catch (e: Exception) {
+                error = e.message
             } finally {
                 loading = false
+                refreshing = false
+            }
+        }
+    }
+
+    fun clearHistory() {
+        scope.launch {
+            clearing = true
+            try {
+                APIClient.get().request("/apartments/user/view-history", method = "DELETE")
+                items = emptyList()
+                ToastCenter.show(tr("Đã xoá lịch sử xem"))
+            } catch (e: Exception) {
+                ToastCenter.show(e.message ?: tr("Không thể xoá lịch sử xem"), isError = true)
+            } finally {
+                clearing = false
             }
         }
     }
@@ -70,20 +96,25 @@ fun ViewHistoryScreen(
                         modifier = Modifier.weight(1f)
                     )
                     if (items.isNotEmpty()) {
-                        TextButton(onClick = {
-                            items = emptyList()
-                            ToastCenter.show("Đã xóa toàn bộ lịch sử xem")
-                        }) {
-                            Text("Xóa lịch sử", fontSize = 12.5.sp, color = Color(0xFFDC2626), fontWeight = FontWeight.Bold)
+                        TextButton(onClick = { showClearConfirm = true }, enabled = !clearing) {
+                            Text("Xoá lịch sử", fontSize = 12.5.sp, color = Color(0xFFDC2626), fontWeight = FontWeight.Bold)
                         }
                     }
                 }
             }
         }
     ) { padding ->
-        if (loading) {
+        if (loading && items.isEmpty()) {
             Column(modifier = Modifier.fillMaxSize().padding(padding).padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
                 repeat(3) { FutaSkeletonBlock(height = 240.dp, radius = 18.dp) }
+            }
+        } else if (error != null && items.isEmpty()) {
+            Box(modifier = Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
+                FutaEmptyState(
+                    title = "Không thể tải dữ liệu",
+                    message = error ?: "",
+                    actionButton = { FutaButton(text = "Thử lại", onClick = { loadHistory() }, variant = FutaButtonVariant.OUTLINE) }
+                )
             }
         } else if (items.isEmpty()) {
             Box(modifier = Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
@@ -93,8 +124,13 @@ fun ViewHistoryScreen(
                 )
             }
         } else {
+            PullToRefreshBox(
+                isRefreshing = refreshing,
+                onRefresh = { refreshing = true; loadHistory() },
+                modifier = Modifier.fillMaxSize().background(FutaColors.PageBg).padding(padding)
+            ) {
             LazyColumn(
-                modifier = Modifier.fillMaxSize().background(FutaColors.PageBg).padding(padding),
+                modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(16.dp),
                 verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
@@ -102,7 +138,7 @@ fun ViewHistoryScreen(
                     FutaPropertyCard(
                         property = property,
                         onCallClick = {
-                            val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:02363575757"))
+                            val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:0903715757"))
                             context.startActivity(intent)
                         },
                         onChatClick = { onNavigate(FutaDestinations.INBOX) },
@@ -110,6 +146,28 @@ fun ViewHistoryScreen(
                     )
                 }
             }
+            }
         }
+    }
+
+    FutaDialog(
+        visible = showClearConfirm,
+        onDismiss = { showClearConfirm = false },
+        title = "Xoá lịch sử xem?",
+        confirmText = "Xoá lịch sử",
+        confirmVariant = FutaButtonVariant.DANGER,
+        cancelText = "Hủy",
+        onConfirm = {
+            showClearConfirm = false
+            clearHistory()
+        },
+        onCancel = { showClearConfirm = false }
+    ) {
+        Text(
+            "Toàn bộ bất động sản bạn đã xem sẽ bị xoá khỏi lịch sử.",
+            fontSize = 14.sp,
+            color = FutaColors.Slate,
+            lineHeight = 20.sp
+        )
     }
 }

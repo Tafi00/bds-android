@@ -1,5 +1,7 @@
 package vn.futaland.app.features.account
 
+import vn.futaland.app.core.i18n.tr
+import vn.futaland.app.core.i18n.Text
 import androidx.compose.animation.*
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -28,6 +30,10 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
+import kotlinx.serialization.json.putJsonArray
+import kotlinx.serialization.json.add
 import vn.futaland.app.core.network.APIClient
 import vn.futaland.app.core.network.JSONValue
 import vn.futaland.app.designsystem.*
@@ -50,6 +56,7 @@ fun AdminCustomersScreen(
     var showFilterSheet by remember { mutableStateOf(false) }
 
     var selectedCustomer by remember { mutableStateOf<JSONValue?>(null) }
+    var editingCustomer by remember { mutableStateOf<JSONValue?>(null) }
 
     // Deep link (notification tap /customers/{id} or legacy ?customerId=…): open the detail sheet directly.
     LaunchedEffect(initialCustomerId) {
@@ -106,6 +113,7 @@ fun AdminCustomersScreen(
         loadCustomers(search)
     }
 
+    Box(Modifier.fillMaxSize()) {
     Scaffold(
         containerColor = Color(0xFFF8FAFC),
         topBar = {
@@ -242,7 +250,7 @@ fun AdminCustomersScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        "${if (totalCount > 0) totalCount else customers.size} khách hàng",
+                        tr("{0} khách hàng", if (totalCount > 0) totalCount else customers.size),
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold,
                         color = FutaColors.Slate
@@ -316,11 +324,28 @@ fun AdminCustomersScreen(
         }
     }
 
+    editingCustomer?.let { c ->
+        EditCustomerPage(
+            customer = c,
+            onBack = {
+                editingCustomer = null
+                selectedCustomer = c
+            },
+            onSaved = { updated ->
+                editingCustomer = null
+                selectedCustomer = if (updated.isNull) c else updated
+                loadCustomers()
+            }
+        )
+    }
+    }
+
     // Customer Detail BottomSheet (Full Parity with tabs)
-    selectedCustomer?.let { c ->
+    selectedCustomer?.takeIf { editingCustomer == null }?.let { c ->
         CustomerDetailSheet(
             customer = c,
             onDismiss = { selectedCustomer = null },
+            onEdit = { latest -> editingCustomer = latest },
             onCustomerUpdated = {
                 selectedCustomer = null
                 loadCustomers()
@@ -453,6 +478,7 @@ private fun CustomerCardRowItem(
 private fun CustomerDetailSheet(
     customer: JSONValue,
     onDismiss: () -> Unit,
+    onEdit: (JSONValue) -> Unit,
     onCustomerUpdated: () -> Unit
 ) {
     val scope = rememberCoroutineScope()
@@ -508,9 +534,22 @@ private fun CustomerDetailSheet(
                             Text(status, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = FutaColors.BrandGreen, modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp))
                         }
                     }
-                    Text("Số điện thoại: $phone", fontSize = 13.sp, color = FutaColors.Slate)
+                    Text(tr("Số điện thoại: {0}", phone), fontSize = 13.sp, color = FutaColors.Slate)
                     if (email.isNotEmpty()) Text("Email: $email", fontSize = 13.sp, color = FutaColors.Slate)
                 }
+            }
+
+            // Quick actions (iOS: Gọi điện / Nhắn SMS) and edit.
+            CrmContactActions(phone = phone, showZalo = false)
+            if (vn.futaland.app.core.auth.AppSession.shared.hasPermission("customers:edit")) {
+                FutaButton(
+                    text = "Chỉnh sửa thông tin",
+                    icon = Icons.Default.Edit,
+                    variant = FutaButtonVariant.OUTLINE,
+                    height = 40.dp,
+                    onClick = { onEdit(detail) },
+                    modifier = Modifier.fillMaxWidth()
+                )
             }
 
             // Tab Selector Chips
@@ -543,9 +582,9 @@ private fun CustomerDetailSheet(
                 Surface(shape = RoundedCornerShape(12.dp), color = Color.White, border = BorderStroke(1.dp, Color(0xFFE2E8F0)), modifier = Modifier.fillMaxWidth()) {
                     Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         Text("Nhu cầu tìm kiếm", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
-                        if (segment.isNotEmpty()) Text("• Phân khúc: $segment", fontSize = 12.5.sp, color = FutaColors.Slate)
-                        if (unitTypes.isNotEmpty()) Text("• Loại căn: ${unitTypes.joinToString(", ")}", fontSize = 12.5.sp, color = FutaColors.Slate)
-                        if (furnitures.isNotEmpty()) Text("• Nội thất: ${furnitures.joinToString(", ")}", fontSize = 12.5.sp, color = FutaColors.Slate)
+                        if (segment.isNotEmpty()) Text(tr("• Phân khúc: {0}", segment), fontSize = 12.5.sp, color = FutaColors.Slate)
+                        if (unitTypes.isNotEmpty()) Text(tr("• Loại căn: {0}", unitTypes.joinToString(", ")), fontSize = 12.5.sp, color = FutaColors.Slate)
+                        if (furnitures.isNotEmpty()) Text(tr("• Nội thất: {0}", furnitures.joinToString(", ")), fontSize = 12.5.sp, color = FutaColors.Slate)
                         if (segment.isEmpty() && unitTypes.isEmpty() && furnitures.isEmpty()) {
                             Text("Chưa ghi nhận nhu cầu cụ thể", fontSize = 12.sp, color = FutaColors.Slate)
                         }
@@ -583,16 +622,18 @@ private fun CustomerDetailSheet(
                             isSavingNote = true
                             try {
                                 val encoded = java.net.URLEncoder.encode(phone, "UTF-8")
-                                val cleanNote = newNote.trim().replace("\"", "\\\"")
+                                val body = buildJsonObject { put("content", newNote.trim()) }
                                 APIClient.get().request(
                                     "/customers/$encoded/notes",
                                     method = "POST",
-                                    bodyJson = "{\"content\":\"$cleanNote\"}"
+                                    bodyJson = body.toString()
                                 )
                                 newNote = ""
+                                ToastCenter.show(tr("Đã lưu ghi chú"))
                                 loadFullDetail()
-                                onCustomerUpdated()
-                            } catch (_: Exception) {}
+                            } catch (e: Exception) {
+                                ToastCenter.show(e.message ?: tr("Không lưu được"), isError = true)
+                            }
                             finally { isSavingNote = false }
                         }
                     },
@@ -641,9 +682,9 @@ private fun CustomerDetailSheet(
                 Surface(shape = RoundedCornerShape(12.dp), color = Color.White, border = BorderStroke(1.dp, Color(0xFFE2E8F0)), modifier = Modifier.fillMaxWidth()) {
                     Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         Text("Thông tin CCCD / Định danh", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
-                        if (cccd.isNotEmpty()) Text("• Số CCCD: $cccd", fontSize = 12.5.sp, color = FutaColors.Slate)
-                        if (permAddr.isNotEmpty()) Text("• Thường trú: $permAddr", fontSize = 12.5.sp, color = FutaColors.Slate)
-                        if (contAddr.isNotEmpty()) Text("• Liên hệ: $contAddr", fontSize = 12.5.sp, color = FutaColors.Slate)
+                        if (cccd.isNotEmpty()) Text(tr("• Số CCCD: {0}", cccd), fontSize = 12.5.sp, color = FutaColors.Slate)
+                        if (permAddr.isNotEmpty()) Text(tr("• Thường trú: {0}", permAddr), fontSize = 12.5.sp, color = FutaColors.Slate)
+                        if (contAddr.isNotEmpty()) Text(tr("• Liên hệ: {0}", contAddr), fontSize = 12.5.sp, color = FutaColors.Slate)
                         if (cccd.isEmpty() && permAddr.isEmpty() && contAddr.isEmpty()) {
                             Text("Chưa cập nhật thông tin định danh", fontSize = 12.sp, color = FutaColors.Slate)
                         }
@@ -695,17 +736,18 @@ private fun CreateCustomerDialog(
                     scope.launch {
                         isSaving = true
                         try {
-                            val bodyMap = mutableListOf(
-                                "\"customerName\":\"${name.trim().replace("\"", "\\\"")}\"",
-                                "\"customerPhone\":\"${phone.trim()}\"",
-                                "\"customerSegment\":\"$customerSegment\"",
-                                "\"customerStatus\":\"$customerStatus\""
-                            )
-                            if (email.isNotBlank()) bodyMap.add("\"email\":\"${email.trim()}\"")
-                            val body = "{" + bodyMap.joinToString(",") + "}"
-                            APIClient.get().request("/customers", method = "POST", bodyJson = body)
+                            val body = buildJsonObject {
+                                put("customerName", name.trim())
+                                put("customerPhone", phone.trim())
+                                put("customerSegment", customerSegment)
+                                if (email.isNotBlank()) put("email", email.trim())
+                            }
+                            APIClient.get().request("/customers", method = "POST", bodyJson = body.toString())
+                            ToastCenter.show(tr("Đã thêm khách hàng"))
                             onCreated()
-                        } catch (_: Exception) {}
+                        } catch (e: Exception) {
+                            ToastCenter.show(e.message ?: tr("Không lưu được"), isError = true)
+                        }
                         finally { isSaving = false }
                     }
                 }
@@ -801,4 +843,125 @@ private fun CustomerFilterDialog(
             FutaButton(text = "Đóng", variant = FutaButtonVariant.OUTLINE, onClick = onDismiss)
         }
     )
+}
+
+// MARK: - Edit customer (iOS EditCustomerModal → PUT /customers/:phone)
+
+private val customerSegmentOptions = listOf("Gia đình", "Sinh viên", "Ở ghép", "NNN", "NVVP", "Tiềm năng", "VIP", "Đầu tư")
+private val customerStatusOptions = listOf(
+    "Khách mới", "Chưa liên hệ được", "Đã liên hệ", "Đang thương lượng", "Đợi xem nhà", "Đã xem nhà",
+    "Đã cọc chờ ký HĐ", "Đã ký HĐ - đang ở", "Chờ chăm lại", "Không nét", "Huỷ"
+)
+private val customerAptTypeOptions = listOf("STU", "1PN", "2PN", "3PN", "Duplex", "Penthouse")
+private val customerFurnitureOptions = listOf("Full nội thất", "Nội thất cơ bản", "Bếp rèm", "Nhà trống")
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun CustomerToggleGroup(title: String, options: List<String>, selected: Set<String>, onToggle: (String) -> Unit) {
+    FutaFormSectionField(label = title) {
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            options.forEach { option ->
+                val isSelected = option in selected
+                Surface(
+                    shape = CircleShape,
+                    color = if (isSelected) FutaColors.BrandGreen else Color.White,
+                    border = BorderStroke(1.dp, if (isSelected) FutaColors.BrandGreen else Color(0xFFE2E8F0)),
+                    modifier = Modifier.clickable { onToggle(option) }
+                ) {
+                    Text(option, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = if (isSelected) Color.White else FutaColors.Navy, modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun EditCustomerPage(customer: JSONValue, onBack: () -> Unit, onSaved: (JSONValue) -> Unit) {
+    val scope = rememberCoroutineScope()
+    val phone = customer["customerPhone"].string
+    val initialName = customer["customerName"].string
+    val initialEmail = customer["email"].string
+    val initialSegment = customer["customerSegment"].string
+    val initialStatus = customer["customerStatus"].string
+    val initialTypes = customer["interestedApartmentTypes"].array.map { it.string }.filter { it.isNotEmpty() }.toSet()
+    val initialFurniture = customer["interestedFurniture"].array.map { it.string }.filter { it.isNotEmpty() }.toSet()
+
+    var name by remember { mutableStateOf(initialName) }
+    var email by remember { mutableStateOf(initialEmail) }
+    var segment by remember { mutableStateOf(initialSegment) }
+    var status by remember { mutableStateOf(initialStatus) }
+    var types by remember { mutableStateOf(initialTypes) }
+    var furniture by remember { mutableStateOf(initialFurniture) }
+    var errors by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
+    var saving by remember { mutableStateOf(false) }
+    var showDiscard by remember { mutableStateOf(false) }
+    var showSegmentSheet by remember { mutableStateOf(false) }
+    var showStatusSheet by remember { mutableStateOf(false) }
+
+    val dirty = name != initialName || email != initialEmail || segment != initialSegment || status != initialStatus ||
+        types != initialTypes || furniture != initialFurniture
+    fun requestBack() { if (dirty && !saving) showDiscard = true else onBack() }
+
+    fun submit() {
+        if (saving) return
+        val e = mutableMapOf<String, String>()
+        if (name.isBlank()) e["name"] = tr("Tên khách hàng không được để trống")
+        if (email.isNotBlank() && !crmIsValidEmail(email)) e["email"] = tr("Email không hợp lệ")
+        errors = e
+        if (e.isNotEmpty()) {
+            ToastCenter.show(e.values.first(), isError = true)
+            return
+        }
+        scope.launch {
+            saving = true
+            try {
+                val body = buildJsonObject {
+                    put("customerName", name.trim())
+                    if (email.isNotBlank()) put("email", email.trim())
+                    if (segment.isNotEmpty()) put("customerSegment", segment)
+                    if (status.isNotEmpty()) put("customerStatus", status)
+                    putJsonArray("interestedApartmentTypes") { types.forEach { add(it) } }
+                    putJsonArray("interestedFurniture") { furniture.forEach { add(it) } }
+                }
+                val res = APIClient.get().request(
+                    "/customers/${java.net.URLEncoder.encode(phone, "UTF-8")}",
+                    method = "PUT",
+                    bodyJson = body.toString()
+                )
+                ToastCenter.show(tr("Đã cập nhật khách hàng"))
+                onSaved(res["data"])
+            } catch (ex: Exception) {
+                ToastCenter.show(ex.message ?: tr("Không lưu được"), isError = true)
+            } finally {
+                saving = false
+            }
+        }
+    }
+
+    CrmFullScreenPage(
+        title = tr("Cập nhật khách hàng"),
+        onBack = ::requestBack,
+        bottomBar = {
+            CrmFormActionBar(submitText = "Lưu", submitting = saving, onCancel = ::requestBack, onSubmit = ::submit)
+        }
+    ) {
+        AdvisorSection(header = "Thông tin cơ bản") {
+            AdvisorLabeledRow("Số điện thoại", phone)
+            CrmTextField("Họ và tên", name, { name = it; errors = errors - "name" }, "", required = true, error = errors["name"])
+            CrmTextField("Email", email, { email = it; errors = errors - "email" }, "email@example.com", error = errors["email"], keyboardType = KeyboardType.Email)
+        }
+        AdvisorSection(header = "Phân loại & Trạng thái") {
+            CrmSelectRow("Trạng thái", status) { showStatusSheet = true }
+            CrmSelectRow("Phân khúc", segment) { showSegmentSheet = true }
+        }
+        AdvisorSection(header = "Nhu cầu tìm kiếm") {
+            CustomerToggleGroup("Loại căn", customerAptTypeOptions, types) { t -> types = if (t in types) types - t else types + t }
+            CustomerToggleGroup("Nội thất", customerFurnitureOptions, furniture) { f -> furniture = if (f in furniture) furniture - f else furniture + f }
+        }
+        Spacer(Modifier.height(16.dp))
+    }
+
+    CrmOptionSheet(showStatusSheet, "Trạng thái", customerStatusOptions, status, { it }, { status = it }, { showStatusSheet = false })
+    CrmOptionSheet(showSegmentSheet, "Phân khúc", customerSegmentOptions, segment, { it }, { segment = it }, { showSegmentSheet = false })
+    CrmDiscardDialog(visible = showDiscard, onDiscard = onBack, onDismiss = { showDiscard = false })
 }

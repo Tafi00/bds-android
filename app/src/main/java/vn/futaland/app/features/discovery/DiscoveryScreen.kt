@@ -1,5 +1,8 @@
 package vn.futaland.app.features.discovery
 
+import vn.futaland.app.core.i18n.translated
+import vn.futaland.app.core.i18n.tr
+import vn.futaland.app.core.i18n.Text
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.BorderStroke
@@ -184,7 +187,6 @@ fun DiscoveryScreen(
                 Box(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
                     FutaPropertyCard(
                         property = property,
-                        isFavorited = false,
                         onFavoriteClick = {
                             if (AppSession.shared.isAuthenticated) {
                                 viewModel.toggleFavorite(property.id)
@@ -203,7 +205,7 @@ fun DiscoveryScreen(
                             context.startActivity(Intent.createChooser(sendIntent, "Chia sẻ sản phẩm"))
                         },
                         onCallClick = {
-                            val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:02363575757"))
+                            val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:0903715757"))
                             context.startActivity(intent)
                         },
                         onChatClick = { onNavigate(FutaDestinations.INBOX) },
@@ -219,7 +221,7 @@ fun DiscoveryScreen(
             AiHotlineCard(
                 onChatClick = { onNavigate(FutaDestinations.INBOX) },
                 onCallClick = {
-                    val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:02363575757"))
+                    val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:0903715757"))
                     context.startActivity(intent)
                 }
             )
@@ -251,22 +253,48 @@ private fun TopBrandedHeader(
                 contentScale = ContentScale.Fit
             )
 
-            // Notification Bell Button
-            Surface(
-                shape = CircleShape,
-                color = Color(0xFFF8FAFC),
-                border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
-                modifier = Modifier
-                    .size(38.dp)
-                    .clickable(onClick = onNotificationClick)
-            ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Icon(
-                        painter = painterResource(id = R.drawable.sf_header_bell),
-                        contentDescription = "Thông báo",
-                        tint = Color(0xFF0F172A),
-                        modifier = Modifier.size(17.dp)
-                    )
+            // Notification Bell Button with the unread badge (GET /notifications/unread-count)
+            val unreadNotifications by vn.futaland.app.features.messaging.NotificationUnreadBadge.count.collectAsState()
+            val sessionUser by AppSession.shared.currentUser.collectAsState()
+            LaunchedEffect(sessionUser?.id) {
+                vn.futaland.app.features.messaging.NotificationUnreadBadge.refresh()
+            }
+            Box {
+                Surface(
+                    shape = CircleShape,
+                    color = Color(0xFFF8FAFC),
+                    border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                    modifier = Modifier
+                        .size(38.dp)
+                        .clickable(onClick = onNotificationClick)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            painter = painterResource(id = R.drawable.sf_header_bell),
+                            contentDescription = vn.futaland.app.core.i18n.tr("Thông báo"),
+                            tint = Color(0xFF0F172A),
+                            modifier = Modifier.size(17.dp)
+                        )
+                    }
+                }
+                if (unreadNotifications > 0 && sessionUser != null) {
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .offset(x = 4.dp, y = (-3).dp)
+                            .defaultMinSize(minWidth = 18.dp, minHeight = 18.dp)
+                            .background(Color(0xFFEF4444), CircleShape)
+                            .border(1.5.dp, Color.White, CircleShape)
+                            .padding(horizontal = 4.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        androidx.compose.material3.Text(
+                            text = if (unreadNotifications > 99) "99+" else unreadNotifications.toString(),
+                            color = Color.White,
+                            fontSize = 9.5.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
                 }
             }
         }
@@ -312,7 +340,7 @@ private fun FloatingSearchBar(
                     color = FutaColors.Navy
                 )
                 Text(
-                    text = if (selectedCity == "Tất cả") "Đà Nẵng · TP.HCM · Hà Nội · Bến Tre" else "Đang xem thị trường $selectedCity",
+                    text = if (selectedCity == "Tất cả") "Đà Nẵng · TP.HCM · Hà Nội · Bến Tre" else tr("Đang xem thị trường {0}", selectedCity),
                     fontSize = 11.sp,
                     color = FutaColors.Slate
                 )
@@ -527,7 +555,7 @@ private fun HeroCarouselSection(
                     // Bottom row: Title + Discount Tag + Location + CTA
                     Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
                         val dispName = proj["displayName"].string
-                        val name = if (dispName.isNotEmpty()) dispName else proj["name"].string
+                        val name = (if (dispName.isNotEmpty()) dispName else proj["name"].string).translated("project")
 
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -545,7 +573,7 @@ private fun HeroCarouselSection(
                             )
                             Spacer(Modifier.width(6.dp))
                             val totalUnits = proj["totalUnits"].int
-                            val productCountText = if (totalUnits > 0) "$totalUnits sản phẩm" else "Đang mở bán"
+                            val productCountText = if (totalUnits > 0) tr("{0} sản phẩm", totalUnits) else "Đang mở bán"
                             Surface(
                                 shape = CircleShape,
                                 color = Color(0xFFF97316).copy(alpha = 0.95f)
@@ -572,7 +600,7 @@ private fun HeroCarouselSection(
                         }
 
                         val loc = proj["location"].string
-                        val address = if (loc.isNotEmpty()) loc else proj["address"].string
+                        val address = (if (loc.isNotEmpty()) loc else proj["address"].string).translated("project")
 
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -683,7 +711,6 @@ private fun FeaturedProductsHorizontalSection(
                 Box(modifier = Modifier.width(280.dp)) {
                     FutaPropertyCard(
                         property = property,
-                        isFavorited = false,
                         onFavoriteClick = { onFavoriteToggle(property.id) },
                         onClick = { onPropertyClick(property.id) }
                     )
@@ -810,7 +837,7 @@ private fun FeaturedCitiesSection(
                                 horizontalArrangement = Arrangement.spacedBy(4.dp)
                             ) {
                                 Text(
-                                    text = "${city.projectCount} dự án",
+                                    text = tr("{0} dự án", city.projectCount),
                                     fontSize = 11.sp,
                                     fontWeight = FontWeight.Medium,
                                     color = Color.White.copy(alpha = 0.9f)
