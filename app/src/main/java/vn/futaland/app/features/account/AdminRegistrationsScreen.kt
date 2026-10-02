@@ -291,7 +291,7 @@ fun AdminRegistrationsScreen(
                                 }
                             }
                         } else {
-                            items(slice.items, key = { it.id.ifEmpty { regCode(it) + regTime(it) } }) { reg ->
+                            items(slice.items) { reg ->
                                 RegistrationCardRow(
                                     registration = reg,
                                     isCompeting = competingCodes.contains(regCode(reg)),

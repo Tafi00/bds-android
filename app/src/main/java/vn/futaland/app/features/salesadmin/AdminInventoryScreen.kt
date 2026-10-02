@@ -482,7 +482,7 @@ private fun InventoryListContent(
                         }
                     }
                 } else {
-                    items(displayed, key = { unitId(it).ifEmpty { unitCode(it) } }) { item ->
+                    items(displayed) { item ->
                         val id = unitId(item)
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                             if (selectionMode) {

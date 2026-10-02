@@ -371,7 +371,7 @@ private fun ProjectListContent(
                         }
                     }
                 } else {
-                    items(slice.items, key = { it.id.ifEmpty { projectTitle(it) } }) { project ->
+                    items(slice.items) { project ->
                         ProjectCard(
                             project = project,
                             onClick = { onOpen(project.id) },

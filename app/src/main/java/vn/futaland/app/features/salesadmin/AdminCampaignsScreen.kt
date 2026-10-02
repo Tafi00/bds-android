@@ -178,8 +178,9 @@ private fun bodyFromCampaign(c: JSONValue, status: String): String = campaignBod
     projectId = c["projectId"].string,
     productType = c["productType"].string,
     transactionType = c["transactionType"].string,
-    startDate = c["startDate"].string.take(10),
-    endDate = c["endDate"].string.take(10),
+    // Full ISO values: trimming to the date could shift a day for non-UTC midnights.
+    startDate = c["startDate"].string,
+    endDate = c["endDate"].string,
     discountPercent = c["discountPercent"].double,
     commissionRate = c["commissionRate"].double,
     commissionNote = c["commissionNote"].string,
@@ -361,7 +362,7 @@ private fun CampaignListContent(
                         }
                     }
                 } else {
-                    items(slice.items, key = { it.id.ifEmpty { it["code"].string } }) { campaign ->
+                    items(slice.items) { campaign ->
                         CampaignCard(campaign) { onOpen(campaign.id) }
                     }
                     item {
@@ -848,7 +849,10 @@ private fun AdminCampaignFormScreen(campaign: JSONValue?, onClose: () -> Unit, o
         }
         val body = campaignBody(
             code = code, name = name, projectName = project, projectId = form.projectId, productType = form.productType,
-            transactionType = form.transactionType, startDate = form.startDate, endDate = form.endDate,
+            transactionType = form.transactionType,
+            // Untouched dates are sent back exactly as stored.
+            startDate = if (campaign != null && form.startDate == initial.startDate) campaign["startDate"].string.ifEmpty { form.startDate } else form.startDate,
+            endDate = if (campaign != null && form.endDate == initial.endDate) campaign["endDate"].string.ifEmpty { form.endDate } else form.endDate,
             discountPercent = discount!!, commissionRate = commission!!, commissionNote = form.commissionNote,
             salesDurationDays = days!!, status = form.status, description = form.description,
             policyDocumentName = form.policyDocumentName.trim(), policies = form.policies,
