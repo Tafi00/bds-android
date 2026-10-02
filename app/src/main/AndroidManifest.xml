@@ -35,7 +35,7 @@
                 <data android:scheme="futaland" />
             </intent-filter>
 
-            <!-- Web Deep Links: https://futaland.vn & https://bds.futaland.vn -->
+            <!-- Web Deep Links: https://futaland.vn, https://bds.futaland.vn & https://batdongsanfuta.com -->
             <intent-filter android:autoVerify="true">
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
@@ -46,6 +46,9 @@
                 <data
                     android:scheme="https"
                     android:host="bds.futaland.vn" />
+                <data
+                    android:scheme="https"
+                    android:host="batdongsanfuta.com" />
             </intent-filter>
         </activity>
 

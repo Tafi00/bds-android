@@ -403,7 +403,7 @@ fun NewsDetailScreen(
                     article?.let { a ->
                         IconButton(onClick = {
                             val slug = a["slug"].string.ifEmpty { a.id }
-                            val shareUrl = if (slug.isNotEmpty()) "https://bds.futaland.vn/news/$slug" else "https://bds.futaland.vn/news"
+                            val shareUrl = if (slug.isNotEmpty()) "${APIClient.shareWebUrl}/news/$slug" else "${APIClient.shareWebUrl}/news"
                             val intent = Intent().apply {
                                 action = Intent.ACTION_SEND
                                 putExtra(Intent.EXTRA_TEXT, shareUrl)

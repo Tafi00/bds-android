@@ -33,7 +33,7 @@ object RouteCoordinator {
             }
             "https", "http" -> {
                 val host = uri.host?.lowercase().orEmpty()
-                if (host != "futaland.vn" && host != "bds.futaland.vn") return null
+                if (host !in setOf("futaland.vn", "bds.futaland.vn", "batdongsanfuta.com", "www.batdongsanfuta.com")) return null
             }
             "futaland" -> {
                 val host = uri.host.orEmpty()

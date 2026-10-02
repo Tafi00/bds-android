@@ -89,7 +89,7 @@ fun ProjectDetailScreen(
                     )
                     IconButton(onClick = {
                         val projId = project?.get("id")?.string?.ifEmpty { projectId }.orEmpty()
-                        val shareUrl = if (projId.isNotEmpty()) "https://bds.futaland.vn/projects/$projId" else "https://bds.futaland.vn/projects"
+                        val shareUrl = if (projId.isNotEmpty()) "${APIClient.shareWebUrl}/projects/$projId" else "${APIClient.shareWebUrl}/projects"
                         val sendIntent = Intent().apply {
                             action = Intent.ACTION_SEND
                             putExtra(Intent.EXTRA_TEXT, shareUrl)

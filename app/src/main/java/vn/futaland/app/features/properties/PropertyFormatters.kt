@@ -2,6 +2,7 @@ package vn.futaland.app.features.properties
 
 import vn.futaland.app.core.i18n.LocalizedPrice
 import vn.futaland.app.core.i18n.tr
+import vn.futaland.app.core.network.APIClient
 import vn.futaland.app.core.network.JSONValue
 
 object PropertyFormatters {
@@ -192,8 +193,8 @@ object PropertyFormatters {
             ?.ifEmpty { value.id.trim() }
             ?.ifEmpty { fallbackId.trim() }
             ?: fallbackId.trim()
-        if (rawId.isEmpty()) return "https://bds.futaland.vn"
+        if (rawId.isEmpty()) return APIClient.shareWebUrl
         val encodedId = java.net.URLEncoder.encode(rawId, "UTF-8").replace("+", "%20")
-        return "https://bds.futaland.vn/listing/$encodedId"
+        return "${APIClient.shareWebUrl}/listing/$encodedId"
     }
 }

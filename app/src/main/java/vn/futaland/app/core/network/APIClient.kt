@@ -50,6 +50,8 @@ class APIClient private constructor(context: Context) {
             return wsRoot + (if (path.startsWith("/")) path else "/$path")
         }
         val publicWebUrl = "https://bds.futaland.vn"
+        /** Domain used in links users share out of the app (listings, projects, news). */
+        val shareWebUrl = "https://batdongsanfuta.com"
 
         // Public legal pages. These must stay reachable: Google Play rejects the
         // listing when the privacy policy URL does not resolve to a live page.
