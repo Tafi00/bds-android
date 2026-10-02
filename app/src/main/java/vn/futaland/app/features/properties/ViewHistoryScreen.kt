@@ -1,5 +1,6 @@
 package vn.futaland.app.features.properties
 
+import vn.futaland.app.core.i18n.Text
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.background
@@ -102,7 +103,7 @@ fun ViewHistoryScreen(
                     FutaPropertyCard(
                         property = property,
                         onCallClick = {
-                            val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:02363575757"))
+                            val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:0903715757"))
                             context.startActivity(intent)
                         },
                         onChatClick = { onNavigate(FutaDestinations.INBOX) },

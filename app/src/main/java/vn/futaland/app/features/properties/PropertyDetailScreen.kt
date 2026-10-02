@@ -1,5 +1,7 @@
 package vn.futaland.app.features.properties
 
+import vn.futaland.app.core.i18n.tr
+import vn.futaland.app.core.i18n.Text
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.BorderStroke
@@ -243,7 +245,7 @@ fun PropertyDetailScreen(
                     }
                     val code = property?.get("propertyCode")?.string?.ifEmpty { property?.get("code")?.string.orEmpty() } ?: ""
                     Text(
-                        text = if (code.isNotEmpty()) "Mã căn: $code" else (property?.get("title")?.string?.ifEmpty { "Chi tiết sản phẩm" } ?: "Chi tiết"),
+                        text = if (code.isNotEmpty()) tr("Mã căn: {0}", code) else (property?.get("title")?.string?.ifEmpty { "Chi tiết sản phẩm" } ?: "Chi tiết"),
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Bold,
                         color = FutaColors.Navy,
@@ -596,7 +598,7 @@ fun PropertyDetailScreen(
 
                                     val codeText = property["propertyCode"].string.ifEmpty { property.id }
                                     Text(
-                                        text = if (codeText.isNotEmpty()) "Mã căn: $codeText" else PropertyFormatters.propertyTitle(property),
+                                        text = if (codeText.isNotEmpty()) tr("Mã căn: {0}", codeText) else PropertyFormatters.propertyTitle(property),
                                         fontSize = 20.sp,
                                         fontWeight = FontWeight.Bold,
                                         color = FutaColors.Navy
@@ -809,7 +811,7 @@ fun PropertyDetailScreen(
                     } else {
                         val advId = property["advisorId"].string.ifEmpty { property["advisor"]["id"].string.ifEmpty { property["createdBy"]["id"].string } }
                         val advName = property["advisor"]["name"].string.ifEmpty { property["createdBy"]["name"].string }.ifEmpty { property["ownerName"].string.ifEmpty { "Chuyên viên tư vấn FUTA Land" } }
-                        val advPhone = property["advisor"]["phone"].string.ifEmpty { property["createdBy"]["phone"].string }.ifEmpty { property["ownerPhone"].string.ifEmpty { "02363575757" } }
+                        val advPhone = property["advisor"]["phone"].string.ifEmpty { property["createdBy"]["phone"].string }.ifEmpty { property["ownerPhone"].string.ifEmpty { "0903715757" } }
                         val advAvatar = property["advisor"]["avatar"].string.ifEmpty { property["createdBy"]["avatar"].string }
                         listOf(
                             JSONValue.parse("""{"id":"$advId","name":"$advName","phone":"$advPhone","avatar":"$advAvatar"}""")
@@ -835,7 +837,7 @@ fun PropertyDetailScreen(
                                     color = Color(0xFFE8F5E9)
                                 ) {
                                     Text(
-                                        text = if (advisors.size > 1) "${advisors.size} TVV sẵn sàng" else "Chuyên viên sẵn sàng",
+                                        text = if (advisors.size > 1) tr("{0} TVV sẵn sàng", advisors.size) else "Chuyên viên sẵn sàng",
                                         fontSize = 10.5.sp,
                                         fontWeight = FontWeight.SemiBold,
                                         color = Color(0xFF0E7643),
@@ -847,7 +849,7 @@ fun PropertyDetailScreen(
                             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                                 advisors.forEachIndexed { idx, adv ->
                                     val advName = adv["name"].string.ifEmpty { "Chuyên viên tư vấn FUTA Land" }
-                                    val advPhone = adv["phone"].string.ifEmpty { "02363575757" }
+                                    val advPhone = adv["phone"].string.ifEmpty { "0903715757" }
                                     val advAvatar = adv["avatar"].string
                                     val advId = adv["id"].string.ifEmpty { adv["advisorId"].string }
 
@@ -931,7 +933,7 @@ fun PropertyDetailScreen(
                                                         try {
                                                             context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(zaloUrl)))
                                                         } catch (_: Exception) {
-                                                            ToastCenter.show("Không thể mở Zalo: $zaloUrl")
+                                                            ToastCenter.show(tr("Không thể mở Zalo: {0}", zaloUrl))
                                                         }
                                                     }
                                             ) {
@@ -1267,7 +1269,7 @@ fun PropertyDetailScreen(
                                                 val browserIntent = Intent(Intent.ACTION_VIEW, Uri.parse(docUrl))
                                                 context.startActivity(browserIntent)
                                             } catch (_: Exception) {
-                                                ToastCenter.show("Không thể mở tài liệu: $docUrl", isError = true)
+                                                ToastCenter.show(tr("Không thể mở tài liệu: {0}", docUrl), isError = true)
                                             }
                                         } else {
                                             ToastCenter.show("Tài liệu pháp lý đang được cập nhật bản scan số.")
@@ -1893,12 +1895,12 @@ private fun TownhouseFloorsCard(property: JSONValue) {
                 HorizontalDivider(color = Color(0xFFE2E8F0), modifier = Modifier.padding(vertical = 4.dp))
                 rawFloors.forEachIndexed { idx, item ->
                     val floorNum = when {
-                        item["floor"].int > 0 -> "Tầng ${item["floor"].int}"
+                        item["floor"].int > 0 -> tr("Tầng {0}", item["floor"].int)
                         item["floor"].string.isNotEmpty() -> {
                             val f = item["floor"].string
-                            if (f.lowercase().contains("tầng")) f else "Tầng $f"
+                            if (f.lowercase().contains("tầng")) f else tr("Tầng {0}", f)
                         }
-                        else -> "Tầng ${idx + 1}"
+                        else -> tr("Tầng {0}", idx + 1)
                     }
                     val areaVal = when {
                         item["area_m2"].string.isNotEmpty() -> item["area_m2"].string
@@ -1945,7 +1947,7 @@ private fun AdvisorContactBottomSheet(
     } else {
         val advId = property["advisorId"].string.ifEmpty { property["advisor"]["id"].string.ifEmpty { property["createdBy"]["id"].string } }
         val advName = property["advisor"]["name"].string.ifEmpty { property["createdBy"]["name"].string }.ifEmpty { property["ownerName"].string.ifEmpty { "Chuyên viên tư vấn FUTA Land" } }
-        val advPhone = property["advisor"]["phone"].string.ifEmpty { property["createdBy"]["phone"].string }.ifEmpty { property["ownerPhone"].string.ifEmpty { "02363575757" } }
+        val advPhone = property["advisor"]["phone"].string.ifEmpty { property["createdBy"]["phone"].string }.ifEmpty { property["ownerPhone"].string.ifEmpty { "0903715757" } }
         val advAvatar = property["advisor"]["avatar"].string.ifEmpty { property["createdBy"]["avatar"].string }
         listOf(
             JSONValue.parse("""{"id":"$advId","name":"$advName","phone":"$advPhone","avatar":"$advAvatar"}""")
@@ -1979,7 +1981,7 @@ private fun AdvisorContactBottomSheet(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "Mã: $code",
+                            text = tr("Mã: {0}", code),
                             fontSize = 15.sp,
                             fontWeight = FontWeight.Bold,
                             color = FutaColors.Navy
@@ -2104,7 +2106,7 @@ private fun AdvisorContactBottomSheet(
             // 2. Advisor List
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(
-                    text = "ĐỘI NGŨ CHUYÊN VIÊN PHỤ TRÁCH (${advisors.size})",
+                    text = tr("ĐỘI NGŨ CHUYÊN VIÊN PHỤ TRÁCH ({0})", advisors.size),
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Bold,
                     color = Color(0xFFF97316),
@@ -2113,7 +2115,7 @@ private fun AdvisorContactBottomSheet(
 
                 advisors.forEach { adv ->
                     val name = adv["name"].string.ifEmpty { "Chuyên viên FUTA Land" }
-                    val phone = adv["phone"].string.ifEmpty { "02363575757" }
+                    val phone = adv["phone"].string.ifEmpty { "0903715757" }
                     val avatar = adv["avatar"].string
                     val advId = adv["id"].string.ifEmpty { adv["advisorId"].string }
 
@@ -2236,7 +2238,7 @@ private fun AdvisorContactBottomSheet(
                             color = FutaColors.Navy
                         )
                         Text(
-                            text = "0236 3575757 · Hỗ trợ toàn diện",
+                            text = "0903 715 757 · Hỗ trợ toàn diện",
                             fontSize = 11.5.sp,
                             color = FutaColors.Slate
                         )
@@ -2244,7 +2246,7 @@ private fun AdvisorContactBottomSheet(
                     Surface(
                         shape = CircleShape,
                         color = Color(0xFFFDF6EE),
-                        modifier = Modifier.clickable { onCallAdvisor("02363575757") }
+                        modifier = Modifier.clickable { onCallAdvisor("0903715757") }
                     ) {
                         Text(
                             text = "Gọi tổng đài",

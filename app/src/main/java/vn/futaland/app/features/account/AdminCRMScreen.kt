@@ -1,5 +1,7 @@
 package vn.futaland.app.features.account
 
+import vn.futaland.app.core.i18n.tr
+import vn.futaland.app.core.i18n.Text
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.BorderStroke
@@ -288,7 +290,7 @@ fun AdminCRMScreen(
                             }
 
                             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                                Text("TVV phụ trách: ${lead.advisor}", fontSize = 11.5.sp, color = FutaColors.Slate)
+                                Text(tr("TVV phụ trách: {0}", lead.advisor), fontSize = 11.5.sp, color = FutaColors.Slate)
                                 Text(
                                     text = "Chi tiết & Giai đoạn ▶",
                                     fontSize = 11.5.sp,
@@ -315,7 +317,7 @@ fun AdminCRMScreen(
         FutaBottomSheet(
             visible = true,
             onDismiss = { selectedLead = null },
-            title = "Chi tiết cơ hội: ${lead.name}"
+            title = tr("Chi tiết cơ hội: {0}", lead.name)
         ) {
             Column(
                 modifier = Modifier
@@ -331,10 +333,10 @@ fun AdminCRMScreen(
                 ) {
                     Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         Text(lead.name, fontSize = 16.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
-                        Text("Số điện thoại: ${lead.phone}", fontSize = 13.sp, color = FutaColors.Slate)
-                        Text("Nhu cầu: ${lead.demand}", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = FutaColors.Navy)
-                        Text("Ngân sách: ${lead.budget}", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Color(0xFF0E7643))
-                        Text("Chuyên viên: ${lead.advisor}", fontSize = 12.sp, color = FutaColors.Slate)
+                        Text(tr("Số điện thoại: {0}", lead.phone), fontSize = 13.sp, color = FutaColors.Slate)
+                        Text(tr("Nhu cầu: {0}", lead.demand), fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = FutaColors.Navy)
+                        Text(tr("Ngân sách: {0}", lead.budget), fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Color(0xFF0E7643))
+                        Text(tr("Chuyên viên: {0}", lead.advisor), fontSize = 12.sp, color = FutaColors.Slate)
                     }
                 }
 
@@ -359,7 +361,7 @@ fun AdminCRMScreen(
                                     if (idx >= 0) {
                                         leads[idx] = lead.copy(stage = stKey)
                                         selectedLead = leads[idx]
-                                        ToastCenter.show("Đã chuyển sang: $stLabel")
+                                        ToastCenter.show(tr("Đã chuyển sang: {0}", stLabel))
                                     }
                                 }
                         ) {

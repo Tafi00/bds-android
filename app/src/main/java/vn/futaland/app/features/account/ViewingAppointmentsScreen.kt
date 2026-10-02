@@ -1,5 +1,7 @@
 package vn.futaland.app.features.account
 
+import vn.futaland.app.core.i18n.tr
+import vn.futaland.app.core.i18n.Text
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -72,11 +74,11 @@ fun ViewingAppointmentsScreen(onBack: () -> Unit, onNavigate: (String) -> Unit) 
                     ElevatedCard(Modifier.fillMaxWidth()) {
                         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
                             Text(item["property"]["title"].string.ifBlank { item["property"]["propertyCode"].string.ifBlank { "Lịch xem nhà" } }, style = MaterialTheme.typography.titleMedium)
-                            Text("Thời gian: ${viewingTime(item["scheduledAt"].string)}")
-                            Text("Trạng thái: ${when (item["status"].string) { "confirmed" -> "Đã xác nhận"; "completed" -> "Đã hoàn thành"; "cancelled" -> "Đã hủy"; else -> "Chờ xác nhận" }}")
+                            Text(tr("Thời gian: {0}", viewingTime(item["scheduledAt"].string)))
+                            Text(tr("Trạng thái: {0}", when (item["status"].string) { "confirmed" -> "Đã xác nhận"; "completed" -> "Đã hoàn thành"; "cancelled" -> "Đã hủy"; else -> "Chờ xác nhận" }))
                             val advisorName = item["advisor"]["name"].string
-                            if (advisorName.isNotBlank()) Text("Tư vấn viên: $advisorName")
-                            if (item["note"].string.isNotBlank()) Text("Ghi chú: ${item["note"].string}")
+                            if (advisorName.isNotBlank()) Text(tr("Tư vấn viên: {0}", advisorName))
+                            if (item["note"].string.isNotBlank()) Text(tr("Ghi chú: {0}", item["note"].string))
                             if (item["status"].string == "pending" || item["status"].string == "confirmed") {
                                 TextButton(onClick = {
                                     scope.launch {

@@ -1,5 +1,7 @@
 package vn.futaland.app.features.properties
 
+import vn.futaland.app.core.i18n.tr
+import vn.futaland.app.core.i18n.Text
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.background
@@ -11,7 +13,6 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -91,7 +92,7 @@ fun SavedPropertiesScreen(
 
                 // Folder Filter Chips
                 val folders = listOf(
-                    "all" to "Tất cả (${items.size})",
+                    "all" to tr("Tất cả ({0})", items.size),
                     "interested" to "Căn hộ quan tâm",
                     "following" to "Đang theo dõi",
                     "contacted" to "Đã liên hệ"
@@ -163,7 +164,7 @@ fun SavedPropertiesScreen(
                             context.startActivity(Intent.createChooser(sendIntent, "Chia sẻ sản phẩm"))
                         },
                         onCallClick = {
-                            val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:02363575757"))
+                            val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:0903715757"))
                             context.startActivity(intent)
                         },
                         onChatClick = { onNavigate(FutaDestinations.INBOX) },

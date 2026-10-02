@@ -1,5 +1,7 @@
 package vn.futaland.app.features.account
 
+import vn.futaland.app.core.i18n.tr
+import vn.futaland.app.core.i18n.Text
 import androidx.compose.animation.*
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -242,7 +244,7 @@ fun AdminCustomersScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        "${if (totalCount > 0) totalCount else customers.size} khách hàng",
+                        tr("{0} khách hàng", if (totalCount > 0) totalCount else customers.size),
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold,
                         color = FutaColors.Slate
@@ -508,7 +510,7 @@ private fun CustomerDetailSheet(
                             Text(status, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = FutaColors.BrandGreen, modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp))
                         }
                     }
-                    Text("Số điện thoại: $phone", fontSize = 13.sp, color = FutaColors.Slate)
+                    Text(tr("Số điện thoại: {0}", phone), fontSize = 13.sp, color = FutaColors.Slate)
                     if (email.isNotEmpty()) Text("Email: $email", fontSize = 13.sp, color = FutaColors.Slate)
                 }
             }
@@ -543,9 +545,9 @@ private fun CustomerDetailSheet(
                 Surface(shape = RoundedCornerShape(12.dp), color = Color.White, border = BorderStroke(1.dp, Color(0xFFE2E8F0)), modifier = Modifier.fillMaxWidth()) {
                     Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         Text("Nhu cầu tìm kiếm", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
-                        if (segment.isNotEmpty()) Text("• Phân khúc: $segment", fontSize = 12.5.sp, color = FutaColors.Slate)
-                        if (unitTypes.isNotEmpty()) Text("• Loại căn: ${unitTypes.joinToString(", ")}", fontSize = 12.5.sp, color = FutaColors.Slate)
-                        if (furnitures.isNotEmpty()) Text("• Nội thất: ${furnitures.joinToString(", ")}", fontSize = 12.5.sp, color = FutaColors.Slate)
+                        if (segment.isNotEmpty()) Text(tr("• Phân khúc: {0}", segment), fontSize = 12.5.sp, color = FutaColors.Slate)
+                        if (unitTypes.isNotEmpty()) Text(tr("• Loại căn: {0}", unitTypes.joinToString(", ")), fontSize = 12.5.sp, color = FutaColors.Slate)
+                        if (furnitures.isNotEmpty()) Text(tr("• Nội thất: {0}", furnitures.joinToString(", ")), fontSize = 12.5.sp, color = FutaColors.Slate)
                         if (segment.isEmpty() && unitTypes.isEmpty() && furnitures.isEmpty()) {
                             Text("Chưa ghi nhận nhu cầu cụ thể", fontSize = 12.sp, color = FutaColors.Slate)
                         }
@@ -641,9 +643,9 @@ private fun CustomerDetailSheet(
                 Surface(shape = RoundedCornerShape(12.dp), color = Color.White, border = BorderStroke(1.dp, Color(0xFFE2E8F0)), modifier = Modifier.fillMaxWidth()) {
                     Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         Text("Thông tin CCCD / Định danh", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
-                        if (cccd.isNotEmpty()) Text("• Số CCCD: $cccd", fontSize = 12.5.sp, color = FutaColors.Slate)
-                        if (permAddr.isNotEmpty()) Text("• Thường trú: $permAddr", fontSize = 12.5.sp, color = FutaColors.Slate)
-                        if (contAddr.isNotEmpty()) Text("• Liên hệ: $contAddr", fontSize = 12.5.sp, color = FutaColors.Slate)
+                        if (cccd.isNotEmpty()) Text(tr("• Số CCCD: {0}", cccd), fontSize = 12.5.sp, color = FutaColors.Slate)
+                        if (permAddr.isNotEmpty()) Text(tr("• Thường trú: {0}", permAddr), fontSize = 12.5.sp, color = FutaColors.Slate)
+                        if (contAddr.isNotEmpty()) Text(tr("• Liên hệ: {0}", contAddr), fontSize = 12.5.sp, color = FutaColors.Slate)
                         if (cccd.isEmpty() && permAddr.isEmpty() && contAddr.isEmpty()) {
                             Text("Chưa cập nhật thông tin định danh", fontSize = 12.sp, color = FutaColors.Slate)
                         }

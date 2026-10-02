@@ -1,5 +1,7 @@
 package vn.futaland.app.features.account
 
+import vn.futaland.app.core.i18n.tr
+import vn.futaland.app.core.i18n.Text
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -73,7 +75,7 @@ fun ProfileScreen(
                         }
                     }
                 } catch (e: Exception) {
-                    ToastCenter.show("Lỗi tải ảnh: ${e.message}", isError = true)
+                    ToastCenter.show(tr("Lỗi tải ảnh: {0}", e.message), isError = true)
                 } finally {
                     isUploadingPhoto = false
                 }
@@ -271,7 +273,7 @@ fun ProfileScreen(
                                 ToastCenter.show("Cập nhật thông tin hồ sơ thành công!")
                                 onBack()
                             } catch (e: Exception) {
-                                ToastCenter.show("Lỗi cập nhật: ${e.message}", isError = true)
+                                ToastCenter.show(tr("Lỗi cập nhật: {0}", e.message), isError = true)
                             } finally {
                                 isSaving = false
                             }

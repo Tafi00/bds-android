@@ -1,5 +1,7 @@
 package vn.futaland.app.features.messaging
 
+import vn.futaland.app.core.i18n.tr
+import vn.futaland.app.core.i18n.Text
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.ui.draw.clip
@@ -293,7 +295,7 @@ fun NotificationsScreen(
                 APIClient.get().request("/notifications/${item.id}", method = "DELETE")
                 ToastCenter.show("Đã xóa thông báo")
             } catch (e: Exception) {
-                ToastCenter.show("Không xóa được thông báo: ${e.message}", isError = true)
+                ToastCenter.show(tr("Không xóa được thông báo: {0}", e.message), isError = true)
             }
             mutating = false
         }
@@ -310,7 +312,7 @@ fun NotificationsScreen(
                 total = 0
                 ToastCenter.show("Đã xóa toàn bộ thông báo")
             } catch (e: Exception) {
-                ToastCenter.show("Không xóa được: ${e.message}", isError = true)
+                ToastCenter.show(tr("Không xóa được: {0}", e.message), isError = true)
             }
             mutating = false
         }
@@ -698,7 +700,7 @@ fun NotificationsScreen(
                     item {
                         Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
                             FutaButton(
-                                text = if (loadingMore) "Đang tải…" else "Xem thêm (${notifications.size}/$total)",
+                                text = if (loadingMore) "Đang tải…" else tr("Xem thêm ({0}/{1})", notifications.size, total),
                                 variant = FutaButtonVariant.OUTLINE,
                                 enabled = !loadingMore,
                                 onClick = { loadMore() }
@@ -797,7 +799,7 @@ fun NotificationsScreen(
             cancelText = "Hủy",
             onCancel = { deletingItem = null }
         ) {
-            Text("Thông báo \"${item.title}\" sẽ bị xóa vĩnh viễn. Thao tác này không thể hoàn tác.", fontSize = 13.sp, color = FutaColors.Slate)
+            Text(tr("Thông báo \"{0}\" sẽ bị xóa vĩnh viễn. Thao tác này không thể hoàn tác.", item.title), fontSize = 13.sp, color = FutaColors.Slate)
         }
     }
 
@@ -899,7 +901,7 @@ private fun NotificationSettingsSheet(
                                         APIClient.get().request("/devices/$deviceId/preferences", method = "PATCH", bodyJson = body)
                                     } catch (e: Exception) {
                                         prefs = current
-                                        ToastCenter.show("Không lưu được cài đặt: ${e.message}", isError = true)
+                                        ToastCenter.show(tr("Không lưu được cài đặt: {0}", e.message), isError = true)
                                     }
                                     saving = false
                                 }

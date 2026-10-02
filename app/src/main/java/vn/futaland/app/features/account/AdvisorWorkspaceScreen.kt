@@ -1,5 +1,7 @@
 package vn.futaland.app.features.account
 
+import vn.futaland.app.core.i18n.tr
+import vn.futaland.app.core.i18n.Text
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -522,8 +524,8 @@ private fun AdvisorPackageSheet(
 
     fun formatPrice(value: Int): String = String.format("%,d", value).replace(',', '.')
     val proPriceLabel = when {
-        monthlyPackagePrice > 0 -> "${formatPrice(monthlyPackagePrice)} đ/tháng"
-        yearlyPackagePrice > 0 -> "${formatPrice(yearlyPackagePrice)} đ/năm"
+        monthlyPackagePrice > 0 -> tr("{0} đ/tháng", formatPrice(monthlyPackagePrice))
+        yearlyPackagePrice > 0 -> tr("{0} đ/năm", formatPrice(yearlyPackagePrice))
         else -> "Liên hệ để biết giá"
     }
 

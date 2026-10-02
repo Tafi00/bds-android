@@ -1,5 +1,6 @@
 package vn.futaland.app.navigation
 
+import vn.futaland.app.core.i18n.Text
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape

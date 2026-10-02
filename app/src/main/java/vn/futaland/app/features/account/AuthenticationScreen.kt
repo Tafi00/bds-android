@@ -1,5 +1,7 @@
 package vn.futaland.app.features.account
 
+import vn.futaland.app.core.i18n.tr
+import vn.futaland.app.core.i18n.Text
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.animation.*
@@ -999,7 +1001,7 @@ fun AuthenticationScreen(
                         // Resend Countdown or Action
                         if (resendSeconds > 0) {
                             Text(
-                                text = "Gửi lại mã sau ${resendSeconds}s",
+                                text = tr("Gửi lại mã sau {0}s", resendSeconds),
                                 fontSize = 13.sp,
                                 color = FutaColors.Slate,
                                 textAlign = TextAlign.Center,
@@ -1083,7 +1085,7 @@ fun AuthenticationScreen(
                     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
                         Text(
                             text = if (step == AuthStep.RESET_PASSWORD) {
-                                "Đặt mật khẩu mới cho ${displayIdentifier.ifEmpty { resolvedPhone }}. Sau khi lưu, bạn sẽ được đăng nhập ngay."
+                                tr("Đặt mật khẩu mới cho {0}. Sau khi lưu, bạn sẽ được đăng nhập ngay.", displayIdentifier.ifEmpty { resolvedPhone })
                             } else {
                                 "Vui lòng nhập mật khẩu mới để tiếp tục sử dụng tài khoản."
                             },

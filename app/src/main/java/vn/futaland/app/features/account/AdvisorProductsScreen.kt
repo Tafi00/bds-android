@@ -1,5 +1,10 @@
 package vn.futaland.app.features.account
 
+import vn.futaland.app.core.i18n.tr
+import vn.futaland.app.core.i18n.Text
+import vn.futaland.app.core.i18n.LocalizedPrice
+import vn.futaland.app.core.i18n.I18n
+import vn.futaland.app.core.i18n.AppLanguage
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -121,7 +126,7 @@ fun AdvisorProductsScreen(
                 detailItem = match
             }
         } else {
-            ToastCenter.show("Không tìm thấy sản phẩm $code trong rổ hàng của bạn.", isError = true)
+            ToastCenter.show(tr("Không tìm thấy sản phẩm {0} trong rổ hàng của bạn.", code), isError = true)
         }
     }
 
@@ -639,7 +644,7 @@ fun AdvisorProductsScreen(
                         title = "TẦNG",
                         selected = floorFilter,
                         options = floorOptions,
-                        displayTransform = { "Tầng $it" },
+                        displayTransform = { tr("Tầng {0}", it) },
                         onSelect = { floorFilter = it }
                     )
                 }
@@ -954,7 +959,7 @@ private fun AdvisorProductCartCard(
                         }
                     }
                     Text(
-                        text = projectName + (if (block.isNotEmpty()) " · Toà $block" else "") + (if (floor.isNotEmpty()) " · Tầng $floor" else ""),
+                        text = projectName + (if (block.isNotEmpty()) tr(" · Toà {0}", block) else "") + (if (floor.isNotEmpty()) tr(" · Tầng {0}", floor) else ""),
                         fontSize = 12.5.sp,
                         color = FutaColors.Slate
                     )
@@ -989,13 +994,13 @@ private fun AdvisorProductCartCard(
                 val exp = reg["expiresAt"].string
                 if (exp.isNotEmpty() && (status == "active" || status == "approved")) {
                     Text(
-                        text = "Hạn quyền bán: ${exp.take(10)}",
+                        text = tr("Hạn quyền bán: {0}", exp.take(10)),
                         fontSize = 11.5.sp,
                         color = FutaColors.Slate
                     )
                 } else if (reg["registeredAt"].string.isNotEmpty()) {
                     Text(
-                        text = "Đăng ký: ${reg["registeredAt"].string.take(10)}",
+                        text = tr("Đăng ký: {0}", reg["registeredAt"].string.take(10)),
                         fontSize = 11.5.sp,
                         color = FutaColors.Slate
                     )
@@ -1073,6 +1078,7 @@ private fun StatusBadge(text: String, color: Color, bg: Color) {
 
 private fun formatMoney(value: Double): String {
     if (value <= 0) return "Liên hệ"
+    if (I18n.language != AppLanguage.VI) return LocalizedPrice.compact(value)
     if (value >= 1_000_000_000) {
         return String.format("%.2f tỷ", value / 1_000_000_000).replace(".00", "").replace(".", ",")
     }

@@ -1,5 +1,7 @@
 package vn.futaland.app.features.luckywheel
 
+import vn.futaland.app.core.i18n.tr
+import vn.futaland.app.core.i18n.Text
 import android.graphics.Bitmap
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.CubicBezierEasing
@@ -264,7 +266,7 @@ fun LuckyWheelScreen(
             // Spin Action Button
             item {
                 FutaButton(
-                    text = if (remainingSpins > 0) "QUAY NGAY ($remainingSpins LƯỢT KHẢ DỤNG)" else "HẾT LƯỢT QUAY HÔM NAY",
+                    text = if (remainingSpins > 0) tr("QUAY NGAY ({0} LƯỢT KHẢ DỤNG)", remainingSpins) else "HẾT LƯỢT QUAY HÔM NAY",
                     variant = FutaButtonVariant.SECONDARY,
                     enabled = !isSpinning && remainingSpins > 0,
                     height = 48.dp,
@@ -283,7 +285,7 @@ fun LuckyWheelScreen(
                     ) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Text("Lượt hôm nay", fontSize = 11.5.sp, color = FutaColors.Slate)
-                            Text("$remainingSpins lượt", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
+                            Text(tr("{0} lượt", remainingSpins), fontSize = 16.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
                         }
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Text("Hạn mức ngày", fontSize = 11.5.sp, color = FutaColors.Slate)

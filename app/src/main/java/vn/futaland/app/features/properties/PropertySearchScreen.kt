@@ -1,5 +1,10 @@
 package vn.futaland.app.features.properties
 
+import vn.futaland.app.core.i18n.Text
+import vn.futaland.app.core.i18n.tr
+import vn.futaland.app.core.i18n.LocalizedPrice
+import vn.futaland.app.core.i18n.I18n
+import vn.futaland.app.core.i18n.AppLanguage
 import android.app.Activity
 import android.content.Intent
 import android.net.Uri
@@ -456,7 +461,7 @@ fun PropertySearchScreen(
                                 context.startActivity(Intent.createChooser(sendIntent, "Chia sẻ sản phẩm"))
                             },
                             onCallClick = {
-                                val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:02363575757"))
+                                val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:0903715757"))
                                 context.startActivity(intent)
                             },
                             onChatClick = { onNavigate(FutaDestinations.INBOX) },
@@ -482,7 +487,7 @@ fun PropertySearchScreen(
                             )
 
                             Text(
-                                text = "Trang $page / $totalPages ($totalCount BĐS)",
+                                text = tr("Trang {0} / {1} ({2} BĐS)", page, totalPages, totalCount),
                                 fontSize = 12.sp,
                                 color = FutaColors.Slate,
                                 fontWeight = FontWeight.Medium
@@ -535,7 +540,7 @@ fun PropertySearchScreen(
                     modifier = Modifier.weight(1f)
                 )
                 FutaButton(
-                    text = if (totalCount > 0) "Xem $totalCount bất động sản" else "Áp dụng bộ lọc",
+                    text = if (totalCount > 0) tr("Xem {0} bất động sản", totalCount) else "Áp dụng bộ lọc",
                     variant = FutaButtonVariant.PRIMARY,
                     onClick = {
                         showFilterSheet = false
@@ -563,8 +568,8 @@ fun PropertySearchScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text("KHOẢNG GIÁ", fontSize = 11.5.sp, fontWeight = FontWeight.Bold, color = FutaColors.Slate)
-                val minLabel = if (priceSliderRange.start <= 0.1f) "0" else String.format(java.util.Locale.US, "%.1f", priceSliderRange.start) + " tỷ"
-                val maxLabel = if (priceSliderRange.endInclusive >= 19.9f) "Trên 20 tỷ" else String.format(java.util.Locale.US, "%.1f", priceSliderRange.endInclusive) + " tỷ"
+                val minLabel = if (priceSliderRange.start <= 0.1f) "0" else if (I18n.language != AppLanguage.VI) LocalizedPrice.compact(priceSliderRange.start * 1e9) else String.format(java.util.Locale.US, "%.1f", priceSliderRange.start) + tr(" tỷ")
+                val maxLabel = if (priceSliderRange.endInclusive >= 19.9f) tr("Trên 20 tỷ") else if (I18n.language != AppLanguage.VI) LocalizedPrice.compact(priceSliderRange.endInclusive * 1e9) else String.format(java.util.Locale.US, "%.1f", priceSliderRange.endInclusive) + tr(" tỷ")
                 Text("$minLabel - $maxLabel", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = FutaColors.BrandGreen)
             }
 

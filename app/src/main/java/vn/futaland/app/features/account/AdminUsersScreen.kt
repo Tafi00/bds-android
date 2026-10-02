@@ -1,5 +1,7 @@
 package vn.futaland.app.features.account
 
+import vn.futaland.app.core.i18n.tr
+import vn.futaland.app.core.i18n.Text
 import androidx.compose.animation.*
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -269,8 +271,8 @@ fun AdminUsersScreen(
                     Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         Text(name, fontSize = 16.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
                         Text("Email: ${user["email"].string.ifEmpty { "Chưa cập nhật" }}", fontSize = 12.5.sp, color = FutaColors.Slate)
-                        Text("SĐT: ${user["phone"].string.ifEmpty { "Chưa cập nhật" }}", fontSize = 12.5.sp, color = FutaColors.Slate)
-                        Text("Vai trò: $role", fontSize = 12.5.sp, color = FutaColors.BrandGreen, fontWeight = FontWeight.Bold)
+                        Text(tr("SĐT: {0}", user["phone"].string.ifEmpty { "Chưa cập nhật" }), fontSize = 12.5.sp, color = FutaColors.Slate)
+                        Text(tr("Vai trò: {0}", role), fontSize = 12.5.sp, color = FutaColors.BrandGreen, fontWeight = FontWeight.Bold)
                     }
                 }
 
@@ -288,7 +290,7 @@ fun AdminUsersScreen(
                                         selectedUser = null
                                         loadUsers(search)
                                     } catch (e: Exception) {
-                                        ToastCenter.show("Lỗi: ${e.message}", isError = true)
+                                        ToastCenter.show(tr("Lỗi: {0}", e.message), isError = true)
                                     }
                                 }
                             } else {
@@ -310,7 +312,7 @@ fun AdminUsersScreen(
                                         selectedUser = null
                                         loadUsers(search)
                                     } catch (e: Exception) {
-                                        ToastCenter.show("Lỗi: ${e.message}", isError = true)
+                                        ToastCenter.show(tr("Lỗi: {0}", e.message), isError = true)
                                     }
                                 }
                             } else {
@@ -343,7 +345,7 @@ fun AdminUsersScreen(
                         selectedUser = null
                         loadUsers(search)
                     } catch (e: Exception) {
-                        ToastCenter.show("Lỗi: ${e.message}", isError = true)
+                        ToastCenter.show(tr("Lỗi: {0}", e.message), isError = true)
                     }
                 }
             },
@@ -372,7 +374,7 @@ fun AdminUsersScreen(
                         selectedUser = null
                         loadUsers(search)
                     } catch (e: Exception) {
-                        ToastCenter.show("Lỗi: ${e.message}", isError = true)
+                        ToastCenter.show(tr("Lỗi: {0}", e.message), isError = true)
                     }
                 }
             },

@@ -1,5 +1,7 @@
 package vn.futaland.app.features.properties
 
+import vn.futaland.app.core.i18n.tr
+import vn.futaland.app.core.i18n.Text
 import android.content.Context
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -28,7 +30,6 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ZoomOutMap
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -309,7 +310,7 @@ fun PropertyPhotoViewerDialog(
                     )
                     Text(
                         text = if (images.size > 1) {
-                            "Ảnh ${pagerState.currentPage + 1}/${images.size} · chụm 2 ngón để phóng to"
+                            tr("Ảnh {0}/{1} · chụm 2 ngón để phóng to", pagerState.currentPage + 1, images.size)
                         } else {
                             "Chụm 2 ngón để phóng to"
                         },

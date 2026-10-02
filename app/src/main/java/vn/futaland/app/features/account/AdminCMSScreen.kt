@@ -1,5 +1,7 @@
 package vn.futaland.app.features.account
 
+import vn.futaland.app.core.i18n.tr
+import vn.futaland.app.core.i18n.Text
 import androidx.compose.animation.*
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -384,7 +386,7 @@ fun AdminCMSScreen(
                                         ToastCenter.show("Đã lưu cấu hình Trang chủ thành công!")
                                         loadHomepageContent()
                                     } catch (e: Exception) {
-                                        ToastCenter.show("Lỗi: ${e.message}", isError = true)
+                                        ToastCenter.show(tr("Lỗi: {0}", e.message), isError = true)
                                     } finally {
                                         isSavingHomepage = false
                                     }
@@ -506,7 +508,7 @@ fun AdminCMSScreen(
                         editingArticle = null
                         loadArticles(newsSearch)
                     } catch (e: Exception) {
-                        ToastCenter.show("Lỗi lưu bài viết: ${e.message}", isError = true)
+                        ToastCenter.show(tr("Lỗi lưu bài viết: {0}", e.message), isError = true)
                     }
                 }
             }
@@ -529,13 +531,13 @@ fun AdminCMSScreen(
                         deletingArticle = null
                         loadArticles(newsSearch)
                     } catch (e: Exception) {
-                        ToastCenter.show("Lỗi: ${e.message}", isError = true)
+                        ToastCenter.show(tr("Lỗi: {0}", e.message), isError = true)
                     }
                 }
             },
             onDismiss = { deletingArticle = null }
         ) {
-            Text("Bạn có chắc chắn muốn xóa bài viết '${deletingArticle!!["title"].string}' không?", fontSize = 13.sp, color = FutaColors.Slate)
+            Text(tr("Bạn có chắc chắn muốn xóa bài viết '{0}' không?", deletingArticle!!["title"].string), fontSize = 13.sp, color = FutaColors.Slate)
         }
     }
 }
@@ -634,7 +636,7 @@ private fun NewsArticleRowItem(
 
                     if (views > 0) {
                         Text(
-                            text = "· $views lượt xem",
+                            text = tr("· {0} lượt xem", views),
                             fontSize = 10.sp,
                             color = FutaColors.Slate
                         )

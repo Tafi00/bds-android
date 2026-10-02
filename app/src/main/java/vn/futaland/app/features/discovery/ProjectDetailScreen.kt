@@ -1,5 +1,6 @@
 package vn.futaland.app.features.discovery
 
+import vn.futaland.app.core.i18n.Text
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.background

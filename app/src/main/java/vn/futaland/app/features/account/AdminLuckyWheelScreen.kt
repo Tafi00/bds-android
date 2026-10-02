@@ -1,5 +1,7 @@
 package vn.futaland.app.features.account
 
+import vn.futaland.app.core.i18n.tr
+import vn.futaland.app.core.i18n.Text
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -231,7 +233,7 @@ fun AdminLuckyWheelScreen(
                     item {
                         FutaCard(modifier = Modifier.fillMaxWidth()) {
                             Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                                Text("DANH SÁCH GIẢI THƯỞNG TRÊN VÒNG QUAY (${prizesList.size})", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
+                                Text(tr("DANH SÁCH GIẢI THƯỞNG TRÊN VÒNG QUAY ({0})", prizesList.size), fontSize = 12.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
 
                                 for (p in prizesList) {
                                     Row(
@@ -288,7 +290,7 @@ fun AdminLuckyWheelScreen(
                                                 ToastCenter.show("Đã cập nhật cài đặt vòng quay thành công!")
                                                 loadAllData()
                                             } catch (e: Exception) {
-                                                ToastCenter.show("Lỗi: ${e.message}", isError = true)
+                                                ToastCenter.show(tr("Lỗi: {0}", e.message), isError = true)
                                             } finally {
                                                 isSavingSettings = false
                                             }
@@ -326,7 +328,7 @@ fun AdminLuckyWheelScreen(
                                 )
 
                                 if (searchResults.isNotEmpty()) {
-                                    Text("Kết quả tìm kiếm (${searchResults.size})", fontSize = 11.5.sp, color = FutaColors.Slate)
+                                    Text(tr("Kết quả tìm kiếm ({0})", searchResults.size), fontSize = 11.5.sp, color = FutaColors.Slate)
                                     for (u in searchResults) {
                                         Row(
                                             modifier = Modifier.fillMaxWidth(),
@@ -335,7 +337,7 @@ fun AdminLuckyWheelScreen(
                                         ) {
                                             Column {
                                                 Text(u["name"].string.ifEmpty { "Khách hàng" }, fontSize = 13.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
-                                                Text("${u["phone"].string.ifEmpty { u["phoneNumber"].string }} · Lượt: ${u["manualBonusSpins"].int}", fontSize = 11.5.sp, color = FutaColors.Slate)
+                                                Text(tr("{0} · Lượt: {1}", u["phone"].string.ifEmpty { u["phoneNumber"].string }, u["manualBonusSpins"].int), fontSize = 11.5.sp, color = FutaColors.Slate)
                                             }
                                             FutaButton(
                                                 text = "Chọn",
@@ -353,7 +355,7 @@ fun AdminLuckyWheelScreen(
                                 selectedUserForGrant?.let { u ->
                                     Surface(shape = RoundedCornerShape(10.dp), color = Color(0xFFEAF5EF), modifier = Modifier.fillMaxWidth()) {
                                         Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                            Text("Đang chọn: ${u["name"].string.ifEmpty { "Khách hàng" }} (${u["phone"].string.ifEmpty { u["phoneNumber"].string }})", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = FutaColors.BrandGreen)
+                                            Text(tr("Đang chọn: {0} ({1})", u["name"].string.ifEmpty { "Khách hàng" }, u["phone"].string.ifEmpty { u["phoneNumber"].string }), fontSize = 12.sp, fontWeight = FontWeight.Bold, color = FutaColors.BrandGreen)
                                             FutaInput(value = grantSpinsCount, onValueChange = { grantSpinsCount = it }, placeholder = "Số lượt tặng (ví dụ: 5)")
                                             FutaInput(value = grantNote, onValueChange = { grantNote = it }, placeholder = "Ghi chú cấp lượt")
                                             FutaButton(
@@ -367,12 +369,12 @@ fun AdminLuckyWheelScreen(
                                                             val spins = grantSpinsCount.toIntOrNull() ?: 1
                                                             val body = """{"userId":"${u.id}","spins":$spins,"note":"${grantNote.replace("\"", "\\\"")}"}"""
                                                             APIClient.get().request("/lucky-wheel/admin/grant-spins", method = "POST", bodyJson = body)
-                                                            ToastCenter.show("Đã cấp $spins lượt quay cho người dùng!")
+                                                            ToastCenter.show(tr("Đã cấp {0} lượt quay cho người dùng!", spins))
                                                             selectedUserForGrant = null
                                                             grantNote = ""
                                                             loadAllData()
                                                         } catch (e: Exception) {
-                                                            ToastCenter.show("Lỗi: ${e.message}", isError = true)
+                                                            ToastCenter.show(tr("Lỗi: {0}", e.message), isError = true)
                                                         } finally {
                                                             isGranting = false
                                                         }
@@ -391,7 +393,7 @@ fun AdminLuckyWheelScreen(
                     item {
                         FutaCard(modifier = Modifier.fillMaxWidth()) {
                             Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                                Text("TÀI KHOẢN CÒN LƯỢT QUAY TỒN (${usersWithSpins.size})", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
+                                Text(tr("TÀI KHOẢN CÒN LƯỢT QUAY TỒN ({0})", usersWithSpins.size), fontSize = 12.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
                                 if (usersWithSpins.isEmpty()) {
                                     Text("Không có tài khoản nào còn lượt tồn.", fontSize = 12.sp, color = FutaColors.Slate)
                                 } else {
@@ -403,7 +405,7 @@ fun AdminLuckyWheelScreen(
                                         ) {
                                             Column {
                                                 Text(u["name"].string.ifEmpty { "Khách hàng" }, fontSize = 13.5.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
-                                                Text("${u["phone"].string.ifEmpty { u["phoneNumber"].string }} · ${u["manualBonusSpins"].int} lượt tồn", fontSize = 11.5.sp, color = FutaColors.BrandGreen)
+                                                Text(tr("{0} · {1} lượt tồn", u["phone"].string.ifEmpty { u["phoneNumber"].string }, u["manualBonusSpins"].int), fontSize = 11.5.sp, color = FutaColors.BrandGreen)
                                             }
                                             FutaButton(
                                                 text = "+ Lượt",
@@ -459,9 +461,9 @@ fun AdminLuckyWheelScreen(
                                 lookupSpinResult?.let { spin ->
                                     Surface(shape = RoundedCornerShape(10.dp), color = Color(0xFFF8FAFC), modifier = Modifier.fillMaxWidth()) {
                                         Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                                            Text("Giải thưởng: ${spin["prizeLabel"].string}", fontSize = 13.5.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
-                                            Text("Người trúng: ${spin["user"]["name"].string.ifEmpty { "Khách hàng" }} (${spin["user"]["phone"].string.ifEmpty { spin["user"]["phoneNumber"].string }})", fontSize = 12.sp, color = FutaColors.Slate)
-                                            Text("Trạng thái: ${spin["fulfillmentStatus"].string}", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = if (spin["fulfillmentStatus"].string == "received") FutaColors.BrandGreen else Color(0xFFF97316))
+                                            Text(tr("Giải thưởng: {0}", spin["prizeLabel"].string), fontSize = 13.5.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
+                                            Text(tr("Người trúng: {0} ({1})", spin["user"]["name"].string.ifEmpty { "Khách hàng" }, spin["user"]["phone"].string.ifEmpty { spin["user"]["phoneNumber"].string }), fontSize = 12.sp, color = FutaColors.Slate)
+                                            Text(tr("Trạng thái: {0}", spin["fulfillmentStatus"].string), fontSize = 12.sp, fontWeight = FontWeight.Bold, color = if (spin["fulfillmentStatus"].string == "received") FutaColors.BrandGreen else Color(0xFFF97316))
 
                                             if (spin["fulfillmentStatus"].string != "received") {
                                                 FutaButton(
@@ -479,7 +481,7 @@ fun AdminLuckyWheelScreen(
                                                                 rewardCodeQuery = ""
                                                                 loadAllData()
                                                             } catch (e: Exception) {
-                                                                ToastCenter.show("Lỗi: ${e.message}", isError = true)
+                                                                ToastCenter.show(tr("Lỗi: {0}", e.message), isError = true)
                                                             } finally {
                                                                 isUpdatingFulfillment = false
                                                             }
@@ -500,7 +502,7 @@ fun AdminLuckyWheelScreen(
                     item {
                         FutaCard(modifier = Modifier.fillMaxWidth()) {
                             Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                                Text("LƯỢT TRÚNG THƯỞNG PHÁT SINH (${winningSpins.size})", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
+                                Text(tr("LƯỢT TRÚNG THƯỞNG PHÁT SINH ({0})", winningSpins.size), fontSize = 12.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
                                 if (winningSpins.isEmpty()) {
                                     Text("Chưa có lượt trúng thưởng nào.", fontSize = 12.sp, color = FutaColors.Slate)
                                 } else {
@@ -517,7 +519,7 @@ fun AdminLuckyWheelScreen(
                                                 Text("$uName · $uPhone", fontSize = 11.5.sp, color = FutaColors.Slate)
                                                 val rCode = spin["rewardCode"].string
                                                 if (rCode.isNotEmpty()) {
-                                                    Text("Mã: $rCode", fontSize = 10.5.sp, color = FutaColors.BrandGreen)
+                                                    Text(tr("Mã: {0}", rCode), fontSize = 10.5.sp, color = FutaColors.BrandGreen)
                                                 }
                                             }
                                             val st = spin["fulfillmentStatus"].string

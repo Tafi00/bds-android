@@ -1,5 +1,7 @@
 package vn.futaland.app.features.account
 
+import vn.futaland.app.core.i18n.tr
+import vn.futaland.app.core.i18n.Text
 import androidx.compose.animation.*
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -91,10 +93,10 @@ fun AdminRolesScreen(
                 val permsJson = selectedPermissions.sorted().joinToString(",") { "\"$it\"" }
                 val body = "{\"permissions\":[$permsJson]}"
                 APIClient.get().request("/users/role-permissions/$selectedRoleCode", method = "PUT", bodyJson = body)
-                ToastCenter.show("Đã lưu phân quyền vai trò $selectedRoleCode thành công!")
+                ToastCenter.show(tr("Đã lưu phân quyền vai trò {0} thành công!", selectedRoleCode))
                 loadData()
             } catch (e: Exception) {
-                ToastCenter.show("Lỗi: ${e.message}", isError = true)
+                ToastCenter.show(tr("Lỗi: {0}", e.message), isError = true)
             } finally {
                 isSaving = false
             }
@@ -213,7 +215,7 @@ fun AdminRolesScreen(
                                                             overflow = TextOverflow.Ellipsis
                                                         )
                                                         Text(
-                                                            text = "$permsCount quyền",
+                                                            text = tr("{0} quyền", permsCount),
                                                             fontSize = 11.sp,
                                                             color = if (isSelected) Color.White.copy(alpha = 0.85f) else FutaColors.Slate
                                                         )
@@ -271,7 +273,7 @@ fun AdminRolesScreen(
                 // Section 2: Inset Grouped Permission Categories (Exact iOS List Style)
                 item {
                     Text(
-                        text = "Ma trận quyền cho: $selectedRoleName",
+                        text = tr("Ma trận quyền cho: {0}", selectedRoleName),
                         fontSize = 13.sp,
                         fontWeight = FontWeight.SemiBold,
                         color = FutaColors.Slate
@@ -422,7 +424,7 @@ fun AdminRolesScreen(
                         newRoleDesc = ""
                         loadData()
                     } catch (e: Exception) {
-                        ToastCenter.show("Lỗi: ${e.message}", isError = true)
+                        ToastCenter.show(tr("Lỗi: {0}", e.message), isError = true)
                     }
                 }
             },
@@ -461,7 +463,7 @@ fun AdminRolesScreen(
                         isEditingRole = false
                         loadData()
                     } catch (e: Exception) {
-                        ToastCenter.show("Lỗi: ${e.message}", isError = true)
+                        ToastCenter.show(tr("Lỗi: {0}", e.message), isError = true)
                     }
                 }
             },

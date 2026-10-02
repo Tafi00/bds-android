@@ -41,6 +41,7 @@ import vn.futaland.app.features.discovery.ProjectsScreen
 import vn.futaland.app.features.discovery.ProjectDetailScreen
 import vn.futaland.app.features.discovery.ProjectMapScreen
 import vn.futaland.app.core.auth.AppSession
+import vn.futaland.app.core.i18n.I18n
 import vn.futaland.app.core.network.APIClient
 import vn.futaland.app.designsystem.FutaLandTheme
 import vn.futaland.app.designsystem.FutaToastOverlay
@@ -117,6 +118,11 @@ class MainActivity : ComponentActivity() {
                 }
                 // Restore session on startup
                 LaunchedEffect(Unit) {
+                    // A language change recreates the activity: come back to the account tab (iOS parity).
+                    if (I18n.reopenAccountTab) {
+                        I18n.reopenAccountTab = false
+                        safeNavigate(FutaDestinations.ACCOUNT)
+                    }
                     AppSession.shared.restore()
                     if (AppSession.shared.isAuthenticated) {
                         ChatUnreadBadge.refresh()

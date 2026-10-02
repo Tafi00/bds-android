@@ -1,5 +1,7 @@
 package vn.futaland.app.features.account
 
+import vn.futaland.app.core.i18n.tr
+import vn.futaland.app.core.i18n.Text
 import androidx.compose.animation.*
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -194,12 +196,12 @@ fun AdminAdvisorProfilesScreen(
                     Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         Text(name, fontSize = 16.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
                         if (email.isNotEmpty()) Text("Email: $email", fontSize = 12.5.sp, color = FutaColors.Slate)
-                        if (phone.isNotEmpty()) Text("SĐT: $phone", fontSize = 12.5.sp, color = FutaColors.Slate)
+                        if (phone.isNotEmpty()) Text(tr("SĐT: {0}", phone), fontSize = 12.5.sp, color = FutaColors.Slate)
                         if (profile["experience"].string.isNotEmpty()) {
-                            Text("Kinh nghiệm: ${profile["experience"].string} năm", fontSize = 12.5.sp, color = FutaColors.Slate)
+                            Text(tr("Kinh nghiệm: {0} năm", profile["experience"].string), fontSize = 12.5.sp, color = FutaColors.Slate)
                         }
                         if (profile["bio"].string.isNotEmpty()) {
-                            Text("Giới thiệu: ${profile["bio"].string}", fontSize = 12.sp, color = FutaColors.Slate)
+                            Text(tr("Giới thiệu: {0}", profile["bio"].string), fontSize = 12.sp, color = FutaColors.Slate)
                         }
                     }
                 }
@@ -228,7 +230,7 @@ fun AdminAdvisorProfilesScreen(
                                         inspectingRequest = null
                                         loadRequests()
                                     } catch (e: Exception) {
-                                        ToastCenter.show("Lỗi: ${e.message}", isError = true)
+                                        ToastCenter.show(tr("Lỗi: {0}", e.message), isError = true)
                                     } finally {
                                         actionBusy = false
                                     }
@@ -270,7 +272,7 @@ fun AdminAdvisorProfilesScreen(
                         inspectingRequest = null
                         loadRequests()
                     } catch (e: Exception) {
-                        ToastCenter.show("Lỗi: ${e.message}", isError = true)
+                        ToastCenter.show(tr("Lỗi: {0}", e.message), isError = true)
                     }
                 }
             },
@@ -336,7 +338,7 @@ private fun AdvisorProfileRequestRowItem(
                 }
 
                 if (exp.isNotEmpty()) {
-                    Text("Kinh nghiệm: $exp năm", fontSize = 11.sp, color = FutaColors.Slate)
+                    Text(tr("Kinh nghiệm: {0} năm", exp), fontSize = 11.sp, color = FutaColors.Slate)
                 }
             }
         }

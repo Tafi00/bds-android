@@ -1,5 +1,7 @@
 package vn.futaland.app.features.account
 
+import vn.futaland.app.core.i18n.tr
+import vn.futaland.app.core.i18n.Text
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.BorderStroke
@@ -486,7 +488,7 @@ fun NewsDetailScreen(
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     Icon(Icons.Default.Visibility, null, tint = FutaColors.Slate, modifier = Modifier.size(13.dp))
                                     Spacer(Modifier.width(4.dp))
-                                    Text("$views lượt xem", fontSize = 11.5.sp, color = FutaColors.Slate)
+                                    Text(tr("{0} lượt xem", views), fontSize = 11.5.sp, color = FutaColors.Slate)
                                 }
                             }
                         }
@@ -671,7 +673,7 @@ fun ContactScreen(
 
                         Row(
                             modifier = Modifier.fillMaxWidth().clickable {
-                                context.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:02363575757")))
+                                context.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:0903715757")))
                             },
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
@@ -681,7 +683,7 @@ fun ContactScreen(
                                 Spacer(Modifier.width(12.dp))
                                 Column {
                                     Text("Tổng đài CSKH 24/7", fontSize = 13.5.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
-                                    Text("0236 3575757 (Miễn phí cước)", fontSize = 11.5.sp, color = FutaColors.Slate)
+                                    Text("0903 715 757", fontSize = 11.5.sp, color = FutaColors.Slate)
                                 }
                             }
                             Icon(Icons.AutoMirrored.Filled.ArrowForward, null, tint = FutaColors.Slate, modifier = Modifier.size(15.dp))
@@ -691,7 +693,7 @@ fun ContactScreen(
 
                         Row(
                             modifier = Modifier.fillMaxWidth().clickable {
-                                context.startActivity(Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:hotro@futaland.vn")))
+                                context.startActivity(Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:info@futaland.vn")))
                             },
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
@@ -701,7 +703,7 @@ fun ContactScreen(
                                 Spacer(Modifier.width(12.dp))
                                 Column {
                                     Text("Email tiếp nhận", fontSize = 13.5.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
-                                    Text("hotro@futaland.vn", fontSize = 11.5.sp, color = FutaColors.Slate)
+                                    Text("info@futaland.vn", fontSize = 11.5.sp, color = FutaColors.Slate)
                                 }
                             }
                             Icon(Icons.AutoMirrored.Filled.ArrowForward, null, tint = FutaColors.Slate, modifier = Modifier.size(15.dp))

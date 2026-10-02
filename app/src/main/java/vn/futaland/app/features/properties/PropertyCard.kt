@@ -1,5 +1,7 @@
 package vn.futaland.app.features.properties
 
+import vn.futaland.app.core.i18n.tr
+import vn.futaland.app.core.i18n.Text
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -9,7 +11,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.Icon
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -107,7 +108,7 @@ fun FutaPropertyCard(
     }
 
     val translatedMainDir = if (dir.isNotEmpty()) translateDirection(dir) else ""
-    val mainDirectionText = "Hướng cửa chính: ${translatedMainDir.ifEmpty { "Đang cập nhật" }}"
+    val mainDirectionText = tr("Hướng cửa chính: {0}", translatedMainDir.ifEmpty { "Đang cập nhật" })
 
     val sellPrice = property["sellPrice"].double
     val price = property["price"].double
@@ -117,7 +118,7 @@ fun FutaPropertyCard(
     } else {
         val finalPrice = if (rawVal < 1000) rawVal * 1_000_000 else rawVal
         val formattedNum = "%,d".format(Locale.US, finalPrice.toLong()).replace(',', '.')
-        "$formattedNum đ"
+        tr("{0} đ", formattedNum)
     }
 
     FutaPropertyCardContent(
@@ -169,7 +170,7 @@ fun FutaPropertyCard(
 
     val bedroomLabel = if (beds > 0) "$beds PN" else null
     val balconyDir = translateDirection(direction).ifEmpty { "-" }
-    val mainDir = "Hướng cửa chính: ${translateDirection(direction).ifEmpty { "Đang cập nhật" }}"
+    val mainDir = tr("Hướng cửa chính: {0}", translateDirection(direction).ifEmpty { "Đang cập nhật" })
 
     FutaPropertyCardContent(
         projectName = address.ifEmpty { "Dự án FUTA Land" },

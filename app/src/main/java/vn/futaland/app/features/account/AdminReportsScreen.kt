@@ -1,5 +1,7 @@
 package vn.futaland.app.features.account
 
+import vn.futaland.app.core.i18n.tr
+import vn.futaland.app.core.i18n.Text
 import androidx.compose.animation.*
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -344,13 +346,13 @@ fun AdminReportsScreen(
                                     }
 
                                     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                                        FunnelStepRow("1. Lượt xem sản phẩm", "$views lượt", 1.0f, Color(0xFF2563EB))
+                                        FunnelStepRow("1. Lượt xem sản phẩm", tr("{0} lượt", views), 1.0f, Color(0xFF2563EB))
                                         val interestRatio = if (views > 0) (identified.toFloat() / views.toFloat()).coerceIn(0.05f, 1.0f) else 0.25f
-                                        FunnelStepRow("2. Khách quan tâm", "$identified khách", interestRatio, FutaColors.BrandGreen)
+                                        FunnelStepRow("2. Khách quan tâm", tr("{0} khách", identified), interestRatio, FutaColors.BrandGreen)
                                         val consultRatio = if (views > 0) (consultations.toFloat() / views.toFloat()).coerceIn(0.05f, 1.0f) else 0.12f
-                                        FunnelStepRow("3. Yêu cầu tư vấn", "$consultations lượt", consultRatio, Color(0xFFF97316))
+                                        FunnelStepRow("3. Yêu cầu tư vấn", tr("{0} lượt", consultations), consultRatio, Color(0xFFF97316))
                                         val saleRatio = if (views > 0) (sales.toFloat() / views.toFloat()).coerceIn(0.03f, 1.0f) else 0.05f
-                                        FunnelStepRow("4. Chốt giao dịch", "$sales đơn", saleRatio, Color(0xFF7C3AED))
+                                        FunnelStepRow("4. Chốt giao dịch", tr("{0} đơn", sales), saleRatio, Color(0xFF7C3AED))
                                     }
                                 }
                             }
@@ -380,7 +382,7 @@ fun AdminReportsScreen(
                                                     Text(prod["projectName"].string, fontSize = 11.5.sp, color = FutaColors.Slate, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                                 }
                                                 Surface(shape = RoundedCornerShape(6.dp), color = Color(0xFFEAF5EF)) {
-                                                    Text("${prod["viewCount"].int} lượt xem", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = FutaColors.BrandGreen, modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.5.dp))
+                                                    Text(tr("{0} lượt xem", prod["viewCount"].int), fontSize = 11.sp, fontWeight = FontWeight.Bold, color = FutaColors.BrandGreen, modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.5.dp))
                                                 }
                                             }
                                             if (idx < minOf(4, topProducts.size - 1)) HorizontalDivider(color = Color(0xFFF1F5F9))
@@ -542,12 +544,12 @@ fun AdminReportsScreen(
                                                     }
                                                     Column {
                                                         Text(uName, fontSize = 13.5.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
-                                                        Text("Tổng: $callCount cuộc gọi", fontSize = 11.sp, color = FutaColors.Slate)
+                                                        Text(tr("Tổng: {0} cuộc gọi", callCount), fontSize = 11.sp, color = FutaColors.Slate)
                                                     }
                                                 }
 
                                                 Column(horizontalAlignment = Alignment.End) {
-                                                    Text("$answered nghe máy", fontSize = 12.5.sp, fontWeight = FontWeight.Bold, color = FutaColors.BrandGreen)
+                                                    Text(tr("{0} nghe máy", answered), fontSize = 12.5.sp, fontWeight = FontWeight.Bold, color = FutaColors.BrandGreen)
                                                     Text("Tỷ lệ: $rate%", fontSize = 11.sp, color = FutaColors.Slate)
                                                 }
                                             }

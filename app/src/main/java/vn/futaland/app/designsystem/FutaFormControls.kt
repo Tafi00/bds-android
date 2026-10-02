@@ -1,5 +1,6 @@
 package vn.futaland.app.designsystem
 
+import vn.futaland.app.core.i18n.Text
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable

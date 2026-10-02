@@ -1,5 +1,7 @@
 package vn.futaland.app.features.properties
 
+import vn.futaland.app.core.i18n.tr
+import vn.futaland.app.core.i18n.Text
 import android.content.ClipData
 import android.content.Context
 import android.content.Intent
@@ -29,7 +31,7 @@ object PaymentScheduleExcelExporter {
         val intent = Intent(Intent.ACTION_SEND).apply {
             type = MIME_XLSX
             putExtra(Intent.EXTRA_STREAM, uri)
-            putExtra(Intent.EXTRA_SUBJECT, "Bảng tính thanh toán $unitLabel")
+            putExtra(Intent.EXTRA_SUBJECT, tr("Bảng tính thanh toán {0}", unitLabel))
             clipData = ClipData.newRawUri(file.name, uri)
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }

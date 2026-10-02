@@ -1,5 +1,7 @@
 package vn.futaland.app.features.account
 
+import vn.futaland.app.core.i18n.tr
+import vn.futaland.app.core.i18n.Text
 import androidx.compose.animation.*
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -255,7 +257,7 @@ fun AdminContractsScreen(
         FutaBottomSheet(
             visible = true,
             onDismiss = { selectedContract = null },
-            title = "Chi tiết hợp đồng $code"
+            title = tr("Chi tiết hợp đồng {0}", code)
         ) {
             Column(
                 modifier = Modifier
@@ -270,10 +272,10 @@ fun AdminContractsScreen(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Text("Căn hộ: $code", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
-                        Text("Giá trị hợp đồng: $priceStr", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = FutaColors.BrandGreen)
-                        Text("Khách hàng: $customerName ($customerPhone)", fontSize = 12.5.sp, color = FutaColors.Slate)
-                        Text("Trạng thái: $status", fontSize = 12.sp, color = Color(0xFF2563EB), fontWeight = FontWeight.SemiBold)
+                        Text(tr("Căn hộ: {0}", code), fontSize = 16.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
+                        Text(tr("Giá trị hợp đồng: {0}", priceStr), fontSize = 14.sp, fontWeight = FontWeight.Bold, color = FutaColors.BrandGreen)
+                        Text(tr("Khách hàng: {0} ({1})", customerName, customerPhone), fontSize = 12.5.sp, color = FutaColors.Slate)
+                        Text(tr("Trạng thái: {0}", status), fontSize = 12.sp, color = Color(0xFF2563EB), fontWeight = FontWeight.SemiBold)
                     }
                 }
 
@@ -288,11 +290,11 @@ fun AdminContractsScreen(
                                 scope.launch {
                                     try {
                                         APIClient.get().request("/contracts/${ct.id}", method = "PUT", bodyJson = "{\"status\":\"$sKey\"}")
-                                        ToastCenter.show("Đã chuyển hợp đồng sang: $sLabel")
+                                        ToastCenter.show(tr("Đã chuyển hợp đồng sang: {0}", sLabel))
                                         selectedContract = null
                                         loadContracts()
                                     } catch (e: Exception) {
-                                        ToastCenter.show("Lỗi cập nhật: ${e.message}", isError = true)
+                                        ToastCenter.show(tr("Lỗi cập nhật: {0}", e.message), isError = true)
                                     }
                                 }
                             }

@@ -1,5 +1,7 @@
 package vn.futaland.app.features.account
 
+import vn.futaland.app.core.i18n.tr
+import vn.futaland.app.core.i18n.Text
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -309,7 +311,7 @@ fun PricingScreen(
                                 Text("Miễn phí", fontSize = 24.sp, fontWeight = FontWeight.Black, color = FutaColors.Navy)
                             } else {
                                 Text(
-                                    text = "${"%,d".format(finalMonthlyPrice)} đ",
+                                    text = tr("{0} đ", "%,d".format(finalMonthlyPrice)),
                                     fontSize = 22.sp,
                                     fontWeight = FontWeight.Black,
                                     color = FutaColors.Navy
@@ -346,7 +348,7 @@ fun PricingScreen(
                         }
 
                         FutaButton(
-                            text = if (plan.id == "free") "Đang sử dụng" else "Chọn gói ${plan.name.split(" ")[1]}",
+                            text = if (plan.id == "free") "Đang sử dụng" else tr("Chọn gói {0}", plan.name.split(" ")[1]),
                             variant = if (plan.isPopular) FutaButtonVariant.PRIMARY else FutaButtonVariant.OUTLINE,
                             enabled = plan.id != "free",
                             onClick = { planToCheckout = plan },
@@ -401,8 +403,8 @@ fun PricingScreen(
                 ) {
                     Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         Text(plan.name, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
-                        Text("Chu kỳ: ${if (isSixMonths) "Gói 6 tháng" else "Gói 1 tháng"}", fontSize = 12.sp, color = FutaColors.Slate)
-                        Text("Tổng thanh toán: ${"%,d".format(totalAmount)} VNĐ", fontSize = 16.sp, fontWeight = FontWeight.Black, color = FutaColors.BrandGreen)
+                        Text(tr("Chu kỳ: {0}", if (isSixMonths) "Gói 6 tháng" else "Gói 1 tháng"), fontSize = 12.sp, color = FutaColors.Slate)
+                        Text(tr("Tổng thanh toán: {0} VNĐ", "%,d".format(totalAmount)), fontSize = 16.sp, fontWeight = FontWeight.Black, color = FutaColors.BrandGreen)
                     }
                 }
 

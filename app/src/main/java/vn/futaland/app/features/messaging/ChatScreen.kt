@@ -1,5 +1,7 @@
 package vn.futaland.app.features.messaging
 
+import vn.futaland.app.core.i18n.tr
+import vn.futaland.app.core.i18n.Text
 import android.media.RingtoneManager
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.border
@@ -497,8 +499,8 @@ fun ChatScreen(
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         val unreadTotal = conversations.sumOf { it.unreadCount }
                         listOf(
-                            "all" to "Tất cả (${conversations.size})",
-                            "unread" to (if (unreadTotal > 0) "Chưa đọc ($unreadTotal)" else "Chưa đọc")
+                            "all" to tr("Tất cả ({0})", conversations.size),
+                            "unread" to (if (unreadTotal > 0) tr("Chưa đọc ({0})", unreadTotal) else "Chưa đọc")
                         ).forEach { (tab, label) ->
                             val isSelected = filterTab == tab
                             Surface(
@@ -1527,9 +1529,9 @@ private fun AiAssistantWelcomeCard(
     val suggestions = buildList {
         if (contextProjectName.isNotEmpty()) {
             if (contextCode.isNotEmpty()) {
-                add("Căn $contextCode thuộc $contextProjectName còn chính sách ưu đãi nào?")
+                add(tr("Căn {0} thuộc {1} còn chính sách ưu đãi nào?", contextCode, contextProjectName))
             }
-            add("$contextProjectName còn những căn nào đang mở bán?")
+            add(tr("{0} còn những căn nào đang mở bán?", contextProjectName))
         } else {
             add("Những dự án nào đang mở bán tại Đà Nẵng?")
         }
@@ -1557,8 +1559,8 @@ private fun AiAssistantWelcomeCard(
             Spacer(Modifier.height(8.dp))
             Text(
                 text = when {
-                    contextCode.isNotEmpty() -> "Trợ lý AI FUTA Land đang hỗ trợ căn $contextCode"
-                    contextProjectName.isNotEmpty() -> "Trợ lý AI FUTA Land đang hỗ trợ dự án $contextProjectName"
+                    contextCode.isNotEmpty() -> tr("Trợ lý AI FUTA Land đang hỗ trợ căn {0}", contextCode)
+                    contextProjectName.isNotEmpty() -> tr("Trợ lý AI FUTA Land đang hỗ trợ dự án {0}", contextProjectName)
                     else -> "Bạn đang trò chuyện với Trợ lý AI FUTA Land"
                 },
                 fontSize = 14.sp,
@@ -1569,7 +1571,7 @@ private fun AiAssistantWelcomeCard(
             Spacer(Modifier.height(4.dp))
             Text(
                 text = if (contextProjectName.isNotEmpty()) {
-                    "Trợ lý AI sẵn sàng giải đáp 24/7 về $contextProjectName: bảng hàng, tiến độ mở bán, chính sách ưu đãi và dòng tiền."
+                    tr("Trợ lý AI sẵn sàng giải đáp 24/7 về {0}: bảng hàng, tiến độ mở bán, chính sách ưu đãi và dòng tiền.", contextProjectName)
                 } else {
                     "Trợ lý AI sẵn sàng giải đáp 24/7 về thông tin dự án, tiến độ mở bán và chính sách căn hộ."
                 },
@@ -2071,7 +2073,7 @@ private fun GuestAdvisorChatView(
             } catch (e: Exception) {
                 val localIndex = messages.indexOfFirst { it.id == localId }
                 if (localIndex >= 0) messages[localIndex] = messages[localIndex].copy(pending = false, failed = true)
-                ToastCenter.show("Lỗi gửi tin nhắn: ${e.message.orEmpty()}", isError = true)
+                ToastCenter.show(tr("Lỗi gửi tin nhắn: {0}", e.message.orEmpty()), isError = true)
             } finally {
                 sending = false
             }
@@ -2227,7 +2229,7 @@ private fun GuestAdvisorChatView(
                 }
                 Spacer(Modifier.height(8.dp))
                 Text(
-                    "Trò chuyện với $displayName",
+                    tr("Trò chuyện với {0}", displayName),
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Bold,
                     color = FutaColors.Navy,
@@ -2336,7 +2338,7 @@ private fun GuestAdvisorChatView(
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
                             Text(
-                                "Bạn đang trò chuyện với $displayName",
+                                tr("Bạn đang trò chuyện với {0}", displayName),
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = FutaColors.Navy,
@@ -2521,7 +2523,7 @@ private fun MessageBubble(
 
                     val cards = msg.propertyCards.ifEmpty { listOfNotNull(msg.propertyCard) }
                     for (card in cards) {
-                        val title = card["title"].string.ifEmpty { "Căn hộ ${card["propertyCode"].string}" }
+                        val title = card["title"].string.ifEmpty { tr("Căn hộ {0}", card["propertyCode"].string) }
                         val projectName = card["zone"].string
                         val price = card["price"].double
                         val imgUrl = PropertyFormatters.resolveImageUrl(card["imageUrl"].string)

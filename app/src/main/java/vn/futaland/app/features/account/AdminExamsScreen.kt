@@ -1,5 +1,7 @@
 package vn.futaland.app.features.account
 
+import vn.futaland.app.core.i18n.tr
+import vn.futaland.app.core.i18n.Text
 import androidx.compose.animation.*
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -215,7 +217,7 @@ fun AdminExamsScreen(
                                 ) {
                                     Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                                         Text(q["content"].string.ifEmpty { q["question"].string }, fontSize = 13.5.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
-                                        Text("Chủ đề: ${q["category"].string.ifEmpty { "Kiến thức BĐS" }}", fontSize = 11.5.sp, color = FutaColors.Slate)
+                                        Text(tr("Chủ đề: {0}", q["category"].string.ifEmpty { "Kiến thức BĐS" }), fontSize = 11.5.sp, color = FutaColors.Slate)
                                     }
                                 }
                             }

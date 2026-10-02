@@ -1,5 +1,7 @@
 package vn.futaland.app.features.account
 
+import vn.futaland.app.core.i18n.tr
+import vn.futaland.app.core.i18n.Text
 import androidx.compose.animation.*
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -65,18 +67,6 @@ fun AdminRegistrationsScreen(
                 loading = true
             }
             try {
-                if (APIClient.get().tokenStorage.accessToken.isNullOrEmpty()) {
-                    try {
-                        val loginRes = APIClient.get().request("/auth/login", method = "POST", bodyJson = """{"phone":"0899999901","password":"bdsfutaland"}""")
-                        val token = loginRes["data"]["accessToken"].string
-                        if (token.isNotEmpty()) {
-                            APIClient.get().tokenStorage.accessToken = token
-                            AppSession.shared.login(token, "", loginRes["data"]["user"])
-                        }
-                    } catch (e: Exception) {
-                        android.util.Log.e("AdminRegErr", "LOGIN ERROR: ${e.javaClass.name}: ${e.message}", e)
-                    }
-                }
                 val q = searchQuery.trim()
                 val path = if (q.isNotEmpty()) "/sales/registrations?search=${java.net.URLEncoder.encode(q, "UTF-8")}" else "/sales/registrations"
                 val res = APIClient.get().request(path)
@@ -350,12 +340,12 @@ fun AdminRegistrationsScreen(
                         .horizontalScroll(rememberScrollState()),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    RegistrationFilterChip("Tất cả (${registrations.size})", "all", holdingFilter == "all") { holdingFilter = "all" }
-                    RegistrationFilterChip("Đang giữ chỗ ($holdingSuccessCount)", "holding_success", holdingFilter == "holding_success") { holdingFilter = "holding_success" }
-                    RegistrationFilterChip("Chờ duyệt ($pendingCount)", "pending_booking", holdingFilter == "pending_booking") { holdingFilter = "pending_booking" }
-                    RegistrationFilterChip("Hiệu lực ($activeRightsCount)", "active", holdingFilter == "active") { holdingFilter = "active" }
-                    RegistrationFilterChip("Đã cọc ($depositedCount)", "deposited", holdingFilter == "deposited") { holdingFilter = "deposited" }
-                    RegistrationFilterChip("Hết hạn / Huỷ ($revokedCount)", "cancelled", holdingFilter == "cancelled") { holdingFilter = "cancelled" }
+                    RegistrationFilterChip(tr("Tất cả ({0})", registrations.size), "all", holdingFilter == "all") { holdingFilter = "all" }
+                    RegistrationFilterChip(tr("Đang giữ chỗ ({0})", holdingSuccessCount), "holding_success", holdingFilter == "holding_success") { holdingFilter = "holding_success" }
+                    RegistrationFilterChip(tr("Chờ duyệt ({0})", pendingCount), "pending_booking", holdingFilter == "pending_booking") { holdingFilter = "pending_booking" }
+                    RegistrationFilterChip(tr("Hiệu lực ({0})", activeRightsCount), "active", holdingFilter == "active") { holdingFilter = "active" }
+                    RegistrationFilterChip(tr("Đã cọc ({0})", depositedCount), "deposited", holdingFilter == "deposited") { holdingFilter = "deposited" }
+                    RegistrationFilterChip(tr("Hết hạn / Huỷ ({0})", revokedCount), "cancelled", holdingFilter == "cancelled") { holdingFilter = "cancelled" }
                 }
             }
 
@@ -367,7 +357,7 @@ fun AdminRegistrationsScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "Hiển thị ${filteredRegistrations.size}/${registrations.size} đăng ký",
+                        text = tr("Hiển thị {0}/{1} đăng ký", filteredRegistrations.size, registrations.size),
                         fontSize = 12.5.sp,
                         fontWeight = FontWeight.Medium,
                         color = FutaColors.Slate
@@ -423,7 +413,7 @@ fun AdminRegistrationsScreen(
         FutaBottomSheet(
             visible = true,
             onDismiss = { selectedRegistration = null },
-            title = "Hồ sơ căn $code"
+            title = tr("Hồ sơ căn {0}", code)
         ) {
             Column(
                 modifier = Modifier
@@ -438,10 +428,10 @@ fun AdminRegistrationsScreen(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Text("Mã đăng ký: ${reg["code"].string}", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
-                        Text("Tư vấn viên: ${reg["advisor"]["name"].string} (${reg["advisor"]["phone"].string})", fontSize = 12.5.sp, color = FutaColors.Slate)
+                        Text(tr("Mã đăng ký: {0}", reg["code"].string), fontSize = 13.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
+                        Text(tr("Tư vấn viên: {0} ({1})", reg["advisor"]["name"].string, reg["advisor"]["phone"].string), fontSize = 12.5.sp, color = FutaColors.Slate)
                         if (reg["customerName"].string.isNotEmpty()) {
-                            Text("Khách hàng: ${reg["customerName"].string} (${reg["customerPhone"].string})", fontSize = 12.5.sp, color = FutaColors.Slate)
+                            Text(tr("Khách hàng: {0} ({1})", reg["customerName"].string, reg["customerPhone"].string), fontSize = 12.5.sp, color = FutaColors.Slate)
                         }
                     }
                 }
@@ -511,7 +501,7 @@ fun AdminRegistrationsScreen(
                         modifier = Modifier.weight(1f)
                     )
                     FutaButton(
-                        text = "Áp dụng (${filteredRegistrations.size})",
+                        text = tr("Áp dụng ({0})", filteredRegistrations.size),
                         variant = FutaButtonVariant.PRIMARY,
                         onClick = { showFilterSheet = false },
                         modifier = Modifier.weight(1.5f)
@@ -609,7 +599,7 @@ private fun RegistrationCardRow(
     val projName = property["project"]["displayName"].string.ifEmpty { property["projectName"].string.ifEmpty { "Dự án FUTA" } }
     val block = property["block"].string.ifEmpty { "-" }
     val floor = property["floor"].string.ifEmpty { "-" }
-    val subLocation = "$projName · Tòa $block · Tầng $floor"
+    val subLocation = tr("{0} · Tòa {1} · Tầng {2}", projName, block, floor)
 
     val advisorName = advisor["name"].string.ifEmpty { "FUTA Land" }
     val advisorPhone = advisor["phone"].string
@@ -816,7 +806,7 @@ private fun RegistrationCardRow(
                     if (deposit > 0) {
                         val depFormatted = "%,.0f đ".format(deposit).replace(',', '.')
                         Text(
-                            text = "· Cọc: $depFormatted",
+                            text = tr("· Cọc: {0}", depFormatted),
                             fontSize = 11.5.sp,
                             color = Color(0xFFF97316)
                         )

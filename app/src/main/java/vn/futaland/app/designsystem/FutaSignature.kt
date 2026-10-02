@@ -1,5 +1,6 @@
 package vn.futaland.app.designsystem
 
+import vn.futaland.app.core.i18n.Text
 import android.graphics.Bitmap
 import android.graphics.Paint
 import android.graphics.Path as AndroidPath

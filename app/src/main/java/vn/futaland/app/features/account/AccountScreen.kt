@@ -1,5 +1,7 @@
 package vn.futaland.app.features.account
 
+import vn.futaland.app.core.i18n.tr
+import vn.futaland.app.core.i18n.Text
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.BorderStroke
@@ -15,7 +17,6 @@ import androidx.compose.material.icons.filled.ExitToApp
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -31,6 +32,7 @@ import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import vn.futaland.app.R
 import vn.futaland.app.core.auth.AppSession
+import vn.futaland.app.core.i18n.LanguagePickerRow
 import vn.futaland.app.core.update.PlayStoreUpdateManager
 import vn.futaland.app.designsystem.FutaCard
 import vn.futaland.app.designsystem.FutaColors
@@ -60,7 +62,7 @@ fun AccountScreen(
     val appVersionLabel = remember {
         val name = PlayStoreUpdateManager.installedVersionName(context)
         val code = PlayStoreUpdateManager.installedVersionCode(context)
-        if (name.isBlank() || code <= 0) "" else "Phiên bản $name • Build $code"
+        if (name.isBlank() || code <= 0) "" else tr("Phiên bản {0} • Build {1}", name, code)
     }
 
     LazyColumn(
@@ -347,6 +349,16 @@ fun AccountScreen(
             }
         }
 
+        // Language switcher (iOS `AppLanguagePicker`)
+        item {
+            FutaCard(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp)
+            ) {
+                LanguagePickerRow()
+            }
+        }
+
         // 5. Help and Info Section ("Thông tin & Trợ giúp" - Matching iOS Image #2)
         item {
             Column {
@@ -488,7 +500,7 @@ fun AccountScreen(
                 lineHeight = 18.sp
             )
             Text(
-                text = "Hotline: 0236 3575757\nĐịa chỉ: TP. Hồ Chí Minh & Đà Nẵng",
+                text = "Hotline: 0903 715 757\nĐịa chỉ: TP. Hồ Chí Minh & Đà Nẵng",
                 fontSize = 12.sp,
                 color = FutaColors.BrandGreen
             )

@@ -1,5 +1,7 @@
 package vn.futaland.app.features.account
 
+import vn.futaland.app.core.i18n.tr
+import vn.futaland.app.core.i18n.Text
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -173,7 +175,7 @@ fun BillingScreen(
                             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                                 Column {
                                     Text(title, fontSize = 13.5.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
-                                    Text("Mã: $code · $meta", fontSize = 11.5.sp, color = FutaColors.Slate)
+                                    Text(tr("Mã: {0} · {1}", code, meta), fontSize = 11.5.sp, color = FutaColors.Slate)
                                 }
                                 Surface(shape = CircleShape, color = FutaColors.MintBg) {
                                     Text("Đã thanh toán", fontSize = 10.5.sp, fontWeight = FontWeight.Bold, color = FutaColors.BrandGreen, modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp))

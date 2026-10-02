@@ -1,5 +1,10 @@
 package vn.futaland.app.features.account
 
+import vn.futaland.app.core.i18n.tr
+import vn.futaland.app.core.i18n.Text
+import vn.futaland.app.core.i18n.LocalizedPrice
+import vn.futaland.app.core.i18n.I18n
+import vn.futaland.app.core.i18n.AppLanguage
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -83,6 +88,7 @@ fun AdminDashboardScreen(
     }
 
     fun formatVnd(amount: Long): String {
+        if (I18n.language != AppLanguage.VI) return LocalizedPrice.compact(amount.toDouble())
         return if (amount >= 1_000_000_000) {
             String.format(java.util.Locale.US, "%.1f tỷ đ", amount / 1_000_000_000.0)
         } else if (amount >= 1_000_000) {
@@ -289,7 +295,7 @@ fun AdminDashboardScreen(
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     listOf(
-                        "all" to "Tất cả (${orders.size})",
+                        "all" to tr("Tất cả ({0})", orders.size),
                         "pending" to "Chờ duyệt",
                         "completed" to "Đã thanh toán",
                         "cancelled" to "Đã hủy"
@@ -371,7 +377,7 @@ fun AdminDashboardScreen(
                                         horizontalArrangement = Arrangement.SpaceBetween,
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
-                                        Text(text = "Đơn #${ordId.takeLast(8).uppercase()}", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
+                                        Text(text = tr("Đơn #{0}", ordId.takeLast(8).uppercase()), fontSize = 14.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
                                         Surface(
                                             shape = CircleShape,
                                             color = if (isPending) Color(0xFFFEF3C7) else Color(0xFFE8F5E9)
@@ -400,7 +406,7 @@ fun AdminDashboardScreen(
                                                         ToastCenter.show("Đã xác nhận thanh toán thành công!")
                                                         loadAll()
                                                     } catch (e: Exception) {
-                                                        ToastCenter.show("Lỗi: ${e.message}")
+                                                        ToastCenter.show(tr("Lỗi: {0}", e.message))
                                                     } finally {
                                                         isConfirmingOrder = false
                                                     }
@@ -536,7 +542,7 @@ private fun PricingAdminCard(plan: DashboardPlan) {
                         color = Color(0xFFECFDF5),
                         border = BorderStroke(1.dp, Color(0xFF0E7643).copy(alpha = 0.2f)),
                         modifier = Modifier.clickable {
-                            ToastCenter.show("Chỉnh sửa cấu hình ${plan.name}")
+                            ToastCenter.show(tr("Chỉnh sửa cấu hình {0}", plan.name))
                         }
                     ) {
                         Row(
@@ -554,7 +560,7 @@ private fun PricingAdminCard(plan: DashboardPlan) {
             // Price Row
             Row(verticalAlignment = Alignment.Bottom) {
                 Text(
-                    text = "${"%,d".format(plan.price)} đ",
+                    text = tr("{0} đ", "%,d".format(plan.price)),
                     fontSize = 22.sp,
                     fontWeight = FontWeight.Black,
                     color = FutaColors.Navy

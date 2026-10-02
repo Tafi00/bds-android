@@ -1,5 +1,6 @@
 package vn.futaland.app.core.network
 
+import vn.futaland.app.core.i18n.tr
 import android.content.Context
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
@@ -116,7 +117,7 @@ class APIClient private constructor(context: Context) {
         val parsed = runCatching { JSONValue.parse(respBody) }.getOrNull()
         val message = parsed?.get("error")?.get("message")?.string?.takeIf { it.isNotBlank() }
             ?: parsed?.get("message")?.string?.takeIf { it.isNotBlank() }
-        return message ?: "Lỗi HTTP $code"
+        return message ?: tr("Lỗi HTTP {0}", code)
     }
 
     suspend fun upload(

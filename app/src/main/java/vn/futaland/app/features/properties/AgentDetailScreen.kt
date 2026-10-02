@@ -1,5 +1,7 @@
 package vn.futaland.app.features.properties
 
+import vn.futaland.app.core.i18n.tr
+import vn.futaland.app.core.i18n.Text
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.BorderStroke
@@ -197,7 +199,7 @@ fun AgentDetailScreen(
                                             Spacer(Modifier.width(4.dp))
                                             Text("%.1f".format(a["rating"].double), fontSize = 12.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
                                             if (a["experienceYears"].int > 0) {
-                                                Text(" • ${a["experienceYears"].int} năm kinh nghiệm", fontSize = 11.sp, color = FutaColors.Slate)
+                                                Text(tr(" • {0} năm kinh nghiệm", a["experienceYears"].int), fontSize = 11.sp, color = FutaColors.Slate)
                                             }
                                         }
                                     }
@@ -213,7 +215,7 @@ fun AgentDetailScreen(
                         Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
                             if (phone.isNotEmpty()) {
                                 FutaButton(
-                                    text = "Gọi $phone",
+                                    text = tr("Gọi {0}", phone),
                                     variant = FutaButtonVariant.PRIMARY,
                                     onClick = {
                                         context.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:$phone")))
@@ -259,7 +261,7 @@ fun AgentDetailScreen(
                     // Active listings
                     item {
                         Text(
-                            "Bất động sản đang phân phối (${listings.size})",
+                            tr("Bất động sản đang phân phối ({0})", listings.size),
                             fontSize = 15.sp,
                             fontWeight = FontWeight.Bold,
                             color = FutaColors.Navy

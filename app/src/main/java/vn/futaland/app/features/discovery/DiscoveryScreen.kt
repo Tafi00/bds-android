@@ -1,5 +1,7 @@
 package vn.futaland.app.features.discovery
 
+import vn.futaland.app.core.i18n.tr
+import vn.futaland.app.core.i18n.Text
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.BorderStroke
@@ -203,7 +205,7 @@ fun DiscoveryScreen(
                             context.startActivity(Intent.createChooser(sendIntent, "Chia sẻ sản phẩm"))
                         },
                         onCallClick = {
-                            val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:02363575757"))
+                            val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:0903715757"))
                             context.startActivity(intent)
                         },
                         onChatClick = { onNavigate(FutaDestinations.INBOX) },
@@ -219,7 +221,7 @@ fun DiscoveryScreen(
             AiHotlineCard(
                 onChatClick = { onNavigate(FutaDestinations.INBOX) },
                 onCallClick = {
-                    val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:02363575757"))
+                    val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:0903715757"))
                     context.startActivity(intent)
                 }
             )
@@ -312,7 +314,7 @@ private fun FloatingSearchBar(
                     color = FutaColors.Navy
                 )
                 Text(
-                    text = if (selectedCity == "Tất cả") "Đà Nẵng · TP.HCM · Hà Nội · Bến Tre" else "Đang xem thị trường $selectedCity",
+                    text = if (selectedCity == "Tất cả") "Đà Nẵng · TP.HCM · Hà Nội · Bến Tre" else tr("Đang xem thị trường {0}", selectedCity),
                     fontSize = 11.sp,
                     color = FutaColors.Slate
                 )
@@ -545,7 +547,7 @@ private fun HeroCarouselSection(
                             )
                             Spacer(Modifier.width(6.dp))
                             val totalUnits = proj["totalUnits"].int
-                            val productCountText = if (totalUnits > 0) "$totalUnits sản phẩm" else "Đang mở bán"
+                            val productCountText = if (totalUnits > 0) tr("{0} sản phẩm", totalUnits) else "Đang mở bán"
                             Surface(
                                 shape = CircleShape,
                                 color = Color(0xFFF97316).copy(alpha = 0.95f)
@@ -810,7 +812,7 @@ private fun FeaturedCitiesSection(
                                 horizontalArrangement = Arrangement.spacedBy(4.dp)
                             ) {
                                 Text(
-                                    text = "${city.projectCount} dự án",
+                                    text = tr("{0} dự án", city.projectCount),
                                     fontSize = 11.sp,
                                     fontWeight = FontWeight.Medium,
                                     color = Color.White.copy(alpha = 0.9f)

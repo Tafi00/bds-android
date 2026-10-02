@@ -1,24 +1,16 @@
 package vn.futaland.app.features.properties
 
+import vn.futaland.app.core.i18n.LocalizedPrice
+import vn.futaland.app.core.i18n.tr
 import vn.futaland.app.core.network.JSONValue
 
 object PropertyFormatters {
 
     fun formatPrice(value: Double, fallback: String = ""): String {
         if (value <= 0) {
-            return fallback.ifEmpty { "Thỏa thuận" }
+            return fallback.ifEmpty { tr("Thỏa thuận") }
         }
-        if (value >= 1_000_000_000) {
-            val bill = value / 1_000_000_000.0
-            val formatted = "%.2f".format(bill).replace(".00", "").replace(".", ",")
-            return "$formatted tỷ"
-        }
-        if (value >= 1_000_000) {
-            val mil = value / 1_000_000.0
-            val formatted = "%.1f".format(mil).replace(".0", "").replace(".", ",")
-            return "$formatted triệu"
-        }
-        return "${"%,d".format(value.toLong()).replace(",", ".")} đ"
+        return LocalizedPrice.compact(value)
     }
 
     fun formatCommission(value: Double): String {
@@ -38,10 +30,10 @@ object PropertyFormatters {
         }
 
         val formatted = formatPrice(rawPrice, fallback = property["price"].string)
-        if (isSell || rawPrice <= 0 || formatted == "Thỏa thuận") {
+        if (isSell || rawPrice <= 0) {
             return formatted
         }
-        return "$formatted/tháng"
+        return formatted + tr("/tháng")
     }
 
     fun propertyTitle(value: JSONValue?): String {
@@ -54,9 +46,9 @@ object PropertyFormatters {
             val unitType = value["unitType"].string.trim().ifEmpty { value["apartmentType"].string.trim() }
             val block = value["block"].string.trim().ifEmpty { value["building"].string.trim() }
             if (unitType.isNotEmpty() && block.isNotEmpty()) {
-                return "$unitType $block • Mã: $code"
+                return tr("{0} {1} • Mã: {2}", unitType, block, code)
             }
-            return if (t.isNotEmpty()) t else "Mã căn: $code"
+            return if (t.isNotEmpty()) t else tr("Mã căn: {0}", code)
         }
         return t.ifEmpty { "Bất động sản FUTA Land" }
     }

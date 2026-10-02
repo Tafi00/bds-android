@@ -1,5 +1,7 @@
 package vn.futaland.app.features.account
 
+import vn.futaland.app.core.i18n.tr
+import vn.futaland.app.core.i18n.Text
 import androidx.compose.animation.*
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -206,7 +208,7 @@ fun AdminSettingsScreen(
                 ToastCenter.show("Đã lưu thiết lập hệ thống thành công!")
                 onBack()
             } catch (e: Exception) {
-                ToastCenter.show("Lỗi lưu thiết lập: ${e.message}", isError = true)
+                ToastCenter.show(tr("Lỗi lưu thiết lập: {0}", e.message), isError = true)
             } finally {
                 saving = false
             }
