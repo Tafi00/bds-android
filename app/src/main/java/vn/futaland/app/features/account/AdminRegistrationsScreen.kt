@@ -2,49 +2,82 @@ package vn.futaland.app.features.account
 
 import vn.futaland.app.core.i18n.tr
 import vn.futaland.app.core.i18n.Text
-import androidx.compose.animation.*
+import vn.futaland.app.core.i18n.VerbatimText
+import android.net.Uri
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import vn.futaland.app.R
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 import vn.futaland.app.core.auth.AppSession
+import vn.futaland.app.core.i18n.LocalizedGender
+import vn.futaland.app.core.i18n.translated
 import vn.futaland.app.core.network.APIClient
 import vn.futaland.app.core.network.JSONValue
 import vn.futaland.app.designsystem.*
 import vn.futaland.app.features.messaging.ChatWebSocketManager
 import vn.futaland.app.features.properties.PropertyFormatters
+import vn.futaland.app.features.salesadmin.*
+
+// Mirrors iOS Features/SalesAdmin/AdminRegistrationsView.swift:
+// list (/sales/registrations) with holding/rights tabs → detail with admin actions
+// (PATCH …/status, PATCH …/booking-status, GET …/payment-qr, POST …/hold/refresh|cancel).
 
 enum class RegistrationTab(val label: String) {
     HOLDING("Giữ chỗ trực tuyến"),
     RIGHTS("Quyền bán TVV")
 }
+
+/** Kept for other files in this package that still use the short name. */
+typealias Bool = Boolean
+
+private enum class RegistrationSort(val title: String) {
+    NEWEST("Mới nhất"),
+    OLDEST("Cũ nhất"),
+    CODE_ASC("Mã căn: A → Z")
+}
+
+private data class RegistrationRoute(val id: String, val version: Int = 0)
+
+private fun regProject(r: JSONValue): String {
+    val apt = r.nestedProperty
+    return apt["project"]["displayName"].string.ifEmpty { apt["projectName"].string }
+}
+
+private fun regCode(r: JSONValue): String = r.nestedProperty["propertyCode"].string
+
+private fun regTime(r: JSONValue): String = r["holdingSubmittedAt"].string.ifEmpty { r["createdAt"].string }
+
+private fun isErpRegistration(r: JSONValue): Boolean = r.nestedProperty["source"].string == "ERP" || r["erpHoldId"].string.isNotEmpty()
 
 @Composable
 fun AdminRegistrationsScreen(
@@ -52,42 +85,43 @@ fun AdminRegistrationsScreen(
     initialPropertyId: String? = null
 ) {
     val scope = rememberCoroutineScope()
+    val stack = remember { ScreenStack<RegistrationRoute>() }
     var registrations by remember { mutableStateOf<List<JSONValue>>(emptyList()) }
     var loading by remember { mutableStateOf(true) }
-    var search by remember { mutableStateOf("") }
-    var holdingFilter by remember { mutableStateOf("all") }
-    var projectFilter by remember { mutableStateOf("all") }
+    var loadError by remember { mutableStateOf<String?>(null) }
+    var search by rememberSaveable { mutableStateOf("") }
+    var activeTab by rememberSaveable { mutableStateOf(RegistrationTab.HOLDING) }
+    var holdingFilter by rememberSaveable { mutableStateOf("all") }
+    var rightsFilter by rememberSaveable { mutableStateOf("all") }
+    var projectFilter by rememberSaveable { mutableStateOf("all") }
+    var onlyCompeting by rememberSaveable { mutableStateOf(false) }
+    var sort by remember { mutableStateOf(RegistrationSort.NEWEST) }
+    var page by rememberSaveable { mutableIntStateOf(1) }
     var showFilterSheet by remember { mutableStateOf(false) }
-    var selectedRegistration by remember { mutableStateOf<JSONValue?>(null) }
-    var actionBusy by remember { mutableStateOf(false) }
+    val listState = rememberLazyListState()
+    val isAdmin = AppSession.shared.role == "admin"
 
-    fun loadRegistrations(searchQuery: String = search, silent: Boolean = false) {
-        scope.launch {
-            if (!silent && registrations.isEmpty()) {
-                loading = true
-            }
-            try {
-                val q = searchQuery.trim()
-                val path = if (q.isNotEmpty()) "/sales/registrations?search=${java.net.URLEncoder.encode(q, "UTF-8")}" else "/sales/registrations"
-                val res = APIClient.get().request(path)
-                registrations = res["data"].array
-                android.util.Log.i("AdminRegSuccess", "Loaded ${registrations.size} registrations")
-            } catch (e: Exception) {
-                android.util.Log.e("AdminRegErr", "ERROR: ${e.javaClass.name}: ${e.message}", e)
-                if (!silent) registrations = emptyList()
-            } finally {
-                loading = false
-            }
+    suspend fun fetch(silent: Boolean) {
+        if (!silent && registrations.isEmpty()) loading = true
+        try {
+            val q = search.trim()
+            registrations = APIClient.get().request("/sales/registrations", query = if (q.isEmpty()) emptyMap() else mapOf("search" to q))["data"].array
+            loadError = null
+        } catch (e: Exception) {
+            if (!silent) loadError = e.message ?: tr("Không thể tải hồ sơ đăng ký")
+        } finally {
+            loading = false
         }
     }
 
+    fun reload() { scope.launch { fetch(silent = true) } }
+
     LaunchedEffect(search) {
-        kotlinx.coroutines.delay(300)
-        loadRegistrations(search)
+        if (registrations.isNotEmpty()) delay(300)
+        fetch(silent = registrations.isNotEmpty())
     }
 
-    // Deep link (notification tap /admin/sales-registrations/{propertyId}):
-    // open the matching registration detail sheet once data arrives.
+    // Deep link (notification tap /admin/sales-registrations/{propertyId}): open the matching dossier.
     var deepLinkHandled by remember { mutableStateOf(false) }
     LaunchedEffect(registrations, initialPropertyId) {
         val target = initialPropertyId?.takeIf { it.isNotEmpty() } ?: return@LaunchedEffect
@@ -96,11 +130,11 @@ fun AdminRegistrationsScreen(
             reg["propertyId"].string.equals(target, ignoreCase = true) ||
                 reg["property"]["id"].string.equals(target, ignoreCase = true) ||
                 reg["unitCode"].string.equals(target, ignoreCase = true) ||
-                reg["property"]["propertyCode"].string.equals(target, ignoreCase = true)
+                regCode(reg).equals(target, ignoreCase = true)
         }
         if (match != null) {
             deepLinkHandled = true
-            selectedRegistration = match
+            stack.push(RegistrationRoute(match.id))
         }
     }
 
@@ -110,479 +144,640 @@ fun AdminRegistrationsScreen(
         ChatWebSocketManager.shared.addProductEventListener(listenerKey) { event ->
             val targetPropId = event["propertyId"].string
             val targetRegId = event["registrationId"].string
-            val bookingStatus = event["bookingStatus"].string
-            val activeHoldingStatus = event["activeHoldingStatus"].string
-            val activeHoldingExpiresAt = event["activeHoldingExpiresAt"].string
-            val activeHoldingAdvisorId = event["activeHoldingAdvisorId"].string
-            val onlineHoldExpiresAt = event["onlineHoldExpiresAt"].string
-            val status = event["status"].string
+            if (targetPropId.isEmpty() && targetRegId.isEmpty()) return@addProductEventListener
+            var matched = false
+            val updated = registrations.map { reg ->
+                val rId = reg["id"].string.ifEmpty { reg.id }
+                val pId = reg["propertyId"].string.ifEmpty { reg["property"]["id"].string }
+                if ((targetRegId.isNotEmpty() && rId == targetRegId) || (targetPropId.isNotEmpty() && pId == targetPropId)) {
+                    matched = true
+                    val updates = mutableMapOf<String, Any?>()
+                    listOf("bookingStatus", "activeHoldingStatus", "activeHoldingExpiresAt", "activeHoldingAdvisorId", "onlineHoldExpiresAt", "status").forEach { key ->
+                        event[key].string.takeIf { it.isNotEmpty() }?.let { updates[key] = it }
+                    }
+                    reg.withUpdates(updates)
+                } else reg
+            }
+            if (matched) registrations = updated else reload()
+        }
+        onDispose { ChatWebSocketManager.shared.removeProductEventListener(listenerKey) }
+    }
 
-            if (targetPropId.isNotEmpty() || targetRegId.isNotEmpty()) {
-                var matched = false
-                val updated = registrations.map { reg ->
-                    val rId = reg["id"].string.ifEmpty { reg.id }
-                    val pId = reg["propertyId"].string.ifEmpty { reg["property"]["id"].string }
-                    val isMatch = (targetRegId.isNotEmpty() && rId == targetRegId) ||
-                                  (targetPropId.isNotEmpty() && pId == targetPropId)
-                    if (isMatch) {
-                        matched = true
-                        val updates = mutableMapOf<String, Any?>()
-                        if (bookingStatus.isNotEmpty()) updates["bookingStatus"] = bookingStatus
-                        if (activeHoldingStatus.isNotEmpty()) updates["activeHoldingStatus"] = activeHoldingStatus
-                        if (activeHoldingExpiresAt.isNotEmpty()) updates["activeHoldingExpiresAt"] = activeHoldingExpiresAt
-                        if (activeHoldingAdvisorId.isNotEmpty()) updates["activeHoldingAdvisorId"] = activeHoldingAdvisorId
-                        if (onlineHoldExpiresAt.isNotEmpty()) updates["onlineHoldExpiresAt"] = onlineHoldExpiresAt
-                        if (status.isNotEmpty()) updates["status"] = status
-                        reg.withUpdates(updates)
-                    } else {
-                        reg
+    // Units with more than one registration are "competing" (iOS cachedCompetingUnitCodes).
+    val competingCodes = remember(registrations) {
+        registrations.map { regCode(it) }.filter { it.isNotEmpty() }.groupingBy { it }.eachCount().filterValues { it > 1 }.keys
+    }
+    val availableProjects = remember(registrations) { registrations.map { regProject(it) }.filter { it.isNotEmpty() }.distinct().sorted() }
+    val onlineHoldingCount = registrations.count { it["bookingStatus"].string == "online_holding" }
+    val pendingDepositCount = registrations.count { it["bookingStatus"].string == "pending_booking" }
+    val activeRightsCount = registrations.count { it["status"].string == "active" }
+
+    val filtered = remember(registrations, search, activeTab, holdingFilter, rightsFilter, projectFilter, onlyCompeting, sort, competingCodes) {
+        val q = search.trim()
+        registrations.filter { r ->
+            val matchesSearch = q.isEmpty() || listOf(regCode(r), r["code"].string, r["advisor"]["name"].string, r["customerName"].string, r["customerPhone"].string, regProject(r))
+                .joinToString(" ").contains(q, ignoreCase = true)
+            val matchesProject = projectFilter == "all" || regProject(r) == projectFilter
+            val matchesCompeting = !onlyCompeting || competingCodes.contains(regCode(r))
+            val matchesTab = if (activeTab == RegistrationTab.HOLDING) {
+                holdingFilter == "all" || r["bookingStatus"].string.ifEmpty { "none" } == holdingFilter
+            } else {
+                rightsFilter == "all" || r["status"].string.ifEmpty { "pending" } == rightsFilter
+            }
+            matchesSearch && matchesProject && matchesCompeting && matchesTab
+        }.let { list ->
+            when (sort) {
+                RegistrationSort.NEWEST -> list.sortedByDescending { regTime(it) }
+                RegistrationSort.OLDEST -> list.sortedBy { regTime(it) }
+                RegistrationSort.CODE_ASC -> list.sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { regCode(it) })
+            }
+        }
+    }
+    val slice = filtered.pageSlice(page, 20)
+    val sheetFilterCount = (if (projectFilter != "all") 1 else 0) + (if (onlyCompeting) 1 else 0)
+
+    ScreenStackHost(
+        stack = stack,
+        base = {
+            Scaffold(
+                containerColor = FutaColors.PageBg,
+                topBar = {
+                    SalesAdminTopBar(title = if (isAdmin) "Duyệt bán & Giữ chỗ" else "Đăng ký bán của tôi", onBack = onBack) {
+                        SortMenuButton(RegistrationSort.entries, sort, { it.title }, { sort = it; page = 1 }, isDefault = sort == RegistrationSort.NEWEST)
+                        BadgedHeaderButton(Icons.Default.FilterList, tr("Bộ lọc"), sheetFilterCount) { showFilterSheet = true }
                     }
                 }
-                if (matched) {
-                    registrations = updated
-                } else {
-                    loadRegistrations(search, silent = true)
-                }
-            }
-        }
-        onDispose {
-            ChatWebSocketManager.shared.removeProductEventListener(listenerKey)
-        }
-    }
-
-    // Competing unit codes calculation (units with > 1 registration)
-    val holdingSuccessCount = remember(registrations) {
-        registrations.count { it["bookingStatus"].string.lowercase() in listOf("holding_success", "online_holding", "holding") }
-    }
-    val pendingCount = remember(registrations) {
-        registrations.count { it["bookingStatus"].string.lowercase() in listOf("pending_booking", "pending") || it["status"].string.lowercase() == "pending" }
-    }
-    val activeRightsCount = remember(registrations) {
-        registrations.count { it["status"].string.lowercase() in listOf("active", "approved") }
-    }
-    val depositedCount = remember(registrations) {
-        registrations.count { it["bookingStatus"].string.lowercase() == "deposited" || it["status"].string.lowercase() == "deposited" }
-    }
-    val revokedCount = remember(registrations) {
-        registrations.count { it["status"].string.lowercase() in listOf("revoked", "expired", "cancelled", "rejected") || it["bookingStatus"].string.lowercase() == "cancelled" }
-    }
-
-    val availableProjects = remember(registrations) {
-        val set = registrations.map {
-            it["property"]["project"]["displayName"].string.ifEmpty {
-                it["property"]["projectName"].string
-            }
-        }.filter { it.isNotEmpty() }.toSet()
-        listOf("all") + set.toList().sorted()
-    }
-
-    val filteredRegistrations = remember(registrations, search, holdingFilter, projectFilter) {
-        registrations.filter { r ->
-            val code = r["property"]["propertyCode"].string
-            val regCode = r["code"].string
-            val advisorName = r["advisor"]["name"].string
-            val customerName = r["customerName"].string
-            val customerPhone = r["customerPhone"].string
-            val projName = r["property"]["project"]["displayName"].string.ifEmpty {
-                r["property"]["projectName"].string
-            }
-
-            val matchSearch = if (search.trim().isEmpty()) true else {
-                val query = search.trim().lowercase()
-                listOf(code, regCode, advisorName, customerName, customerPhone, projName).any { it.lowercase().contains(query) }
-            }
-
-            val matchProject = projectFilter == "all" || projName == projectFilter
-
-            val bookingStatus = r["bookingStatus"].string.ifEmpty { "none" }.lowercase()
-            val rightsStatus = r["status"].string.ifEmpty { "pending" }.lowercase()
-
-            val matchStatus = when (holdingFilter) {
-                "all" -> true
-                "holding_success" -> bookingStatus in listOf("holding_success", "online_holding", "holding")
-                "pending_booking" -> bookingStatus in listOf("pending_booking", "pending") || rightsStatus == "pending"
-                "active" -> rightsStatus in listOf("active", "approved")
-                "deposited" -> bookingStatus == "deposited" || rightsStatus == "deposited"
-                "cancelled" -> bookingStatus == "cancelled" || rightsStatus in listOf("revoked", "expired", "rejected", "cancelled")
-                else -> true
-            }
-
-            matchSearch && matchProject && matchStatus
-        }.sortedByDescending {
-            it["holdingSubmittedAt"].string.ifEmpty { it["createdAt"].string }
-        }
-    }
-
-    Scaffold(
-        containerColor = Color(0xFFF8FAFC),
-        topBar = {
-            Surface(
-                color = FutaColors.PageBg,
-                modifier = Modifier.fillMaxWidth().statusBarsPadding()
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 10.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    FutaHeaderIconButton(
-                        icon = Icons.AutoMirrored.Filled.ArrowBack,
-                        contentDescription = "Quay lại",
-                        onClick = onBack
-                    )
-
-                    Text(
-                        text = "Đăng ký bán của tôi",
-                        fontSize = 17.5.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = FutaColors.Navy
-                    )
-
-                    Spacer(Modifier.width(40.dp))
-                }
-            }
-        }
-    ) { padding ->
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding),
-            contentPadding = PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
-        ) {
-            // Pinned Search Bar
-            item {
-                FutaInput(
-                    value = search,
-                    onValueChange = { search = it },
-                    placeholder = "Tìm theo mã căn, mã đăng ký, khách hàng, dự án…",
-                    leadingIcon = Icons.Default.Search,
-                    trailingIcon = if (search.isNotEmpty()) {
-                        {
-                            Icon(
-                                Icons.Default.Close,
-                                contentDescription = "Xóa",
-                                modifier = Modifier
-                                    .size(18.dp)
-                                    .clickable { search = "" },
-                                tint = FutaColors.Slate
+            ) { padding ->
+                when {
+                    loading && registrations.isEmpty() -> Column(Modifier.padding(padding).padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                        repeat(2) { Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) { FutaSkeletonBlock(Modifier.weight(1f), height = 96.dp, radius = 14.dp); FutaSkeletonBlock(Modifier.weight(1f), height = 96.dp, radius = 14.dp) } }
+                        repeat(3) { FutaRegistrationCardSkeleton() }
+                    }
+                    loadError != null && registrations.isEmpty() -> AdminErrorState(loadError!!, { scope.launch { fetch(false) } }, Modifier.padding(padding))
+                    else -> LazyColumn(
+                        state = listState,
+                        modifier = Modifier.fillMaxSize().padding(padding),
+                        contentPadding = PaddingValues(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(14.dp)
+                    ) {
+                        item { AdminSearchField(search, { search = it; page = 1 }, "Tìm theo mã căn, TVV, khách hàng, SĐT…") }
+                        item {
+                            MetricGrid(
+                                listOf(
+                                    { m -> SalesMetricCard("Tổng hồ sơ", "${registrations.size}", Icons.Default.Description, FutaColors.BrandGreen, m) },
+                                    { m -> SalesMetricCard("Giữ chỗ online", "$onlineHoldingCount", Icons.Default.Shield, Color(0xFF2563EB), m) },
+                                    { m -> SalesMetricCard("Chờ duyệt cọc", "$pendingDepositCount", Icons.Default.HourglassTop, FutaColors.BrandOrange, m) },
+                                    { m -> SalesMetricCard("Căn cạnh tranh", "${competingCodes.size}", Icons.Default.LocalFireDepartment, Color(0xFFDC2626), m, selected = onlyCompeting, onClick = { onlyCompeting = !onlyCompeting; page = 1 }) }
+                                )
                             )
                         }
-                    } else null,
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
-
-            // Project Filter Bar
-            if (availableProjects.size > 1) {
-                item {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .horizontalScroll(rememberScrollState()),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        val allSelected = projectFilter == "all"
-                        Surface(
-                            shape = CircleShape,
-                            color = if (allSelected) FutaColors.BrandGreen else Color(0xFFF1F5F9),
-                            modifier = Modifier.clickable { projectFilter = "all" }
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(4.dp)
-                            ) {
-                                Icon(
-                                    Icons.Default.Business,
-                                    contentDescription = null,
-                                    tint = if (allSelected) Color.White else FutaColors.Slate,
-                                    modifier = Modifier.size(13.dp)
-                                )
-                                Text(
-                                    text = "Tất cả dự án",
-                                    fontSize = 12.sp,
-                                    fontWeight = if (allSelected) FontWeight.Bold else FontWeight.Medium,
-                                    color = if (allSelected) Color.White else FutaColors.Slate
-                                )
-                            }
+                        item {
+                            FutaSegmentTabs(
+                                items = RegistrationTab.entries,
+                                selectedItem = activeTab,
+                                onSelect = { activeTab = it; page = 1 },
+                                titleFor = { tr(it.label) },
+                                modifier = Modifier.padding(horizontal = 0.dp)
+                            )
                         }
-
-                        availableProjects.filter { it != "all" }.forEach { proj ->
-                            val isSelected = projectFilter == proj
-                            Surface(
-                                shape = CircleShape,
-                                color = if (isSelected) FutaColors.BrandGreen else Color(0xFFF1F5F9),
-                                modifier = Modifier.clickable {
-                                    projectFilter = if (projectFilter == proj) "all" else proj
+                        item {
+                            QuickChipRow {
+                                if (activeTab == RegistrationTab.HOLDING) {
+                                    listOf(
+                                        "all" to tr("Tất cả ({0})", registrations.size),
+                                        "online_holding" to tr("Giữ chỗ online ({0})", onlineHoldingCount),
+                                        "pending_booking" to tr("Chờ duyệt cọc ({0})", pendingDepositCount),
+                                        "holding_success" to tr("Giữ chỗ thành công"),
+                                        "deposited" to tr("Đã nộp cọc"),
+                                        "commission_paid" to tr("Đã chi hoa hồng"),
+                                        "cancelled" to tr("Đã hủy")
+                                    ).forEach { (id, title) -> QuickChip(title, holdingFilter == id) { holdingFilter = id; page = 1 } }
+                                } else {
+                                    listOf(
+                                        "all" to tr("Tất cả ({0})", registrations.size),
+                                        "active" to tr("Đang có quyền bán ({0})", activeRightsCount),
+                                        "pending" to tr("Chờ duyệt"),
+                                        "rejected" to tr("Đã từ chối"),
+                                        "revoked" to tr("Đã thu hồi")
+                                    ).forEach { (id, title) -> QuickChip(title, rightsFilter == id) { rightsFilter = id; page = 1 } }
                                 }
-                            ) {
-                                Text(
-                                    text = proj,
-                                    fontSize = 12.sp,
-                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                    color = if (isSelected) Color.White else FutaColors.Slate,
-                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                            }
+                        }
+                        val applied = buildList {
+                            if (projectFilter != "all") add(AppliedFilter(projectFilter.translated("project")) { projectFilter = "all" })
+                            if (onlyCompeting) add(AppliedFilter(tr("Căn tranh chấp ({0})", competingCodes.size)) { onlyCompeting = false })
+                        }
+                        item {
+                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Text(tr("Hiển thị {0}/{1} đăng ký", filtered.size, registrations.size), fontSize = 12.5.sp, fontWeight = FontWeight.Medium, color = FutaColors.Slate)
+                                AppliedFilterChips(applied) { projectFilter = "all"; onlyCompeting = false }
+                            }
+                        }
+                        if (filtered.isEmpty()) {
+                            item {
+                                if (registrations.isEmpty() && search.isEmpty()) {
+                                    FutaEmptyState(title = "Chưa có hồ sơ", message = "Chưa có hồ sơ đăng ký bán hoặc giữ chỗ nào.", icon = Icons.Default.Description)
+                                } else {
+                                    FutaEmptyState(
+                                        title = "Không có hồ sơ nào",
+                                        message = "Không tìm thấy hồ sơ đăng ký bán hoặc giữ chỗ nào phù hợp với bộ lọc.",
+                                        icon = Icons.Default.SearchOff,
+                                        actionButton = {
+                                            FutaButton(text = "Xóa bộ lọc", variant = FutaButtonVariant.OUTLINE, onClick = {
+                                                search = ""; projectFilter = "all"; onlyCompeting = false; holdingFilter = "all"; rightsFilter = "all"
+                                            })
+                                        }
+                                    )
+                                }
+                            }
+                        } else {
+                            items(slice.items, key = { it.id.ifEmpty { regCode(it) + regTime(it) } }) { reg ->
+                                RegistrationCardRow(
+                                    registration = reg,
+                                    isCompeting = competingCodes.contains(regCode(reg)),
+                                    onClick = { stack.push(RegistrationRoute(reg.id)) }
+                                )
+                            }
+                            item {
+                                PaginationBar(
+                                    slice.page, slice.totalPages, tr("Hiển thị {0}–{1} / {2} hồ sơ", slice.start, slice.end, slice.total),
+                                    onPrevious = { page = slice.page - 1; scope.launch { listState.scrollToItem(0) } },
+                                    onNext = { page = slice.page + 1; scope.launch { listState.scrollToItem(0) } }
                                 )
                             }
                         }
+                        item { Spacer(Modifier.height(24.dp)) }
                     }
                 }
             }
-
-            // Status Filter Chips
-            item {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .horizontalScroll(rememberScrollState()),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    RegistrationFilterChip(tr("Tất cả ({0})", registrations.size), "all", holdingFilter == "all") { holdingFilter = "all" }
-                    RegistrationFilterChip(tr("Đang giữ chỗ ({0})", holdingSuccessCount), "holding_success", holdingFilter == "holding_success") { holdingFilter = "holding_success" }
-                    RegistrationFilterChip(tr("Chờ duyệt ({0})", pendingCount), "pending_booking", holdingFilter == "pending_booking") { holdingFilter = "pending_booking" }
-                    RegistrationFilterChip(tr("Hiệu lực ({0})", activeRightsCount), "active", holdingFilter == "active") { holdingFilter = "active" }
-                    RegistrationFilterChip(tr("Đã cọc ({0})", depositedCount), "deposited", holdingFilter == "deposited") { holdingFilter = "deposited" }
-                    RegistrationFilterChip(tr("Hết hạn / Huỷ ({0})", revokedCount), "cancelled", holdingFilter == "cancelled") { holdingFilter = "cancelled" }
-                }
-            }
-
-            // Summary Count Row
-            item {
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 2.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = tr("Hiển thị {0}/{1} đăng ký", filteredRegistrations.size, registrations.size),
-                        fontSize = 12.5.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = FutaColors.Slate
-                    )
-                    if (search.isNotEmpty() || projectFilter != "all" || holdingFilter != "all") {
-                        Text(
-                            text = "Xóa bộ lọc",
-                            fontSize = 12.5.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = FutaColors.BrandGreen,
-                            modifier = Modifier.clickable {
-                                search = ""
-                                projectFilter = "all"
-                                holdingFilter = "all"
-                            }
-                        )
-                    }
-                }
-            }
-            // List of registrations
-            if (loading && registrations.isEmpty()) {
-                items(4) {
-                    FutaRegistrationCardSkeleton()
-                }
-            } else if (filteredRegistrations.isEmpty()) {
-                item {
-                    FutaEmptyState(
-                        title = "Không có hồ sơ nào",
-                        message = "Không tìm thấy hồ sơ đăng ký bán hoặc giữ chỗ nào phù hợp với bộ lọc."
-                    )
-                }
-            } else {
-                itemsIndexed(filteredRegistrations, key = { idx, item -> (item.id.ifEmpty { "reg" }) + "-$idx" }) { _, reg ->
-                    RegistrationCardRow(
-                        registration = reg,
-                        isCompeting = false,
-                        onClick = { selectedRegistration = reg }
-                    )
-                }
-            }
-
-            item {
-                Spacer(Modifier.height(40.dp))
-            }
         }
-    }
-
-    // Detail & Action BottomSheet
-    selectedRegistration?.let { reg ->
-        val code = reg["property"]["propertyCode"].string.ifEmpty { "Căn hộ" }
-        val bookingSt = reg["bookingStatus"].string
-        val rightsSt = reg["status"].string
-        FutaBottomSheet(
-            visible = true,
-            onDismiss = { selectedRegistration = null },
-            title = tr("Hồ sơ căn {0}", code)
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(14.dp)
-            ) {
-                Surface(
-                    shape = RoundedCornerShape(12.dp),
-                    color = Color(0xFFF8FAFC),
-                    border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Text(tr("Mã đăng ký: {0}", reg["code"].string), fontSize = 13.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
-                        Text(tr("Tư vấn viên: {0} ({1})", reg["advisor"]["name"].string, reg["advisor"]["phone"].string), fontSize = 12.5.sp, color = FutaColors.Slate)
-                        if (reg["customerName"].string.isNotEmpty()) {
-                            Text(tr("Khách hàng: {0} ({1})", reg["customerName"].string, reg["customerPhone"].string), fontSize = 12.5.sp, color = FutaColors.Slate)
-                        }
-                    }
-                }
-
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    FutaButton(
-                        text = "Đóng",
-                        variant = FutaButtonVariant.OUTLINE,
-                        onClick = { selectedRegistration = null },
-                        modifier = Modifier.weight(1f)
-                    )
-                }
-            }
-        }
-    }
-
-    // Project Filter BottomSheet
-    if (showFilterSheet) {
-        FutaBottomSheet(
-            visible = true,
-            onDismiss = { showFilterSheet = false },
-            title = "Bộ lọc hồ sơ"
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Dự án bất động sản", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
-                    Row(
-                        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        availableProjects.forEach { proj ->
-                            val isSel = projectFilter == proj
-                            val label = if (proj == "all") "Tất cả dự án" else proj
-                            Surface(
-                                shape = CircleShape,
-                                color = if (isSel) FutaColors.BrandGreen else Color(0xFFF1F5F9),
-                                modifier = Modifier.clickable { projectFilter = proj }
-                            ) {
-                                Text(
-                                    text = label,
-                                    fontSize = 12.sp,
-                                    fontWeight = if (isSel) FontWeight.Bold else FontWeight.Medium,
-                                    color = if (isSel) Color.White else FutaColors.Navy,
-                                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 7.dp)
-                                )
-                            }
-                        }
-                    }
-                }
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    FutaButton(
-                        text = "Đặt lại",
-                        variant = FutaButtonVariant.OUTLINE,
-                        onClick = {
-                            projectFilter = "all"
-                            showFilterSheet = false
-                        },
-                        modifier = Modifier.weight(1f)
-                    )
-                    FutaButton(
-                        text = tr("Áp dụng ({0})", filteredRegistrations.size),
-                        variant = FutaButtonVariant.PRIMARY,
-                        onClick = { showFilterSheet = false },
-                        modifier = Modifier.weight(1.5f)
-                    )
-                }
-                Spacer(Modifier.height(12.dp))
-            }
-        }
-    }
-}
-
-@Composable
-private fun RegistrationsMetricCard(
-    title: String,
-    value: String,
-    icon: ImageVector,
-    iconColor: Color,
-    iconBg: Color,
-    modifier: Modifier = Modifier
-) {
-    Surface(
-        shape = RoundedCornerShape(16.dp),
-        color = Color.White,
-        shadowElevation = 1.dp,
-        border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
-        modifier = modifier
-    ) {
-        Column(
-            modifier = Modifier.padding(14.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Surface(
-                shape = RoundedCornerShape(10.dp),
-                color = iconBg,
-                modifier = Modifier.size(36.dp)
-            ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Icon(icon, contentDescription = null, tint = iconColor, modifier = Modifier.size(18.dp))
-                }
-            }
-            Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
-                Text(
-                    text = value,
-                    fontSize = 22.sp,
-                    fontWeight = FontWeight.Black,
-                    color = FutaColors.Navy
-                )
-                Text(
-                    text = title,
-                    fontSize = 12.sp,
-                    color = FutaColors.Slate
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun RegistrationFilterChip(
-    title: String,
-    id: String,
-    isSelected: Bool,
-    onClick: () -> Unit
-) {
-    Surface(
-        shape = CircleShape,
-        color = if (isSelected) FutaColors.BrandGreen else Color.White,
-        border = BorderStroke(1.dp, if (isSelected) FutaColors.BrandGreen else Color(0xFFE2E8F0)),
-        modifier = Modifier.clickable(onClick = onClick)
-    ) {
-        Text(
-            text = title,
-            fontSize = 11.5.sp,
-            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-            color = if (isSelected) Color.White else FutaColors.Navy,
-            modifier = Modifier.padding(horizontal = 14.dp, vertical = 7.dp)
+    ) { route ->
+        AdminRegistrationDetailScreen(
+            registrationId = route.id,
+            initial = registrations.firstOrNull { it.id == route.id },
+            onBack = { stack.pop() },
+            onChanged = { reload() }
         )
     }
+
+    if (showFilterSheet) {
+        var draftProject by remember { mutableStateOf(projectFilter) }
+        var draftCompeting by remember { mutableStateOf(onlyCompeting) }
+        FilterSheet(
+            visible = true,
+            title = "Bộ lọc hồ sơ",
+            applyTitle = tr("Áp dụng"),
+            canReset = draftProject != "all" || draftCompeting,
+            onReset = { draftProject = "all"; draftCompeting = false },
+            onApply = { projectFilter = draftProject; onlyCompeting = draftCompeting; page = 1; showFilterSheet = false },
+            onDismiss = { showFilterSheet = false }
+        ) {
+            AdminSelectField(
+                "Dự án", draftProject,
+                listOf(SelectOption("all", "Tất cả dự án")) + availableProjects.map { SelectOption(it, it.translated("project")) },
+                { draftProject = it }
+            )
+            FormToggle(tr("Căn tranh chấp ({0})", competingCodes.size), draftCompeting, { draftCompeting = it }, "Chỉ hiện các căn có từ 2 hồ sơ đăng ký trở lên.")
+        }
+    }
 }
 
-typealias Bool = Boolean
+// ============================================================================
+// Detail
+// ============================================================================
+
+@Composable
+private fun AdminRegistrationDetailScreen(registrationId: String, initial: JSONValue?, onBack: () -> Unit, onChanged: () -> Unit) {
+    val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+    var reg by remember { mutableStateOf(initial ?: JSONValue.EmptyObject) }
+    var loading by remember { mutableStateOf(initial == null) }
+    var loadError by remember { mutableStateOf<String?>(null) }
+    var busy by remember { mutableStateOf<String?>(null) }
+    var showApprove by remember { mutableStateOf(false) }
+    var showReject by remember { mutableStateOf(false) }
+    var showRevoke by remember { mutableStateOf(false) }
+    var showCancelHold by remember { mutableStateOf(false) }
+    var showBooking by remember { mutableStateOf(false) }
+    var showQr by remember { mutableStateOf(false) }
+    var qrData by remember { mutableStateOf<JSONValue?>(null) }
+    var viewer by remember { mutableStateOf<Pair<String, String>?>(null) }
+    val isAdmin = AppSession.shared.role == "admin"
+
+    suspend fun refresh() {
+        try {
+            // No single-registration endpoint: pick the dossier from the list (as iOS does).
+            val found = APIClient.get().request("/sales/registrations")["data"].array.firstOrNull { it.id == registrationId }
+            if (found != null) reg = found
+            loadError = if (found == null && reg.id.isEmpty()) tr("Không tìm thấy hồ sơ đăng ký") else null
+        } catch (e: Exception) {
+            if (reg.id.isEmpty()) loadError = e.message ?: tr("Không thể tải hồ sơ đăng ký")
+        } finally {
+            loading = false
+        }
+    }
+
+    LaunchedEffect(registrationId) { refresh() }
+
+    fun action(key: String, success: String, block: suspend () -> Unit) {
+        scope.launch {
+            busy = key
+            try {
+                block()
+                ToastCenter.show(success)
+                refresh()
+                onChanged()
+            } catch (e: Exception) {
+                ToastCenter.show(tr("Lỗi: {0}", e.message), isError = true)
+            } finally {
+                busy = null
+            }
+        }
+    }
+
+    val apt = reg.nestedProperty
+    // "Thời hạn quyền bán sau duyệt": the campaign value wins over the project one.
+    val rightsDays = apt["salesCampaign"]["salesDurationDays"].int.takeIf { it > 0 }
+        ?: apt["project"]["salesDurationDays"].int.takeIf { it > 0 } ?: 15
+
+    fun updateRights(status: String, reason: String) = action("rights", "Cập nhật quyền bán thành công") {
+        val body = buildJsonObject {
+            put("status", status)
+            if (reason.isNotEmpty()) put("reason", reason)
+        }.toString()
+        APIClient.get().request("/sales/registrations/${Uri.encode(registrationId)}/status", "PATCH", body)
+    }
+
+    fun loadQr() {
+        showQr = true
+        qrData = null
+        scope.launch {
+            busy = "qr"
+            try {
+                qrData = APIClient.get().request("/sales/registrations/${Uri.encode(registrationId)}/payment-qr")["data"]
+            } catch (e: Exception) {
+                showQr = false
+                ToastCenter.show(tr("Không tải được mã QR: {0}", e.message), isError = true)
+            } finally {
+                busy = null
+            }
+        }
+    }
+
+    val code = regCode(reg).ifEmpty { tr("Căn hộ") }
+    val bookingStatus = reg["bookingStatus"].string
+    val rightsStatus = reg["status"].string
+    val erp = isErpRegistration(reg)
+
+    Scaffold(
+        containerColor = FutaColors.PageBg,
+        topBar = { SalesAdminTopBar(title = regCode(reg).ifEmpty { tr("Hồ sơ đăng ký") }, subtitle = reg["code"].string.takeIf { it.isNotEmpty() }, onBack = onBack) }
+    ) { padding ->
+        when {
+            loading -> Column(Modifier.padding(padding).padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                FutaSkeletonBlock(height = 180.dp, radius = 16.dp)
+                FutaSkeletonBlock(height = 220.dp, radius = 16.dp)
+                FutaSkeletonLines(6)
+            }
+            loadError != null -> AdminErrorState(loadError!!, { loading = true; scope.launch { refresh() } }, Modifier.padding(padding))
+            else -> Column(
+                Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                // Header
+                Surface(shape = RoundedCornerShape(16.dp), color = Color.White, border = BorderStroke(1.dp, FutaColors.LightBlueBorder), modifier = Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Text("Hồ sơ giữ chỗ", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = FutaColors.Slate)
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text(code, fontSize = 22.sp, fontWeight = FontWeight.ExtraBold, color = FutaColors.Navy, modifier = Modifier.weight(1f))
+                            if (erp) ErpLockBadge()
+                        }
+                        HorizontalDivider(color = FutaColors.PanelDivider)
+                        Row(Modifier.fillMaxWidth()) {
+                            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Text("Trạng thái giữ chỗ", fontSize = 11.5.sp, fontWeight = FontWeight.SemiBold, color = FutaColors.Slate)
+                                StatusPill(tr(BookingStepHelper.title(bookingStatus)), BookingStepHelper.color(bookingStatus))
+                            }
+                            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Text("Quyền bán", fontSize = 11.5.sp, fontWeight = FontWeight.SemiBold, color = FutaColors.Slate)
+                                StatusPill(tr(RegistrationStatusHelper.title(rightsStatus)), RegistrationStatusHelper.color(rightsStatus))
+                            }
+                        }
+                        if (reg["onlineHoldExpiresAt"].string.isNotEmpty()) {
+                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Default.Timer, null, tint = FutaColors.BrandOrange, modifier = Modifier.size(15.dp))
+                                Text(tr("Hạn giữ chỗ online: {0}", SalesFormatters.dateTime(reg["onlineHoldExpiresAt"].string)), fontSize = 12.5.sp, fontWeight = FontWeight.SemiBold, color = FutaColors.BrandOrange)
+                            }
+                        }
+                    }
+                }
+
+                // Actions (admin only — the backend restricts these routes to admins)
+                if (isAdmin) {
+                    DetailSection("Xử lý hồ sơ", Icons.Default.Verified) {
+                        FutaButton(text = "Cập nhật giữ chỗ / cọc", icon = Icons.Default.Sync, enabled = busy == null, onClick = { showBooking = true }, modifier = Modifier.fillMaxWidth())
+                        when (rightsStatus) {
+                            "pending" -> Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                FutaButton(text = "Duyệt quyền bán", icon = Icons.Default.CheckCircle, variant = FutaButtonVariant.MINT, enabled = busy == null, onClick = { showApprove = true }, modifier = Modifier.weight(1f))
+                                FutaButton(text = "Từ chối", icon = Icons.Default.Block, variant = FutaButtonVariant.OUTLINE, enabled = busy == null, onClick = { showReject = true }, modifier = Modifier.weight(1f))
+                            }
+                            "active" -> FutaButton(text = "Thu hồi quyền bán", icon = Icons.Default.Undo, variant = FutaButtonVariant.OUTLINE, enabled = busy == null, onClick = { showRevoke = true }, modifier = Modifier.fillMaxWidth())
+                        }
+                        HorizontalDivider(color = FutaColors.PanelDivider)
+                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            FutaButton(text = "QR thanh toán cọc", icon = Icons.Default.QrCode2, variant = FutaButtonVariant.MINT, enabled = busy == null, onClick = { loadQr() }, modifier = Modifier.weight(1f))
+                            FutaButton(
+                                text = if (busy == "refresh") "Đang làm mới…" else "Làm mới ERP", icon = Icons.Default.Refresh, variant = FutaButtonVariant.OUTLINE, enabled = busy == null,
+                                onClick = {
+                                    action("refresh", "Đã làm mới trạng thái giữ chỗ từ ERP") {
+                                        APIClient.get().request("/sales/registrations/${Uri.encode(registrationId)}/hold/refresh", "POST", "{}")
+                                    }
+                                },
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                        // Destructive action set apart at the bottom of the card.
+                        FutaButton(text = "Hủy giữ chỗ", icon = Icons.Default.Cancel, variant = FutaButtonVariant.DANGER, enabled = busy == null, onClick = { showCancelHold = true }, modifier = Modifier.fillMaxWidth())
+                    }
+                }
+
+                // Property & price
+                DetailSection("Thông tin căn hộ & Giá bán", Icons.Default.Apartment) {
+                    Box(Modifier.fillMaxWidth().height(160.dp).clip(RoundedCornerShape(12.dp))) {
+                        AdminRemoteImage(PropertyFormatters.resolveImage(if (apt.isNull) reg else apt), Modifier.fillMaxSize())
+                    }
+                    DossierRow("Mã sản phẩm", regCode(reg))
+                    DossierRow("Dự án / Phân khu", regProject(reg).translated("project"))
+                    DossierRow("Tòa / Tầng", tr("Tòa {0} · Tầng {1}", apt["block"].string.ifEmpty { "-" }, apt["floor"].string.ifEmpty { "-" }))
+                    DossierRow("Loại căn", apt["unitType"].string)
+                    val size = apt["size_m2"].double
+                    DossierRow("Diện tích", if (size > 0) SalesFormatters.area(size) else apt["size_m2"].string)
+                    val price = apt["sellPrice"].double.takeIf { it > 0 } ?: apt["price"].double
+                    DossierRow("Giá bán ERP", SalesFormatters.currency(price), FutaColors.BrandGreen)
+                    DossierRow("Số tiền cọc dự kiến", SalesFormatters.currency(reg["depositAmount"].double), FutaColors.BrandOrange)
+                }
+
+                // Customer
+                DetailSection("Hồ sơ khách hàng", Icons.Default.Person) {
+                    DossierRow("Họ và tên", reg["customerName"].string, verbatim = true)
+                    DossierRow("Số điện thoại", reg["customerPhone"].string, verbatim = true)
+                    DossierRow("Email", reg["customerEmail"].string, verbatim = true)
+                    DossierRow("Số CCCD / Hộ chiếu", reg["customerCccd"].string, verbatim = true)
+                    DossierRow("Giới tính", reg["customerGender"].string.takeIf { it.isNotEmpty() }?.let { LocalizedGender.name(it) }.orEmpty(), verbatim = true)
+                    DossierRow("Ngày sinh", if (reg["customerBirthDate"].string.isEmpty()) "" else SalesFormatters.dateOnly(reg["customerBirthDate"].string))
+                    DossierRow("Địa chỉ thường trú", reg["customerPermanentAddress"].string, verbatim = true)
+                    DossierRow("Địa chỉ liên hệ", reg["customerContactAddress"].string, verbatim = true)
+                }
+                val idDocs = listOf(
+                    "Mặt trước" to reg["customerIdFrontUrl"].string,
+                    "Mặt sau" to reg["customerIdBackUrl"].string,
+                    "Định danh số" to reg["customerDigitalIdUrl"].string
+                ).filter { it.second.isNotEmpty() }
+                if (idDocs.isNotEmpty()) {
+                    DetailSection("Ảnh giấy tờ định danh", Icons.Default.Badge) {
+                        idDocs.forEach { (title, url) ->
+                            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Box(
+                                    Modifier.fillMaxWidth().height(180.dp).clip(RoundedCornerShape(12.dp)).border(1.dp, FutaColors.LightBlueBorder, RoundedCornerShape(12.dp))
+                                        .clickable { viewer = tr(title) to url }
+                                ) {
+                                    AdminRemoteImage(url, Modifier.fillMaxSize(), ContentScale.Fit)
+                                }
+                                Text(title, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = FutaColors.Slate)
+                            }
+                        }
+                    }
+                }
+
+                // Advisor
+                val advisor = reg["advisor"]
+                DetailSection("Tư vấn viên phụ trách", Icons.Default.SupportAgent) {
+                    DossierRow("Họ và tên", advisor["name"].string.ifEmpty { tr("Tư vấn viên FUTA Land") }, verbatim = true)
+                    DossierRow("Số điện thoại", advisor["phone"].string, verbatim = true)
+                    if (advisor["phone"].string.isNotEmpty()) {
+                        FutaButton(text = "Gọi tư vấn viên", icon = Icons.Default.Phone, variant = FutaButtonVariant.MINT, onClick = { dialPhone(context, advisor["phone"].string) }, modifier = Modifier.fillMaxWidth())
+                    }
+                }
+
+                // ERP hold
+                DetailSection("Đồng bộ ERP FUTA Land", Icons.Default.CloudSync, trailing = { ErpLockBadge() }) {
+                    DossierRow("Mã Booking ERP", reg["erpBookingCode"].string)
+                    DossierRow("Mã Hold ERP", reg["erpHoldId"].string)
+                    DossierRow("Trạng thái Hold ERP", reg["erpHoldStatusLabel"].string.ifEmpty { reg["erpHoldStatus"].string })
+                    if (reg["erpHoldLastError"].string.isNotEmpty()) DossierRow("Lỗi đồng bộ gần nhất", reg["erpHoldLastError"].string, FutaColors.RedPdf)
+                }
+
+                // Payment documents
+                DetailSection("Chứng từ & Thanh toán đặt cọc", Icons.Default.Payments) {
+                    DossierRow("Hình thức thanh toán", paymentMethodLabel(reg["paymentMethod"].string))
+                    DossierRow("Số tiền cọc", SalesFormatters.currency(reg["depositAmount"].double), FutaColors.BrandOrange)
+                    if (reg["commissionAmount"].double > 0) DossierRow("Hoa hồng môi giới", SalesFormatters.currency(reg["commissionAmount"].double), FutaColors.BrandOrange)
+                    val slip = reg["depositSlipUrl"].string
+                    val receipt = reg["depositReceiptUrl"].string
+                    if (slip.isNotEmpty()) DocumentLink("Ủy nhiệm chi / UNC", "Xem chứng từ", slip) { viewDocument(context, tr("Ủy nhiệm chi / UNC"), slip) { viewer = it } }
+                    if (receipt.isNotEmpty()) DocumentLink("Phiếu thu / Hóa đơn cọc", "Xem phiếu thu", receipt) { viewDocument(context, tr("Phiếu thu / Hóa đơn cọc"), receipt) { viewer = it } }
+                    if (slip.isEmpty() && receipt.isEmpty()) Text("Chưa có chứng từ thanh toán.", fontSize = 12.5.sp, color = FutaColors.Slate)
+                }
+                Spacer(Modifier.height(8.dp))
+            }
+        }
+    }
+
+    ConfirmDialog(
+        visible = showApprove,
+        title = "Duyệt quyền bán cho TVV?",
+        message = tr("Cấp quyền bán căn hộ cho TVV trong {0} ngày theo chương trình bán hàng đang áp dụng.", rightsDays),
+        confirmText = "Xác nhận duyệt quyền bán",
+        onDismiss = { showApprove = false },
+        // validDays is not sent: the campaign's "rights duration after approval" is the only source.
+        onConfirm = { updateRights("active", tr("Quản trị viên phê duyệt quyền bán ({0} ngày)", rightsDays)) }
+    )
+    ReasonDialog(
+        visible = showReject,
+        title = "Từ chối quyền bán TVV",
+        message = "Vui lòng nhập lý do từ chối cấp quyền bán cho tư vấn viên.",
+        placeholder = "Nhập lý do từ chối…",
+        confirmText = "Xác nhận từ chối",
+        onDismiss = { showReject = false },
+        onConfirm = { updateRights("rejected", it.ifEmpty { tr("Quản trị viên từ chối cấp quyền bán") }) }
+    )
+    ReasonDialog(
+        visible = showRevoke,
+        title = "Thu hồi quyền bán TVV",
+        message = "Quyền bán căn hộ của tư vấn viên sẽ bị thu hồi ngay lập tức.",
+        placeholder = "Nhập lý do thu hồi…",
+        confirmText = "Thu hồi quyền bán",
+        onDismiss = { showRevoke = false },
+        onConfirm = { updateRights("revoked", it.ifEmpty { tr("Quản trị viên thu hồi quyền bán") }) }
+    )
+    ReasonDialog(
+        visible = showCancelHold,
+        title = "Hủy giữ chỗ ERP?",
+        message = "Lệnh hủy giữ chỗ sẽ được gửi đồng bộ tới ERP.",
+        placeholder = "Lý do hủy (không bắt buộc)…",
+        confirmText = "Xác nhận hủy giữ chỗ",
+        onDismiss = { showCancelHold = false },
+        onConfirm = { reason ->
+            action("cancel", "Đã hủy giữ chỗ ERP") {
+                val body = buildJsonObject { put("reason", reason.ifEmpty { tr("Hủy theo yêu cầu quản trị viên") }) }.toString()
+                APIClient.get().request("/sales/registrations/${Uri.encode(registrationId)}/hold/cancel", "POST", body)
+            }
+        }
+    )
+    if (showBooking) {
+        BookingUpdateSheet(
+            reg = reg,
+            erp = erp,
+            onDismiss = { showBooking = false },
+            onSubmit = { body ->
+                showBooking = false
+                action("booking", "Cập nhật trạng thái thành công") {
+                    APIClient.get().request("/sales/registrations/${Uri.encode(registrationId)}/booking-status", "PATCH", body)
+                }
+            }
+        )
+    }
+    if (showQr) {
+        FutaBottomSheet(visible = true, onDismiss = { showQr = false }, title = "Mã QR đặt cọc") {
+            val data = qrData
+            Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                when {
+                    data == null -> {
+                        CircularProgressIndicator(color = FutaColors.BrandGreen)
+                        Text("Đang tải thông tin chuyển khoản…", fontSize = 13.sp, color = FutaColors.Slate)
+                    }
+                    data["qrCodeUrl"].string.isEmpty() -> Text("Không thể tạo mã QR thanh toán vào lúc này.", fontSize = 13.sp, color = FutaColors.Slate)
+                    else -> {
+                        AsyncImage(model = data["qrCodeUrl"].string, contentDescription = tr("Mã QR đặt cọc"), contentScale = ContentScale.Fit, modifier = Modifier.fillMaxWidth().height(260.dp))
+                        Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(Color(0xFFF8FAFC)).padding(12.dp)) {
+                            InfoRow("Ngân hàng:", data["bankName"].string, verbatim = true)
+                            InfoRow("Số tài khoản:", data["accountNumber"].string, verbatim = true)
+                            InfoRow("Chủ tài khoản:", data["accountHolder"].string, verbatim = true)
+                            InfoRow("Số tiền:", SalesFormatters.currency(data["amount"].double), FutaColors.BrandGreen)
+                            InfoRow("Cú pháp chuyển khoản:", data["syntax"].string, FutaColors.BrandOrange, verbatim = true)
+                        }
+                    }
+                }
+                FutaButton(text = "Đóng", variant = FutaButtonVariant.OUTLINE, onClick = { showQr = false }, modifier = Modifier.fillMaxWidth())
+            }
+        }
+    }
+    viewer?.let { (title, url) -> ZoomableImageDialog(url = url, title = title, onDismiss = { viewer = null }) }
+}
+
+private fun paymentMethodLabel(raw: String): String = when (raw) {
+    "standard" -> tr("Thanh toán tiêu chuẩn")
+    "fast" -> tr("Thanh toán nhanh")
+    "loan" -> tr("Vay ngân hàng")
+    else -> raw
+}
+
+/** Images open in the zoomable viewer; PDFs and other files open externally. */
+private fun viewDocument(context: android.content.Context, title: String, url: String, showImage: (Pair<String, String>) -> Unit) {
+    val lower = url.lowercase().substringBefore('?')
+    if (lower.endsWith(".pdf") || lower.endsWith(".doc") || lower.endsWith(".docx")) openExternalUrl(context, url) else showImage(title to url)
+}
+
+@Composable
+private fun DossierRow(title: String, value: String, color: Color = FutaColors.Body, verbatim: Boolean = false) {
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+        Text(title, fontSize = 11.5.sp, fontWeight = FontWeight.SemiBold, color = FutaColors.Slate)
+        val v = value.ifBlank { "-" }
+        if (verbatim) VerbatimText(v, fontSize = 14.sp, fontWeight = FontWeight.Medium, color = color) else Text(v, fontSize = 14.sp, fontWeight = FontWeight.Medium, color = color)
+    }
+}
+
+@Composable
+private fun DocumentLink(title: String, action: String, url: String, onClick: () -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(FutaColors.MintBg).clickable(onClick = onClick).padding(12.dp),
+        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        Icon(Icons.Default.ReceiptLong, null, tint = FutaColors.BrandGreen, modifier = Modifier.size(20.dp))
+        Column(Modifier.weight(1f)) {
+            Text(title, fontSize = 12.sp, color = FutaColors.Slate)
+            Text(action, fontSize = 13.5.sp, fontWeight = FontWeight.Bold, color = FutaColors.BrandGreen)
+        }
+        Icon(Icons.Default.ChevronRight, null, tint = FutaColors.BrandGreen, modifier = Modifier.size(18.dp))
+    }
+}
+
+private val bookingStatusOptions = listOf(
+    SelectOption("online_holding", "Giữ chỗ online"),
+    SelectOption("pending_booking", "Chờ duyệt cọc"),
+    SelectOption("holding_success", "Giữ chỗ thành công"),
+    SelectOption("deposited", "Đã nộp cọc"),
+    SelectOption("commission_pending", "Chờ chi hoa hồng"),
+    SelectOption("commission_paid", "Đã chi hoa hồng"),
+    SelectOption("purchased", "Đã ký HĐMB"),
+    SelectOption("rejected", "Từ chối"),
+    SelectOption("cancelled", "Hủy giữ chỗ")
+)
+
+/** Booking / deposit update (iOS `updateBookingSheet`) → PATCH …/booking-status. */
+@Composable
+private fun BookingUpdateSheet(reg: JSONValue, erp: Boolean, onDismiss: () -> Unit, onSubmit: (String) -> Unit) {
+    val current = reg["bookingStatus"].string.ifEmpty { "pending_booking" }
+    var status by remember { mutableStateOf(current) }
+    var erpCode by remember { mutableStateOf(reg["erpBookingCode"].string) }
+    var commission by remember { mutableStateOf(reg["commissionAmount"].double.takeIf { it > 0 }?.toLong()?.toString().orEmpty()) }
+    var reason by remember { mutableStateOf("") }
+    var notes by remember { mutableStateOf("") }
+    FutaBottomSheet(
+        visible = true,
+        onDismiss = onDismiss,
+        title = "Cập nhật giữ chỗ",
+        footer = {
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                FutaButton(text = "Hủy", variant = FutaButtonVariant.OUTLINE, onClick = onDismiss, modifier = Modifier.weight(1f))
+                FutaButton(
+                    text = "Lưu cập nhật", icon = Icons.Default.Check, modifier = Modifier.weight(1.5f),
+                    onClick = {
+                        val body = buildJsonObject {
+                            // The backend requires bookingStatus; ERP-managed dossiers keep their synced status.
+                            put("bookingStatus", if (erp) current else status)
+                            if (erpCode.isNotBlank()) put("erpBookingCode", erpCode.trim())
+                            commission.toLongOrNull()?.takeIf { it > 0 }?.let { put("commissionAmount", it) }
+                            if (reason.isNotBlank()) put("reason", reason.trim())
+                            if (notes.isNotBlank()) put("notes", notes.trim())
+                        }.toString()
+                        onSubmit(body)
+                    }
+                )
+            }
+        }
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            if (erp) {
+                Column(
+                    Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(FutaColors.CreamBg).padding(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                        ErpLockBadge()
+                        Text("Phiếu giữ chỗ liên kết ERP FUTA Land", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
+                    }
+                    Text(
+                        "Trạng thái giữ chỗ được quản lý và đồng bộ trực tiếp từ hệ thống ERP. Hãy dùng chức năng 'Làm mới ERP' để cập nhật hoặc 'Hủy giữ chỗ' để gửi lệnh hủy.",
+                        fontSize = 11.5.sp, color = FutaColors.Slate, lineHeight = 16.sp
+                    )
+                }
+                InfoRow("Trạng thái giữ chỗ ERP:", tr(BookingStepHelper.title(current)), BookingStepHelper.color(current))
+            } else {
+                AdminSelectField("Trạng thái", status, bookingStatusOptions, { status = it })
+            }
+            FormTextField("Mã Booking ERP", erpCode, { erpCode = it }, "Nhập mã Booking ERP (nếu có)…")
+            FormTextField("Hoa hồng (VND)", commission, { commission = it.filter { c -> c.isDigit() } }, "0", keyboardType = KeyboardType.Number)
+            commission.toLongOrNull()?.takeIf { it > 0 }?.let { Text(SalesFormatters.currency(it.toDouble()), fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = FutaColors.BrandOrange) }
+            FormTextField("Lý do thay đổi", reason, { reason = it }, "Nhập lý do thay đổi…")
+            FormTextField("Ghi chú nội bộ", notes, { notes = it }, "Ghi chú nội bộ…", multiline = true)
+        }
+    }
+}
+
+// ============================================================================
+// Card
+// ============================================================================
 
 @Composable
 private fun RegistrationCardRow(
@@ -590,246 +785,76 @@ private fun RegistrationCardRow(
     isCompeting: Boolean,
     onClick: () -> Unit
 ) {
-    val property = registration["property"]
+    val property = registration.nestedProperty
     val advisor = registration["advisor"]
     val bookingStatus = registration["bookingStatus"].string
     val rightsStatus = registration["status"].string
-
-    val propertyCode = property["propertyCode"].string.ifEmpty { "Căn hộ" }
-    val projName = property["project"]["displayName"].string.ifEmpty { property["projectName"].string.ifEmpty { "Dự án FUTA" } }
-    val block = property["block"].string.ifEmpty { "-" }
-    val floor = property["floor"].string.ifEmpty { "-" }
-    val subLocation = tr("{0} · Tòa {1} · Tầng {2}", projName, block, floor)
-
-    val advisorName = advisor["name"].string.ifEmpty { "FUTA Land" }
-    val advisorPhone = advisor["phone"].string
+    val propertyCode = property["propertyCode"].string.ifEmpty { tr("Căn hộ") }
+    val projName = regProject(registration).ifEmpty { tr("Dự án FUTA") }.translated("project")
+    val subLocation = tr("{0} · Tòa {1} · Tầng {2}", projName, property["block"].string.ifEmpty { "-" }, property["floor"].string.ifEmpty { "-" })
     val customerName = registration["customerName"].string
     val customerPhone = registration["customerPhone"].string
-
-    val priceVal = if (property["sellPrice"].double > 0) property["sellPrice"].double else property["price"].double
-    val priceFormatted = if (priceVal > 0) "%,.0f đ".format(priceVal).replace(',', '.') else "Đang cập nhật"
+    val priceVal = property["sellPrice"].double.takeIf { it > 0 } ?: property["price"].double
     val deposit = registration["depositAmount"].double
-
-    val (bookingTitle, bookingColor, bookingBg) = when (bookingStatus.lowercase()) {
-        "online_holding" -> Triple("Giữ chỗ online", Color(0xFF2563EB), Color(0xFFEFF6FF))
-        "pending_booking", "pending" -> Triple("Chờ duyệt cọc", Color(0xFFF97316), Color(0xFFFFF7ED))
-        "holding_success" -> Triple("Giữ chỗ thành công", Color(0xFF7C3AED), Color(0xFFF5F3FF))
-        "deposited" -> Triple("Đã nộp cọc", FutaColors.BrandGreen, Color(0xFFEAF5EF))
-        "commission_paid" -> Triple("Đã chi hoa hồng", Color(0xFF4F46E5), Color(0xFFEEF2FF))
-        "cancelled" -> Triple("Đã hủy", Color(0xFFEF4444), Color(0xFFFEF2F2))
-        else -> Triple(bookingStatus, FutaColors.Slate, Color(0xFFF1F5F9))
-    }
-
-    val (rightsTitle, rightsColor, rightsBg) = when (rightsStatus.lowercase()) {
-        "active" -> Triple("Đang có quyền bán", FutaColors.BrandGreen, Color(0xFFEAF5EF))
-        "pending" -> Triple("Chờ duyệt", Color(0xFFF97316), Color(0xFFFFF7ED))
-        "rejected" -> Triple("Đã từ chối", Color(0xFFEF4444), Color(0xFFFEF2F2))
-        "revoked" -> Triple("Đã thu hồi", FutaColors.Slate, Color(0xFFF1F5F9))
-        else -> Triple(rightsStatus.ifEmpty { "Chưa duyệt" }, FutaColors.Slate, Color(0xFFF1F5F9))
-    }
 
     Surface(
         shape = RoundedCornerShape(16.dp),
         color = Color.White,
-        shadowElevation = 1.dp,
-        border = BorderStroke(
-            width = if (isCompeting) 1.5.dp else 1.dp,
-            color = if (isCompeting) Color(0xFFFCA5A5) else Color(0xFFE2E8F0)
-        ),
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
+        border = BorderStroke(if (isCompeting) 1.5.dp else 1.dp, if (isCompeting) Color(0xFFFCA5A5) else Color(0xFFE2E8F0)),
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick)
     ) {
-        Column(
-            modifier = Modifier.padding(14.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            // Header: Property Code & Status Badges
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.Top
-            ) {
-                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        Text(
-                            text = propertyCode,
-                            fontSize = 17.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = FutaColors.Navy
-                        )
+        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text(propertyCode, fontSize = 17.sp, fontWeight = FontWeight.Bold, color = FutaColors.Navy)
                         if (isCompeting) {
-                            Surface(
-                                shape = CircleShape,
-                                color = Color(0xFFFEE2E2)
+                            Row(
+                                Modifier.clip(CircleShape).background(Color(0xFFFEE2E2)).padding(horizontal = 6.dp, vertical = 2.dp),
+                                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(2.dp)
                             ) {
-                                Row(
-                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(2.dp)
-                                ) {
-                                    Icon(Icons.Default.LocalFireDepartment, contentDescription = null, tint = Color(0xFFDC2626), modifier = Modifier.size(11.dp))
-                                    Text("Tranh chấp", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color(0xFFDC2626))
-                                }
+                                Icon(Icons.Default.LocalFireDepartment, null, tint = Color(0xFFDC2626), modifier = Modifier.size(11.dp))
+                                Text("Tranh chấp", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color(0xFFDC2626))
                             }
                         }
                     }
-                    Text(
-                        text = subLocation,
-                        fontSize = 12.sp,
-                        color = FutaColors.Slate,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
+                    Text(subLocation, fontSize = 12.sp, color = FutaColors.Slate, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
-
                 Spacer(Modifier.width(8.dp))
-
-                Column(
-                    horizontalAlignment = Alignment.End,
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    if (bookingStatus.isNotEmpty() && bookingStatus != "none") {
-                        Surface(shape = CircleShape, color = bookingBg) {
-                            Text(
-                                text = bookingTitle,
-                                fontSize = 10.5.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = bookingColor,
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
-                            )
-                        }
-                    }
-                    Surface(shape = CircleShape, color = rightsBg) {
-                        Text(
-                            text = rightsTitle,
-                            fontSize = 10.5.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = rightsColor,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
-                        )
-                    }
+                Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    if (bookingStatus.isNotEmpty() && bookingStatus != "none") StatusPill(tr(BookingStepHelper.title(bookingStatus)), BookingStepHelper.color(bookingStatus))
+                    StatusPill(tr(RegistrationStatusHelper.title(rightsStatus)), RegistrationStatusHelper.color(rightsStatus))
                 }
             }
             HorizontalDivider(color = Color(0xFFF1F5F9))
-
-            // Middle Row: Thumbnail Image & Property Details
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalAlignment = Alignment.Top
-            ) {
-                val thumbUrl = PropertyFormatters.resolveImage(if (!property.isNull && property["propertyCode"].string.isNotEmpty()) property else registration)
-
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.Top) {
                 AsyncImage(
-                    model = thumbUrl,
+                    model = PropertyFormatters.resolveImage(if (!property.isNull && property["propertyCode"].string.isNotEmpty()) property else registration),
                     contentDescription = propertyCode,
                     contentScale = ContentScale.Crop,
-                    modifier = Modifier
-                        .size(76.dp)
-                        .clip(RoundedCornerShape(10.dp))
-                        .border(1.dp, Color(0xFFE2E8F0), RoundedCornerShape(10.dp))
-                        .background(Color(0xFFF1F5F9))
+                    modifier = Modifier.size(68.dp).clip(RoundedCornerShape(10.dp)).border(1.dp, Color(0xFFE2E8F0), RoundedCornerShape(10.dp)).background(Color(0xFFF1F5F9))
                 )
-
-                Column(
-                    modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(3.dp)
-                ) {
-                    Text(
-                        text = projName,
-                        fontSize = 13.5.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = FutaColors.Navy,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    Text(
-                        text = subLocation,
-                        fontSize = 11.5.sp,
-                        color = FutaColors.Slate,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Icon(Icons.Default.SupportAgent, null, tint = FutaColors.BrandGreen, modifier = Modifier.size(14.dp))
+                        VerbatimText(tr("TVV: {0}", advisor["name"].string.ifEmpty { "FUTA Land" }), fontSize = 12.5.sp, fontWeight = FontWeight.SemiBold, color = FutaColors.Navy, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                    if (advisor["phone"].string.isNotEmpty()) VerbatimText(advisor["phone"].string, fontSize = 11.5.sp, color = FutaColors.Slate)
                     if (customerName.isNotEmpty()) {
-                        Text(
-                            text = "👤 $customerName" + if (customerPhone.isNotEmpty()) " · $customerPhone" else "",
-                            fontSize = 12.sp,
-                            color = Color(0xFF334155),
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
-                    val sizeStr = property["size_m2"].string.ifEmpty {
-                        val d = property["size_m2"].double.takeIf { it > 0 } ?: property["areaM2"].double.takeIf { it > 0 } ?: property["area"].double
-                        if (d > 0) "%.1f m²".format(d).replace(".0", "") else ""
-                    }
-                    val beds = property["bedrooms"].int
-                    val specs = listOfNotNull(
-                        sizeStr.takeIf { it.isNotEmpty() },
-                        if (beds > 0) "$beds PN" else null,
-                        property["direction"].string.takeIf { it.isNotEmpty() }
-                    ).joinToString(" · ")
-                    if (specs.isNotEmpty()) {
-                        Text(
-                            text = specs,
-                            fontSize = 11.5.sp,
-                            color = FutaColors.Slate,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Icon(Icons.Default.Person, null, tint = FutaColors.Slate, modifier = Modifier.size(14.dp))
+                            VerbatimText(customerName + if (customerPhone.isNotEmpty()) " · $customerPhone" else "", fontSize = 12.sp, color = Color(0xFF334155), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        }
                     }
                 }
             }
-
             HorizontalDivider(color = Color(0xFFF1F5F9))
-
-            // Bottom Row: Price, Expiry & Details Link
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    Text(
-                        text = priceFormatted,
-                        fontSize = 14.5.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = FutaColors.BrandGreen
-                    )
-                    if (deposit > 0) {
-                        val depFormatted = "%,.0f đ".format(deposit).replace(',', '.')
-                        Text(
-                            text = tr("· Cọc: {0}", depFormatted),
-                            fontSize = 11.5.sp,
-                            color = Color(0xFFF97316)
-                        )
-                    }
-                }
-
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(2.dp)
-                ) {
-                    Text(
-                        text = "Chi tiết",
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = FutaColors.Navy
-                    )
-                    Icon(
-                        Icons.Default.ChevronRight,
-                        contentDescription = null,
-                        tint = FutaColors.Navy,
-                        modifier = Modifier.size(14.dp)
-                    )
-                }
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text(if (priceVal > 0) SalesFormatters.currency(priceVal) else tr("Đang cập nhật"), fontSize = 14.sp, fontWeight = FontWeight.Bold, color = FutaColors.BrandGreen)
+                if (deposit > 0) Text(" · " + tr("Cọc: {0}", SalesFormatters.compactCurrency(deposit)), fontSize = 11.5.sp, color = FutaColors.BrandOrange)
+                Spacer(Modifier.weight(1f))
+                Text(SalesFormatters.dateTime(registration["createdAt"].string), fontSize = 11.sp, color = FutaColors.Slate)
+                Icon(Icons.Default.ChevronRight, null, tint = FutaColors.Navy, modifier = Modifier.size(14.dp))
             }
         }
     }
