@@ -1,0 +1,1352 @@
+{
+ "Khu A, Tòa 1...": {
+  "en": "Zone A, Tower 1...",
+  "zh": "A区，1号楼...",
+  "ru": "Зона A, корпус 1...",
+  "ko": "A구역, 1동..."
+ },
+ "Khu đô thị": {
+  "en": "Urban Area",
+  "zh": "城市新区",
+  "ru": "Жилой район",
+  "ko": "신도시"
+ },
+ "Tên chủ đầu tư...": {
+  "en": "Developer name...",
+  "zh": "开发商名称...",
+  "ru": "Название застройщика...",
+  "ko": "시행사 이름..."
+ },
+ "Ví dụ: Thành Phố Đà Nẵng...": {
+  "en": "e.g. Da Nang City...",
+  "zh": "例如：岘港市...",
+  "ru": "Например: город Дананг...",
+  "ko": "예: 다낭시..."
+ },
+ "Ví dụ: 5%": {
+  "en": "e.g. 5%",
+  "zh": "例如：5%",
+  "ru": "Например: 5%",
+  "ko": "예: 5%"
+ },
+ "Hoa hồng TVV (%)": {
+  "en": "Advisor Commission (%)",
+  "zh": "顾问佣金 (%)",
+  "ru": "Комиссия консультанта (%)",
+  "ko": "상담사 수수료 (%)"
+ },
+ "Ví dụ: 1.5%": {
+  "en": "e.g. 1.5%",
+  "zh": "例如：1.5%",
+  "ru": "Например: 1,5%",
+  "ko": "예: 1.5%"
+ },
+ "Tên dự án áp dụng...": {
+  "en": "Applicable project name...",
+  "zh": "适用项目名称...",
+  "ru": "Название применимого проекта...",
+  "ko": "적용 프로젝트 이름..."
+ },
+ "Mở bán": {
+  "en": "On Sale",
+  "zh": "开售",
+  "ru": "В продаже",
+  "ko": "분양 중"
+ },
+ "Giá trị / Mức giá (VNĐ)": {
+  "en": "Value / Price (VND)",
+  "zh": "价值 / 价格（越南盾）",
+  "ru": "Стоимость / Цена (VND)",
+  "ko": "가치 / 가격 (VND)"
+ },
+ "Nhập giá tiền nếu có...": {
+  "en": "Enter price if any...",
+  "zh": "如有价格请输入...",
+  "ru": "Укажите цену, если есть...",
+  "ko": "금액이 있으면 입력하세요..."
+ },
+ "Ghi chú / Mô tả": {
+  "en": "Notes / Description",
+  "zh": "备注 / 描述",
+  "ru": "Примечание / Описание",
+  "ko": "메모 / 설명"
+ },
+ "Mô tả chi tiết bản ghi...": {
+  "en": "Detailed record description...",
+  "zh": "记录详细描述...",
+  "ru": "Подробное описание записи...",
+  "ko": "레코드 상세 설명..."
+ },
+ "Tạo bản ghi mới": {
+  "en": "Create New Record",
+  "zh": "创建新记录",
+  "ru": "Создать новую запись",
+  "ko": "새 레코드 만들기"
+ },
+ "Tạo mới thành công!": {
+  "en": "Created successfully!",
+  "zh": "创建成功！",
+  "ru": "Успешно создано!",
+  "ko": "생성되었습니다!"
+ },
+ "Lỗi tạo mới: {0}": {
+  "en": "Create error: {0}",
+  "zh": "创建失败：{0}",
+  "ru": "Ошибка создания: {0}",
+  "ko": "생성 오류: {0}"
+ },
+ "Tải tài liệu lên thành công": {
+  "en": "Document uploaded successfully",
+  "zh": "文档上传成功",
+  "ru": "Документ успешно загружен",
+  "ko": "문서를 업로드했습니다"
+ },
+ "URL video Flycam không hợp lệ": {
+  "en": "Invalid Flycam video URL",
+  "zh": "航拍视频链接无效",
+  "ru": "Недействительная ссылка на видео с дрона",
+  "ko": "플라이캠 영상 URL이 올바르지 않습니다"
+ },
+ "URL Virtual Tour không hợp lệ": {
+  "en": "Invalid Virtual Tour URL",
+  "zh": "虚拟看房链接无效",
+  "ru": "Недействительная ссылка на виртуальный тур",
+  "ko": "Virtual Tour URL이 올바르지 않습니다"
+ },
+ "Tạo dự án": {
+  "en": "Create Project",
+  "zh": "创建项目",
+  "ru": "Создать проект",
+  "ko": "프로젝트 만들기"
+ },
+ "Nhập URL": {
+  "en": "Enter URL",
+  "zh": "输入链接",
+  "ru": "Введите URL",
+  "ko": "URL 입력"
+ },
+ "Vui lòng nhập tên và URL tài liệu": {
+  "en": "Please enter the document name and URL",
+  "zh": "请输入文档名称和链接",
+  "ru": "Введите название и URL документа",
+  "ko": "문서 이름과 URL을 입력해 주세요"
+ },
+ "Không thể tải danh sách dự án": {
+  "en": "Unable to load project list",
+  "zh": "无法加载项目列表",
+  "ru": "Не удалось загрузить список проектов",
+  "ko": "프로젝트 목록을 불러올 수 없습니다"
+ },
+ "Trong bộ lọc tìm kiếm": {
+  "en": "In search filters",
+  "zh": "在搜索筛选中",
+  "ru": "В поисковых фильтрах",
+  "ko": "검색 필터에 표시"
+ },
+ "Ẩn khỏi bộ lọc tìm kiếm": {
+  "en": "Hidden from search filters",
+  "zh": "在搜索筛选中隐藏",
+  "ru": "Скрыто из поисковых фильтров",
+  "ko": "검색 필터에서 숨김"
+ },
+ "Chưa có dự án": {
+  "en": "No projects yet",
+  "zh": "暂无项目",
+  "ru": "Проектов пока нет",
+  "ko": "프로젝트가 없습니다"
+ },
+ "Hệ thống chưa có dự án nào. Nhấn + để thêm dự án đầu tiên.": {
+  "en": "The system has no projects yet. Tap + to add the first project.",
+  "zh": "系统中暂无项目。点击 + 添加第一个项目。",
+  "ru": "В системе пока нет проектов. Нажмите +, чтобы добавить первый проект.",
+  "ko": "시스템에 프로젝트가 없습니다. +를 눌러 첫 프로젝트를 추가하세요."
+ },
+ "Không thể tải dự án": {
+  "en": "Unable to load project",
+  "zh": "无法加载项目",
+  "ru": "Не удалось загрузить проект",
+  "ko": "프로젝트를 불러올 수 없습니다"
+ },
+ "Mở": {
+  "en": "Open",
+  "zh": "打开",
+  "ru": "Открыть",
+  "ko": "열기"
+ },
+ "Xóa tài liệu": {
+  "en": "Delete Document",
+  "zh": "删除文档",
+  "ru": "Удалить документ",
+  "ko": "문서 삭제"
+ },
+ "cọc": {
+  "en": "deposit",
+  "zh": "定金",
+  "ru": "залог",
+  "ko": "계약금"
+ },
+ "giữ": {
+  "en": "held",
+  "zh": "保留",
+  "ru": "удержано",
+  "ko": "보류"
+ },
+ "chờ": {
+  "en": "pending",
+  "zh": "待处理",
+  "ru": "ожидает",
+  "ko": "대기"
+ },
+ "mở": {
+  "en": "open",
+  "zh": "开放",
+  "ru": "открыто",
+  "ko": "오픈"
+ },
+ "Không thể tải hồ sơ đăng ký": {
+  "en": "Unable to load registrations",
+  "zh": "无法加载登记档案",
+  "ru": "Не удалось загрузить заявки",
+  "ko": "등록 내역을 불러올 수 없습니다"
+ },
+ "Chưa có hồ sơ": {
+  "en": "No records yet",
+  "zh": "暂无档案",
+  "ru": "Заявок пока нет",
+  "ko": "내역이 없습니다"
+ },
+ "Chưa có hồ sơ đăng ký bán hoặc giữ chỗ nào.": {
+  "en": "There are no sales or holding registrations yet.",
+  "zh": "暂无销售或保留登记档案。",
+  "ru": "Заявок на продажу или бронирование пока нет.",
+  "ko": "판매 또는 가계약 등록 내역이 없습니다."
+ },
+ "Hiển thị {0}–{1} / {2} hồ sơ": {
+  "en": "Showing {0}–{1} of {2} records",
+  "zh": "显示第 {0}–{1} 条，共 {2} 条档案",
+  "ru": "Показано {0}–{1} из {2} заявок",
+  "ko": "{2}건 중 {0}–{1}건 표시"
+ },
+ "Bộ lọc hồ sơ": {
+  "en": "Record Filters",
+  "zh": "档案筛选",
+  "ru": "Фильтры заявок",
+  "ko": "내역 필터"
+ },
+ "Chỉ hiện các căn có từ 2 hồ sơ đăng ký trở lên.": {
+  "en": "Only show units with 2 or more registrations.",
+  "zh": "仅显示有 2 份及以上登记档案的房源。",
+  "ru": "Показывать только квартиры с 2 и более заявками.",
+  "ko": "등록 내역이 2건 이상인 세대만 표시합니다."
+ },
+ "Không tìm thấy hồ sơ đăng ký": {
+  "en": "No registrations found",
+  "zh": "未找到登记档案",
+  "ru": "Заявки не найдены",
+  "ko": "등록 내역을 찾을 수 없습니다"
+ },
+ "Đang làm mới…": {
+  "en": "Refreshing…",
+  "zh": "正在刷新…",
+  "ru": "Обновление…",
+  "ko": "새로고침 중…"
+ },
+ "Chưa có chứng từ thanh toán.": {
+  "en": "No payment receipts yet.",
+  "zh": "暂无付款凭证。",
+  "ru": "Платёжных документов пока нет.",
+  "ko": "결제 증빙이 없습니다."
+ },
+ "Quản trị viên phê duyệt quyền bán ({0} ngày)": {
+  "en": "Admin approved sales rights ({0} days)",
+  "zh": "管理员批准销售权（{0} 天）",
+  "ru": "Администратор одобрил право продажи ({0} дн.)",
+  "ko": "관리자가 판매권을 승인했습니다 ({0}일)"
+ },
+ "Quản trị viên từ chối cấp quyền bán": {
+  "en": "Admin declined to grant sales rights",
+  "zh": "管理员拒绝授予销售权",
+  "ru": "Администратор отказал в праве продажи",
+  "ko": "관리자가 판매권 부여를 거절했습니다"
+ },
+ "Quản trị viên thu hồi quyền bán": {
+  "en": "Admin revoked sales rights",
+  "zh": "管理员收回销售权",
+  "ru": "Администратор отозвал право продажи",
+  "ko": "관리자가 판매권을 회수했습니다"
+ },
+ "Lý do hủy (không bắt buộc)…": {
+  "en": "Cancellation reason (optional)…",
+  "zh": "取消原因（选填）…",
+  "ru": "Причина отмены (необязательно)…",
+  "ko": "취소 사유 (선택)…"
+ },
+ "Hủy theo yêu cầu quản trị viên": {
+  "en": "Cancelled at admin's request",
+  "zh": "按管理员要求取消",
+  "ru": "Отменено по требованию администратора",
+  "ko": "관리자 요청으로 취소"
+ },
+ "Hoa hồng (VND)": {
+  "en": "Commission (VND)",
+  "zh": "佣金（越南盾）",
+  "ru": "Комиссия (VND)",
+  "ko": "수수료 (VND)"
+ },
+ "Cọc: {0}": {
+  "en": "Deposit: {0}",
+  "zh": "定金：{0}",
+  "ru": "Залог: {0}",
+  "ko": "계약금: {0}"
+ },
+ "BÁO CÁO KINH DOANH FUTALAND": {
+  "en": "FUTALAND BUSINESS REPORT",
+  "zh": "FUTALAND 经营报告",
+  "ru": "ОТЧЁТ О БИЗНЕСЕ FUTALAND",
+  "ko": "FUTALAND 영업 보고서"
+ },
+ "Kỳ báo cáo: {0} ({1} - {2})": {
+  "en": "Reporting period: {0} ({1} - {2})",
+  "zh": "报告期：{0}（{1} - {2}）",
+  "ru": "Отчётный период: {0} ({1} - {2})",
+  "ko": "보고 기간: {0} ({1} - {2})"
+ },
+ "Lượt xem: {0}": {
+  "en": "Views: {0}",
+  "zh": "浏览量：{0}",
+  "ru": "Просмотры: {0}",
+  "ko": "조회수: {0}"
+ },
+ "Khách định danh: {0}": {
+  "en": "Identified customers: {0}",
+  "zh": "已识别客户：{0}",
+  "ru": "Идентифицированные клиенты: {0}",
+  "ko": "식별된 고객: {0}"
+ },
+ "Lượt tư vấn: {0}": {
+  "en": "Consultations: {0}",
+  "zh": "咨询次数：{0}",
+  "ru": "Консультации: {0}",
+  "ko": "상담 건수: {0}"
+ },
+ "Giao dịch thành công: {0}": {
+  "en": "Successful transactions: {0}",
+  "zh": "成功交易：{0}",
+  "ru": "Успешные сделки: {0}",
+  "ko": "성사된 거래: {0}"
+ },
+ "Nghe máy: {0}": {
+  "en": "Answered: {0}",
+  "zh": "已接听：{0}",
+  "ru": "Отвечено: {0}",
+  "ko": "응답: {0}"
+ },
+ "Gọi nhỡ: {0}": {
+  "en": "Missed: {0}",
+  "zh": "未接：{0}",
+  "ru": "Пропущено: {0}",
+  "ko": "부재중: {0}"
+ },
+ "Từ chối: {0}": {
+  "en": "Declined: {0}",
+  "zh": "已拒接：{0}",
+  "ru": "Отклонено: {0}",
+  "ko": "거절: {0}"
+ },
+ "Sản phẩm xem nhiều nhất:": {
+  "en": "Most viewed products:",
+  "zh": "浏览最多的产品：",
+  "ru": "Самые просматриваемые объекты:",
+  "ko": "가장 많이 본 상품:"
+ },
+ "{0}. {1} - {2} lượt xem": {
+  "en": "{0}. {1} - {2} views",
+  "zh": "{0}. {1} - {2} 次浏览",
+  "ru": "{0}. {1} - {2} просм.",
+  "ko": "{0}. {1} - 조회 {2}회"
+ },
+ "• {0}: {1} cuộc gọi, {2} nghe máy": {
+  "en": "• {0}: {1} calls, {2} answered",
+  "zh": "• {0}：{1} 次通话，{2} 次接听",
+  "ru": "• {0}: {1} звонков, {2} отвечено",
+  "ko": "• {0}: 통화 {1}건, 응답 {2}건"
+ },
+ "Chia sẻ báo cáo": {
+  "en": "Share Report",
+  "zh": "分享报告",
+  "ru": "Поделиться отчётом",
+  "ko": "보고서 공유"
+ },
+ "Phễu chuyển đổi bán hàng": {
+  "en": "Sales Conversion Funnel",
+  "zh": "销售转化漏斗",
+  "ru": "Воронка продаж",
+  "ko": "판매 전환 퍼널"
+ },
+ "1. Lượt xem sản phẩm": {
+  "en": "1. Product views",
+  "zh": "1. 产品浏览",
+  "ru": "1. Просмотры объектов",
+  "ko": "1. 상품 조회"
+ },
+ "{0} lượt": {
+  "en": "{0} views",
+  "zh": "{0} 次",
+  "ru": "{0} раз",
+  "ko": "{0}회"
+ },
+ "2. Khách quan tâm": {
+  "en": "2. Interested customers",
+  "zh": "2. 意向客户",
+  "ru": "2. Заинтересованные клиенты",
+  "ko": "2. 관심 고객"
+ },
+ "{0} khách": {
+  "en": "{0} customers",
+  "zh": "{0} 位客户",
+  "ru": "{0} клиентов",
+  "ko": "{0}명"
+ },
+ "3. Yêu cầu tư vấn": {
+  "en": "3. Consultation requests",
+  "zh": "3. 咨询请求",
+  "ru": "3. Запросы на консультацию",
+  "ko": "3. 상담 요청"
+ },
+ "4. Chốt giao dịch": {
+  "en": "4. Closed deals",
+  "zh": "4. 成交",
+  "ru": "4. Закрытые сделки",
+  "ko": "4. 거래 성사"
+ },
+ "Bảng xếp hạng hiệu suất tư vấn viên": {
+  "en": "Advisor Performance Leaderboard",
+  "zh": "顾问业绩排行榜",
+  "ru": "Рейтинг эффективности консультантов",
+  "ko": "상담사 실적 순위"
+ },
+ "Tổng: {0} cuộc gọi": {
+  "en": "Total: {0} calls",
+  "zh": "共：{0} 次通话",
+  "ru": "Всего: {0} звонков",
+  "ko": "합계: 통화 {0}건"
+ },
+ "Tỷ lệ: {0}%": {
+  "en": "Rate: {0}%",
+  "zh": "比例：{0}%",
+  "ru": "Доля: {0}%",
+  "ko": "비율: {0}%"
+ },
+ "Đã lưu phân quyền vai trò {0} thành công!": {
+  "en": "Permissions for role {0} saved successfully!",
+  "zh": "角色 {0} 的权限已保存！",
+  "ru": "Права роли {0} успешно сохранены!",
+  "ko": "{0} 역할의 권한이 저장되었습니다!"
+ },
+ "Nhóm quyền": {
+  "en": "Permission Group",
+  "zh": "权限组",
+  "ru": "Группа прав",
+  "ko": "권한 그룹"
+ },
+ "Đã tạo vai trò mới thành công!": {
+  "en": "New role created successfully!",
+  "zh": "新角色创建成功！",
+  "ru": "Новая роль успешно создана!",
+  "ko": "새 역할이 생성되었습니다!"
+ },
+ "VD: Trưởng phòng kinh doanh": {
+  "en": "e.g. Sales Manager",
+  "zh": "例如：销售经理",
+  "ru": "Напр.: Руководитель отдела продаж",
+  "ko": "예: 영업팀장"
+ },
+ "Mô tả nhiệm vụ...": {
+  "en": "Describe responsibilities...",
+  "zh": "职责描述...",
+  "ru": "Описание обязанностей...",
+  "ko": "담당 업무 설명..."
+ },
+ "Đã xóa vai trò {0}": {
+  "en": "Role {0} deleted",
+  "zh": "已删除角色 {0}",
+  "ru": "Роль {0} удалена",
+  "ko": "{0} 역할이 삭제되었습니다"
+ },
+ "Vai trò \"{0}\" đang được gán cho {1} người dùng. Các tài khoản này sẽ quay về vai trò hệ thống và mất quyền tuỳ chỉnh.": {
+  "en": "Role \"{0}\" is assigned to {1} users. These accounts will revert to the system role and lose their custom permissions.",
+  "zh": "角色“{0}”已分配给 {1} 位用户。这些账号将恢复为系统角色，并失去自定义权限。",
+  "ru": "Роль «{0}» назначена {1} пользователям. Эти аккаунты вернутся к системной роли и потеряют индивидуальные права.",
+  "ko": "\"{0}\" 역할이 사용자 {1}명에게 지정되어 있습니다. 해당 계정은 시스템 역할로 돌아가며 맞춤 권한을 잃게 됩니다."
+ },
+ "Bạn có chắc muốn xóa vai trò \"{0}\"? Thao tác không thể hoàn tác.": {
+  "en": "Are you sure you want to delete the role \"{0}\"? This action cannot be undone.",
+  "zh": "确定要删除角色“{0}”吗？此操作无法撤销。",
+  "ru": "Вы уверены, что хотите удалить роль «{0}»? Это действие нельзя отменить.",
+  "ko": "\"{0}\" 역할을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다."
+ },
+ "Đã cập nhật thông tin vai trò thành công!": {
+  "en": "Role information updated successfully!",
+  "zh": "角色信息已更新！",
+  "ru": "Информация о роли успешно обновлена!",
+  "ko": "역할 정보가 업데이트되었습니다!"
+ },
+ "Tên website không được để trống": {
+  "en": "Website name cannot be empty",
+  "zh": "网站名称不能为空",
+  "ru": "Название сайта не может быть пустым",
+  "ko": "웹사이트 이름은 비워 둘 수 없습니다"
+ },
+ "Mô tả chân trang không được để trống": {
+  "en": "Footer description cannot be empty",
+  "zh": "页脚描述不能为空",
+  "ru": "Описание в подвале не может быть пустым",
+  "ko": "푸터 설명은 비워 둘 수 없습니다"
+ },
+ "Thời gian giữ chỗ phải từ 1 đến 120 phút": {
+  "en": "Holding time must be between 1 and 120 minutes",
+  "zh": "保留时间必须为 1 到 120 分钟",
+  "ru": "Время бронирования должно быть от 1 до 120 минут",
+  "ko": "가계약 시간은 1분에서 120분 사이여야 합니다"
+ },
+ "Khóa bí mật không hợp lệ": {
+  "en": "Invalid secret key",
+  "zh": "密钥无效",
+  "ru": "Недействительный секретный ключ",
+  "ko": "비밀 키가 올바르지 않습니다"
+ },
+ "Thời gian giữ chỗ (phút)": {
+  "en": "Holding time (minutes)",
+  "zh": "保留时间（分钟）",
+  "ru": "Время бронирования (минуты)",
+  "ko": "가계약 시간 (분)"
+ },
+ "Thời gian chờ giữa 2 lần (phút)": {
+  "en": "Wait time between 2 attempts (minutes)",
+  "zh": "两次之间的等待时间（分钟）",
+  "ru": "Интервал между двумя попытками (минуты)",
+  "ko": "두 번 사이 대기 시간 (분)"
+ },
+ "Thiết lập": {
+  "en": "Set up",
+  "zh": "设置",
+  "ru": "Настроить",
+  "ko": "설정"
+ },
+ "Khóa hiện tại được giữ nguyên nếu bạn không nhập giá trị mới.": {
+  "en": "The current key is kept if you don't enter a new value.",
+  "zh": "如果不输入新值，将保留当前密钥。",
+  "ru": "Текущий ключ сохранится, если вы не введёте новое значение.",
+  "ko": "새 값을 입력하지 않으면 현재 키가 유지됩니다."
+ },
+ "Từ chối ({0})": {
+  "en": "Declined ({0})",
+  "zh": "已拒绝（{0}）",
+  "ru": "Отклонено ({0})",
+  "ko": "거절 ({0})"
+ },
+ "Chi tiết giao dịch {0}": {
+  "en": "Transaction {0} Details",
+  "zh": "交易 {0} 详情",
+  "ru": "Детали транзакции {0}",
+  "ko": "거래 {0} 상세"
+ },
+ "Người thực hiện: {0}": {
+  "en": "Performed by: {0}",
+  "zh": "操作人：{0}",
+  "ru": "Исполнитель: {0}",
+  "ko": "처리자: {0}"
+ },
+ "Nội dung: {0}": {
+  "en": "Content: {0}",
+  "zh": "内容：{0}",
+  "ru": "Содержание: {0}",
+  "ko": "내용: {0}"
+ },
+ "Cú pháp CK: {0}": {
+  "en": "Transfer syntax: {0}",
+  "zh": "转账备注格式：{0}",
+  "ru": "Формат перевода: {0}",
+  "ko": "이체 문구: {0}"
+ },
+ "Duyệt giao dịch": {
+  "en": "Approve Transaction",
+  "zh": "审批交易",
+  "ru": "Одобрить транзакцию",
+  "ko": "거래 승인"
+ },
+ "Duyệt giao dịch?": {
+  "en": "Approve transaction?",
+  "zh": "审批交易？",
+  "ru": "Одобрить транзакцию?",
+  "ko": "거래를 승인하시겠습니까?"
+ },
+ "Duyệt ngay": {
+  "en": "Approve Now",
+  "zh": "立即审批",
+  "ru": "Одобрить сейчас",
+  "ko": "지금 승인"
+ },
+ "Bạn có chắc chắn muốn xác nhận duyệt đơn thanh toán này không?": {
+  "en": "Are you sure you want to approve this payment order?",
+  "zh": "确定要批准这笔付款订单吗？",
+  "ru": "Вы уверены, что хотите одобрить этот платёжный заказ?",
+  "ko": "이 결제 건을 승인하시겠습니까?"
+ },
+ "Không thể tải người dùng": {
+  "en": "Unable to load users",
+  "zh": "无法加载用户",
+  "ru": "Не удалось загрузить пользователей",
+  "ko": "사용자를 불러올 수 없습니다"
+ },
+ "Chưa có tài khoản nào trong hệ thống.": {
+  "en": "There are no accounts in the system yet.",
+  "zh": "系统中暂无账号。",
+  "ru": "В системе пока нет аккаунтов.",
+  "ko": "시스템에 계정이 없습니다."
+ },
+ "Vai trò tuỳ chỉnh": {
+  "en": "Custom role",
+  "zh": "自定义角色",
+  "ru": "Пользовательская роль",
+  "ko": "맞춤 역할"
+ },
+ "Đã có lỗi xảy ra. Vui lòng thử lại.": {
+  "en": "An error occurred. Please try again.",
+  "zh": "发生错误，请重试。",
+  "ru": "Произошла ошибка. Повторите попытку.",
+  "ko": "오류가 발생했습니다. 다시 시도해 주세요."
+ },
+ "Gói TVV hết hạn": {
+  "en": "Advisor plan expired",
+  "zh": "顾问套餐已过期",
+  "ru": "Пакет консультанта истёк",
+  "ko": "상담사 패키지 만료"
+ },
+ "Thời hạn đến": {
+  "en": "Valid until",
+  "zh": "有效期至",
+  "ru": "Действует до",
+  "ko": "유효 기간"
+ },
+ "Tài khoản đang được phép giữ chỗ BĐS.": {
+  "en": "This account is allowed to hold properties.",
+  "zh": "该账号允许保留房产。",
+  "ru": "Этому аккаунту разрешено бронировать недвижимость.",
+  "ko": "이 계정은 부동산 가계약이 허용되어 있습니다."
+ },
+ "Thời điểm chặn": {
+  "en": "Blocked at",
+  "zh": "封禁时间",
+  "ru": "Время блокировки",
+  "ko": "차단 시점"
+ },
+ "Quyền truy cập của người dùng sẽ thay đổi theo vai trò mới.": {
+  "en": "The user's access will change according to the new role.",
+  "zh": "用户的访问权限将根据新角色发生变化。",
+  "ru": "Права доступа пользователя изменятся в соответствии с новой ролью.",
+  "ko": "사용자의 접근 권한이 새 역할에 따라 변경됩니다."
+ },
+ "Vai trò sẽ chuyển từ \"{0}\" sang \"{1}\".": {
+  "en": "The role will change from \"{0}\" to \"{1}\".",
+  "zh": "角色将从“{0}”变更为“{1}”。",
+  "ru": "Роль изменится с «{0}» на «{1}».",
+  "ko": "역할이 \"{0}\"에서 \"{1}\"(으)로 변경됩니다."
+ },
+ "Người dùng sẽ có thể đăng nhập và giao dịch trở lại.": {
+  "en": "The user will be able to log in and transact again.",
+  "zh": "用户将可以重新登录并进行交易。",
+  "ru": "Пользователь сможет снова входить в систему и совершать сделки.",
+  "ko": "사용자가 다시 로그인하고 거래할 수 있게 됩니다."
+ },
+ "Người dùng sẽ có thể giữ chỗ BĐS trở lại.": {
+  "en": "The user will be able to hold properties again.",
+  "zh": "用户将可以重新保留房产。",
+  "ru": "Пользователь сможет снова бронировать недвижимость.",
+  "ko": "사용자가 다시 부동산을 가계약할 수 있게 됩니다."
+ },
+ "Gỡ đình chỉ": {
+  "en": "Lift Suspension",
+  "zh": "解除停用",
+  "ru": "Снять приостановку",
+  "ko": "정지 해제"
+ },
+ "Đình chỉ theo chỉ đạo quản trị": {
+  "en": "Suspended per administrative directive",
+  "zh": "按管理指示停用",
+  "ru": "Приостановлено по указанию администрации",
+  "ko": "관리 지시에 따라 정지"
+ },
+ "Tên hiển thị không được để trống": {
+  "en": "Display name cannot be empty",
+  "zh": "显示名称不能为空",
+  "ru": "Отображаемое имя не может быть пустым",
+  "ko": "표시 이름은 비워 둘 수 없습니다"
+ },
+ "Không thể cập nhật thông tin": {
+  "en": "Unable to update information",
+  "zh": "无法更新信息",
+  "ru": "Не удалось обновить информацию",
+  "ko": "정보를 업데이트할 수 없습니다"
+ },
+ "Sửa thông tin người dùng": {
+  "en": "Edit User Information",
+  "zh": "编辑用户信息",
+  "ru": "Редактировать данные пользователя",
+  "ko": "사용자 정보 수정"
+ },
+ "Đăng nhập gần nhất": {
+  "en": "Last login",
+  "zh": "最近登录",
+  "ru": "Последний вход",
+  "ko": "최근 로그인"
+ },
+ "TVV hết hạn gói": {
+  "en": "Advisors with expired plan",
+  "zh": "套餐已过期的顾问",
+  "ru": "Консультанты с истёкшим пакетом",
+  "ko": "패키지 만료 상담사"
+ },
+ "Mã VietQR": {
+  "en": "VietQR Code",
+  "zh": "VietQR 二维码",
+  "ru": "Код VietQR",
+  "ko": "VietQR 코드"
+ },
+ "Dùng ngón tay hoặc bút cảm ứng ký vào ô bên dưới": {
+  "en": "Sign in the box below with your finger or a stylus",
+  "zh": "请用手指或触控笔在下方框内签名",
+  "ru": "Распишитесь в поле ниже пальцем или стилусом",
+  "ko": "아래 칸에 손가락이나 터치펜으로 서명하세요"
+ },
+ "Ảnh chữ ký không được vượt quá 250KB": {
+  "en": "Signature image must not exceed 250KB",
+  "zh": "签名图片不能超过 250KB",
+  "ru": "Изображение подписи не должно превышать 250 КБ",
+  "ko": "서명 이미지는 250KB를 초과할 수 없습니다"
+ },
+ "Không lưu được chữ ký": {
+  "en": "Unable to save signature",
+  "zh": "无法保存签名",
+  "ru": "Не удалось сохранить подпись",
+  "ko": "서명을 저장할 수 없습니다"
+ },
+ "Không gửi được yêu cầu": {
+  "en": "Unable to send request",
+  "zh": "无法发送请求",
+  "ru": "Не удалось отправить запрос",
+  "ko": "요청을 보낼 수 없습니다"
+ },
+ "Không lưu được hồ sơ": {
+  "en": "Unable to save profile",
+  "zh": "无法保存资料",
+  "ru": "Не удалось сохранить профиль",
+  "ko": "프로필을 저장할 수 없습니다"
+ },
+ "Không thể lưu tài khoản hoa hồng": {
+  "en": "Unable to save commission account",
+  "zh": "无法保存佣金账户",
+  "ru": "Не удалось сохранить комиссионный счёт",
+  "ko": "수수료 계좌를 저장할 수 없습니다"
+ },
+ "Hồ sơ đã được duyệt. Bạn chỉ có thể cập nhật tài khoản hoa hồng.": {
+  "en": "Your profile has been approved. You can only update your commission account.",
+  "zh": "资料已通过审核，您只能更新佣金账户。",
+  "ru": "Профиль одобрен. Вы можете обновить только комиссионный счёт.",
+  "ko": "프로필이 승인되었습니다. 수수료 계좌만 수정할 수 있습니다."
+ },
+ "Không tải được bài kiểm tra": {
+  "en": "Unable to load the test",
+  "zh": "无法加载测试",
+  "ru": "Не удалось загрузить тест",
+  "ko": "시험을 불러올 수 없습니다"
+ },
+ "Không nộp được bài kiểm tra": {
+  "en": "Unable to submit the test",
+  "zh": "无法提交测试",
+  "ru": "Не удалось отправить тест",
+  "ko": "시험을 제출할 수 없습니다"
+ },
+ "Đang nộp bài...": {
+  "en": "Submitting...",
+  "zh": "正在提交...",
+  "ru": "Отправка...",
+  "ko": "제출 중..."
+ },
+ " · Tầng {0}": {
+  "en": " · Floor {0}",
+  "zh": " · {0}层",
+  "ru": " · Этаж {0}",
+  "ko": " · {0}층"
+ },
+ "Không tìm thấy sản phẩm {0} trong rổ hàng của bạn.": {
+  "en": "Product {0} was not found in your inventory.",
+  "zh": "在您的房源库中未找到产品 {0}。",
+  "ru": "Объект {0} не найден в вашем списке объектов.",
+  "ko": "내 상품 목록에서 {0} 상품을 찾을 수 없습니다."
+ },
+ "Mã căn, toà nhà, dự án...": {
+  "en": "Unit code, building, project...",
+  "zh": "房号、楼栋、项目...",
+  "ru": "Код квартиры, здание, проект...",
+  "ko": "세대 코드, 건물, 프로젝트..."
+ },
+ "TÒA / BLOCK": {
+  "en": "TOWER / BLOCK",
+  "zh": "楼栋 / BLOCK",
+  "ru": "КОРПУС / БЛОК",
+  "ko": "동 / BLOCK"
+ },
+ "Không có đề xuất phù hợp": {
+  "en": "No matching proposals",
+  "zh": "没有符合条件的提案",
+  "ru": "Подходящих предложений нет",
+  "ko": "해당하는 제안이 없습니다"
+ },
+ "Không có đề xuất nào ở trạng thái đã chọn.": {
+  "en": "No proposals in the selected status.",
+  "zh": "所选状态下没有提案。",
+  "ru": "Нет предложений в выбранном статусе.",
+  "ko": "선택한 상태의 제안이 없습니다."
+ },
+ "Đã phản hồi": {
+  "en": "Responded",
+  "zh": "已回复",
+  "ru": "Получен ответ",
+  "ko": "답변 완료"
+ },
+ "Vui lòng nhập tiêu đề đề xuất": {
+  "en": "Please enter a proposal title",
+  "zh": "请输入提案标题",
+  "ru": "Введите заголовок предложения",
+  "ko": "제안 제목을 입력해 주세요"
+ },
+ "Vui lòng nhập mô tả chi tiết": {
+  "en": "Please enter a detailed description",
+  "zh": "请输入详细描述",
+  "ru": "Введите подробное описание",
+  "ko": "상세 설명을 입력해 주세요"
+ },
+ "Không lưu được đề xuất": {
+  "en": "Unable to save proposal",
+  "zh": "无法保存提案",
+  "ru": "Не удалось сохранить предложение",
+  "ko": "제안을 저장할 수 없습니다"
+ },
+ "Tiêu đề đề xuất": {
+  "en": "Proposal Title",
+  "zh": "提案标题",
+  "ru": "Заголовок предложения",
+  "ko": "제안 제목"
+ },
+ "Huỷ thay đổi": {
+  "en": "Discard Changes",
+  "zh": "放弃更改",
+  "ru": "Отменить изменения",
+  "ko": "변경 취소"
+ },
+ "Nội dung bạn vừa nhập sẽ không được lưu.": {
+  "en": "What you just entered will not be saved.",
+  "zh": "您刚输入的内容将不会被保存。",
+  "ru": "Введённое вами содержимое не будет сохранено.",
+  "ko": "방금 입력한 내용은 저장되지 않습니다."
+ },
+ "Chưa có phản hồi. Quản trị viên sẽ xem xét đề xuất của bạn.": {
+  "en": "No response yet. An admin will review your proposal.",
+  "zh": "暂无回复。管理员将审核您的提案。",
+  "ru": "Ответа пока нет. Администратор рассмотрит ваше предложение.",
+  "ko": "아직 답변이 없습니다. 관리자가 제안을 검토할 예정입니다."
+ },
+ "Phản hồi lúc: {0}": {
+  "en": "Responded at: {0}",
+  "zh": "回复时间：{0}",
+  "ru": "Ответ получен: {0}",
+  "ko": "답변 시각: {0}"
+ },
+ "Không xoá được đề xuất": {
+  "en": "Unable to delete proposal",
+  "zh": "无法删除提案",
+  "ru": "Не удалось удалить предложение",
+  "ko": "제안을 삭제할 수 없습니다"
+ },
+ "Đề xuất sẽ bị xoá khỏi danh sách của bạn và không thể khôi phục.": {
+  "en": "The proposal will be removed from your list and cannot be restored.",
+  "zh": "提案将从您的列表中删除，且无法恢复。",
+  "ru": "Предложение будет удалено из вашего списка без возможности восстановления.",
+  "ko": "제안이 목록에서 삭제되며 복구할 수 없습니다."
+ },
+ "Không gia hạn được giữ chỗ": {
+  "en": "Unable to extend the hold",
+  "zh": "无法延长保留",
+  "ru": "Не удалось продлить бронирование",
+  "ko": "가계약을 연장할 수 없습니다"
+ },
+ "Không tạo được mã QR": {
+  "en": "Unable to generate QR code",
+  "zh": "无法生成二维码",
+  "ru": "Не удалось создать QR-код",
+  "ko": "QR 코드를 생성할 수 없습니다"
+ },
+ "Khách hàng đổi ý": {
+  "en": "Customer changed their mind",
+  "zh": "客户改变主意",
+  "ru": "Клиент передумал",
+  "ko": "고객 변심"
+ },
+ "Không huỷ được đăng ký": {
+  "en": "Unable to cancel registration",
+  "zh": "无法取消登记",
+  "ru": "Не удалось отменить заявку",
+  "ko": "등록을 취소할 수 없습니다"
+ },
+ "Chuyên viên này không còn khả dụng hoặc kết nối bị gián đoạn.": {
+  "en": "This specialist is no longer available or the connection was interrupted.",
+  "zh": "该专员已不可用，或连接中断。",
+  "ru": "Этот специалист больше недоступен, либо соединение прервано.",
+  "ko": "이 전문가는 더 이상 이용할 수 없거나 연결이 끊겼습니다."
+ },
+ "Đang dùng phiên bản {0}": {
+  "en": "Currently using version {0}",
+  "zh": "当前使用版本 {0}",
+  "ru": "Текущая версия: {0}",
+  "ko": "현재 버전 {0} 사용 중"
+ },
+ "Vui lòng nhập mật khẩu mới để tiếp tục sử dụng tài khoản.": {
+  "en": "Please enter a new password to continue using your account.",
+  "zh": "请输入新密码以继续使用账号。",
+  "ru": "Введите новый пароль, чтобы продолжить пользоваться аккаунтом.",
+  "ko": "계속 사용하려면 새 비밀번호를 입력해 주세요."
+ },
+ "Vui lòng nhập mật khẩu": {
+  "en": "Please enter your password",
+  "zh": "请输入密码",
+  "ru": "Введите пароль",
+  "ko": "비밀번호를 입력해 주세요"
+ },
+ "Mật khẩu không chính xác": {
+  "en": "Incorrect password",
+  "zh": "密码不正确",
+  "ru": "Неверный пароль",
+  "ko": "비밀번호가 올바르지 않습니다"
+ },
+ "Không thể gửi mã OTP": {
+  "en": "Unable to send OTP code",
+  "zh": "无法发送验证码",
+  "ru": "Не удалось отправить код OTP",
+  "ko": "OTP 코드를 보낼 수 없습니다"
+ },
+ "Không đặt lại được mật khẩu": {
+  "en": "Unable to reset password",
+  "zh": "无法重置密码",
+  "ru": "Не удалось сбросить пароль",
+  "ko": "비밀번호를 재설정할 수 없습니다"
+ },
+ "Không đổi được mật khẩu": {
+  "en": "Unable to change password",
+  "zh": "无法修改密码",
+  "ru": "Не удалось изменить пароль",
+  "ko": "비밀번호를 변경할 수 없습니다"
+ },
+ "Vui lòng nhập đúng 6 chữ số mã OTP": {
+  "en": "Please enter the 6-digit OTP code",
+  "zh": "请输入 6 位验证码",
+  "ru": "Введите 6-значный код OTP",
+  "ko": "6자리 OTP 코드를 정확히 입력해 주세요"
+ },
+ "Không thể gửi lại mã OTP": {
+  "en": "Unable to resend OTP code",
+  "zh": "无法重新发送验证码",
+  "ru": "Не удалось повторно отправить код OTP",
+  "ko": "OTP 코드를 다시 보낼 수 없습니다"
+ },
+ "Đăng ký tài khoản thành công!": {
+  "en": "Account registered successfully!",
+  "zh": "账号注册成功！",
+  "ru": "Аккаунт успешно зарегистрирован!",
+  "ko": "계정 등록이 완료되었습니다!"
+ },
+ "Không thể hoàn tất đăng ký": {
+  "en": "Unable to complete registration",
+  "zh": "无法完成注册",
+  "ru": "Не удалось завершить регистрацию",
+  "ko": "등록을 완료할 수 없습니다"
+ },
+ "Đăng ký không thành công, vui lòng thử lại": {
+  "en": "Registration failed, please try again",
+  "zh": "注册失败，请重试",
+  "ru": "Регистрация не удалась, повторите попытку",
+  "ko": "등록에 실패했습니다. 다시 시도해 주세요"
+ },
+ "Đăng nhập Google sẽ sẵn sàng ở bản cập nhật kế tiếp": {
+  "en": "Google sign-in will be available in the next update",
+  "zh": "Google 登录将在下一次更新中推出",
+  "ru": "Вход через Google будет доступен в следующем обновлении",
+  "ko": "Google 로그인은 다음 업데이트에서 제공됩니다"
+ },
+ "Đăng nhập với Google": {
+  "en": "Sign in with Google",
+  "zh": "使用 Google 登录",
+  "ru": "Войти через Google",
+  "ko": "Google로 로그인"
+ },
+ "Vui lòng thử lại sau.": {
+  "en": "Please try again later.",
+  "zh": "请稍后重试。",
+  "ru": "Повторите попытку позже.",
+  "ko": "나중에 다시 시도해 주세요."
+ },
+ "Gói {0}": {
+  "en": "{0} Plan",
+  "zh": "{0} 套餐",
+  "ru": "Пакет {0}",
+  "ko": "{0} 패키지"
+ },
+ "Không đọc được ảnh": {
+  "en": "Unable to read image",
+  "zh": "无法读取图片",
+  "ru": "Не удалось прочитать изображение",
+  "ko": "이미지를 읽을 수 없습니다"
+ },
+ "Không tải được ảnh lên": {
+  "en": "Unable to upload image",
+  "zh": "无法上传图片",
+  "ru": "Не удалось загрузить изображение",
+  "ko": "이미지를 업로드할 수 없습니다"
+ },
+ "Đặt hẹn": {
+  "en": "Book Appointment",
+  "zh": "预约",
+  "ru": "Записаться",
+  "ko": "약속 잡기"
+ },
+ "Tôi muốn xem căn này": {
+  "en": "I'd like to view this unit",
+  "zh": "我想看这套房",
+  "ru": "Хочу посмотреть эту квартиру",
+  "ko": "이 세대를 보고 싶어요"
+ },
+ "Gửi bảng giá chi tiết": {
+  "en": "Send detailed price list",
+  "zh": "发送详细价格表",
+  "ru": "Отправьте подробный прайс-лист",
+  "ko": "상세 가격표 보내주세요"
+ },
+ "Tư vấn chính sách vay": {
+  "en": "Loan policy consultation",
+  "zh": "贷款政策咨询",
+  "ru": "Консультация по кредитной политике",
+  "ko": "대출 정책 상담"
+ },
+ "Đặt lịch xem nhà thực tế": {
+  "en": "Schedule a real viewing",
+  "zh": "预约实地看房",
+  "ru": "Записаться на реальный просмотр",
+  "ko": "실제 방문 일정 예약"
+ },
+ "📋 Thủ tục đặt cọc & pháp lý": {
+  "en": "📋 Deposit & legal procedures",
+  "zh": "📋 定金与法律手续",
+  "ru": "📋 Порядок внесения залога и юридические вопросы",
+  "ko": "📋 계약금 및 법률 절차"
+ },
+ "Đính kèm": {
+  "en": "Attach",
+  "zh": "附件",
+  "ru": "Прикрепить",
+  "ko": "첨부"
+ },
+ "Nhập câu hỏi và nhu cầu": {
+  "en": "Enter your question and needs",
+  "zh": "输入您的问题和需求",
+  "ru": "Введите ваш вопрос и пожелания",
+  "ko": "질문과 요구사항을 입력하세요"
+ },
+ "Xin lỗi, mình chưa có câu trả lời phù hợp.": {
+  "en": "Sorry, I don't have a suitable answer yet.",
+  "zh": "抱歉，我暂时没有合适的回答。",
+  "ru": "Извините, у меня пока нет подходящего ответа.",
+  "ko": "죄송해요, 아직 적절한 답변이 없어요."
+ },
+ "Hiện chưa kết nối được Trợ lý AI. Vui lòng thử lại sau ít phút hoặc gọi hotline 0236 357 5757 để được hỗ trợ.": {
+  "en": "Unable to connect to the AI Assistant right now. Please try again in a few minutes or call hotline 0236 357 5757 for support.",
+  "zh": "目前无法连接 AI 助手。请几分钟后重试，或拨打热线 0236 357 5757 获取支持。",
+  "ru": "Сейчас не удаётся подключиться к ИИ-помощнику. Повторите попытку через несколько минут или позвоните на горячую линию 0236 357 5757.",
+  "ko": "현재 AI 어시스턴트에 연결할 수 없습니다. 잠시 후 다시 시도하시거나 핫라인 0236 357 5757로 문의해 주세요."
+ },
+ "Căn hộ {0}": {
+  "en": "Apartment {0}",
+  "zh": "{0} 号公寓",
+  "ru": "Квартира {0}",
+  "ko": "{0} 아파트"
+ },
+ "Xem chi tiết căn": {
+  "en": "View Unit Details",
+  "zh": "查看房源详情",
+  "ru": "Подробности о квартире",
+  "ko": "세대 상세 보기"
+ },
+ "Tìm theo tên, số điện thoại…": {
+  "en": "Search by name, phone number…",
+  "zh": "按姓名、电话搜索…",
+  "ru": "Поиск по имени, номеру телефона…",
+  "ko": "이름, 전화번호로 검색…"
+ },
+ "Tìm cuộc trò chuyện…": {
+  "en": "Search conversations…",
+  "zh": "搜索对话…",
+  "ru": "Поиск чатов…",
+  "ko": "대화 검색…"
+ },
+ "Bấm vào biểu tượng Trợ lý AI để bắt đầu.": {
+  "en": "Tap the AI Assistant icon to get started.",
+  "zh": "点击 AI 助手图标开始。",
+  "ru": "Нажмите на значок ИИ-помощника, чтобы начать.",
+  "ko": "AI 어시스턴트 아이콘을 눌러 시작하세요."
+ },
+ "Không thể tải tin nhắn": {
+  "en": "Unable to load messages",
+  "zh": "无法加载消息",
+  "ru": "Не удалось загрузить сообщения",
+  "ko": "메시지를 불러올 수 없습니다"
+ },
+ "Chia sẻ bài viết": {
+  "en": "Share Article",
+  "zh": "分享文章",
+  "ru": "Поделиться статьёй",
+  "ko": "게시글 공유"
+ },
+ "Không tìm thấy hướng dẫn": {
+  "en": "No guides found",
+  "zh": "未找到指南",
+  "ru": "Руководства не найдены",
+  "ko": "가이드를 찾을 수 없습니다"
+ },
+ "Thử tìm với từ khóa khác.": {
+  "en": "Try a different keyword.",
+  "zh": "试试其他关键词。",
+  "ru": "Попробуйте другое ключевое слово.",
+  "ko": "다른 키워드로 검색해 보세요."
+ },
+ "Đã tiếp nhận yêu cầu! Đội ngũ FUTA Land sẽ liên hệ lại sớm nhất.": {
+  "en": "Request received! The FUTA Land team will get back to you as soon as possible.",
+  "zh": "已收到您的请求！FUTA Land 团队将尽快与您联系。",
+  "ru": "Запрос принят! Команда FUTA Land свяжется с вами в ближайшее время.",
+  "ko": "요청이 접수되었습니다! FUTA Land 팀이 최대한 빨리 연락드리겠습니다."
+ },
+ "Không gửi được yêu cầu, vui lòng thử lại": {
+  "en": "Unable to send request, please try again",
+  "zh": "无法发送请求，请重试",
+  "ru": "Не удалось отправить запрос, повторите попытку",
+  "ko": "요청을 보낼 수 없습니다. 다시 시도해 주세요"
+ },
+ "Chia sẻ sản phẩm": {
+  "en": "Share Product",
+  "zh": "分享产品",
+  "ru": "Поделиться объектом",
+  "ko": "상품 공유"
+ },
+ "Tìm dự án, căn hộ, khu vực...": {
+  "en": "Search projects, apartments, areas...",
+  "zh": "搜索项目、公寓、区域...",
+  "ru": "Поиск проектов, квартир, районов...",
+  "ko": "프로젝트, 아파트, 지역 검색..."
+ },
+ "Đà Nẵng · TP.HCM · Hà Nội · Bến Tre": {
+  "en": "Da Nang · HCMC · Hanoi · Ben Tre",
+  "zh": "岘港 · 胡志明市 · 河内 · 槟椥",
+  "ru": "Дананг · Хошимин · Ханой · Бентре",
+  "ko": "다낭 · 호치민 · 하노이 · 벤째"
+ },
+ "Đang xem thị trường {0}": {
+  "en": "Viewing {0} market",
+  "zh": "正在查看{0}市场",
+  "ru": "Просмотр рынка: {0}",
+  "ko": "{0} 시장 보는 중"
+ },
+ "Vui lòng đăng nhập để lưu bất động sản yêu thích.": {
+  "en": "Please log in to save favorite properties.",
+  "zh": "请登录以收藏房产。",
+  "ru": "Войдите, чтобы сохранять избранную недвижимость.",
+  "ko": "관심 부동산을 저장하려면 로그인해 주세요."
+ },
+ "Không thể cập nhật danh sách yêu thích": {
+  "en": "Unable to update favorites list",
+  "zh": "无法更新收藏列表",
+  "ru": "Не удалось обновить список избранного",
+  "ko": "즐겨찾기 목록을 업데이트할 수 없습니다"
+ },
+ "Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại.": {
+  "en": "Your session has expired, please log in again.",
+  "zh": "登录已过期，请重新登录。",
+  "ru": "Сессия истекла, войдите снова.",
+  "ko": "로그인 세션이 만료되었습니다. 다시 로그인해 주세요."
+ },
+ "khoá": {
+  "en": "locked",
+  "zh": "已锁定",
+  "ru": "заблокировано",
+  "ko": "잠김"
+ },
+ "đã xoá": {
+  "en": "deleted",
+  "zh": "已删除",
+  "ru": "удалено",
+  "ko": "삭제됨"
+ },
+ "Tin nhắn & thông báo quan trọng": {
+  "en": "Messages & Important Notifications",
+  "zh": "消息与重要通知",
+  "ru": "Сообщения и важные уведомления",
+  "ko": "메시지 및 중요 알림"
+ },
+ "Thông báo tin nhắn trò chuyện và sự kiện quan trọng": {
+  "en": "Notifications for chat messages and important events",
+  "zh": "聊天消息和重要事件的通知",
+  "ru": "Уведомления о сообщениях чата и важных событиях",
+  "ko": "채팅 메시지 및 중요 이벤트 알림"
+ },
+ "Ký tên tại đây": {
+  "en": "Sign here",
+  "zh": "在此签名",
+  "ru": "Подпишите здесь",
+  "ko": "여기에 서명"
+ },
+ "Ký lại": {
+  "en": "Re-sign",
+  "zh": "重新签名",
+  "ru": "Подписать заново",
+  "ko": "다시 서명"
+ },
+ "Ký xác nhận điện tử": {
+  "en": "Electronic Signature Confirmation",
+  "zh": "电子签名确认",
+  "ru": "Электронное подтверждение подписью",
+  "ko": "전자 서명 확인"
+ },
+ "65 triệu/m²": {
+  "en": "65 million/m²",
+  "zh": "6500万/m²",
+  "ru": "65 млн/м²",
+  "ko": "6,500만/m²"
+ },
+ "Hồ Chí Minh": {
+  "en": "Ho Chi Minh City",
+  "zh": "胡志明市",
+  "ru": "Хошимин",
+  "ko": "호치민"
+ },
+ "+12%/năm": {
+  "en": "+12%/year",
+  "zh": "+12%/年",
+  "ru": "+12%/год",
+  "ko": "+12%/년"
+ },
+ "Huế": {
+  "en": "Hue",
+  "zh": "顺化",
+  "ru": "Хюэ",
+  "ko": "후에"
+ },
+ "+9%/năm": {
+  "en": "+9%/year",
+  "zh": "+9%/年",
+  "ru": "+9%/год",
+  "ko": "+9%/년"
+ },
+ "nữ": {
+  "en": "female",
+  "zh": "女",
+  "ru": "женский",
+  "ko": "여성"
+ },
+ "Nữ": {
+  "en": "Female",
+  "zh": "女",
+  "ru": "Женский",
+  "ko": "여성"
+ },
+ " triệu": {
+  "en": " million",
+  "zh": "百万",
+  "ru": " млн",
+  "ko": "백만"
+ },
+ "Đông": {
+  "en": "East",
+  "zh": "东",
+  "ru": "Восток",
+  "ko": "동"
+ },
+ "Tây": {
+  "en": "West",
+  "zh": "西",
+  "ru": "Запад",
+  "ko": "서"
+ },
+ "Bắc": {
+  "en": "North",
+  "zh": "北",
+  "ru": "Север",
+  "ko": "북"
+ },
+ "Đông Nam": {
+  "en": "Southeast",
+  "zh": "东南",
+  "ru": "Юго-восток",
+  "ko": "남동"
+ },
+ "Đông Bắc": {
+  "en": "Northeast",
+  "zh": "东北",
+  "ru": "Северо-восток",
+  "ko": "북동"
+ },
+ "Tây Nam": {
+  "en": "Southwest",
+  "zh": "西南",
+  "ru": "Юго-запад",
+  "ko": "남서"
+ },
+ "Tây Bắc": {
+  "en": "Northwest",
+  "zh": "西北",
+  "ru": "Северо-запад",
+  "ko": "북서"
+ },
+ "100.000đ": {
+  "en": "100,000đ",
+  "zh": "10万đ",
+  "ru": "100 000đ",
+  "ko": "10만đ"
+ },
+ "500.000đ": {
+  "en": "500,000đ",
+  "zh": "50万đ",
+  "ru": "500 000đ",
+  "ko": "50만đ"
+ },
+ "50.000đ": {
+  "en": "50,000đ",
+  "zh": "5万đ",
+  "ru": "50 000đ",
+  "ko": "5만đ"
+ },
+ "200.000đ": {
+  "en": "200,000đ",
+  "zh": "20万đ",
+  "ru": "200 000đ",
+  "ko": "20만đ"
+ },
+ "giảm": {
+  "en": "off",
+  "zh": "减免",
+  "ru": "скидка",
+  "ko": "할인"
+ },
+ "Đã gửi thông tin nhận quà": {
+  "en": "Gift delivery info sent",
+  "zh": "领奖信息已提交",
+  "ru": "Данные для получения подарка отправлены",
+  "ko": "선물 수령 정보를 보냈습니다"
+ }
+}
