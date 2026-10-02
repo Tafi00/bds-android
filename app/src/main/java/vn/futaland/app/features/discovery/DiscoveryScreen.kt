@@ -1,5 +1,6 @@
 package vn.futaland.app.features.discovery
 
+import vn.futaland.app.core.i18n.translated
 import vn.futaland.app.core.i18n.tr
 import vn.futaland.app.core.i18n.Text
 import android.content.Intent
@@ -554,7 +555,7 @@ private fun HeroCarouselSection(
                     // Bottom row: Title + Discount Tag + Location + CTA
                     Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
                         val dispName = proj["displayName"].string
-                        val name = if (dispName.isNotEmpty()) dispName else proj["name"].string
+                        val name = (if (dispName.isNotEmpty()) dispName else proj["name"].string).translated("project")
 
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -599,7 +600,7 @@ private fun HeroCarouselSection(
                         }
 
                         val loc = proj["location"].string
-                        val address = if (loc.isNotEmpty()) loc else proj["address"].string
+                        val address = (if (loc.isNotEmpty()) loc else proj["address"].string).translated("project")
 
                         Row(
                             modifier = Modifier.fillMaxWidth(),

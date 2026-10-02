@@ -1,5 +1,8 @@
 package vn.futaland.app.features.properties
 
+import vn.futaland.app.core.i18n.LocalizedPrice
+import vn.futaland.app.core.i18n.LocalizedDirection
+import vn.futaland.app.core.i18n.translated
 import vn.futaland.app.core.i18n.tr
 import vn.futaland.app.core.i18n.Text
 import androidx.compose.foundation.background
@@ -76,7 +79,7 @@ fun FutaPropertyCard(
         property["projectName"].string.trim().isNotEmpty() -> property["projectName"].string.trim()
         property["zone"].string.trim().isNotEmpty() -> property["zone"].string.trim()
         else -> "Dự án FUTA Land"
-    }
+    }.translated("project")
 
     val code = when {
         property["propertyCode"].string.trim().isNotEmpty() -> property["propertyCode"].string.trim()
@@ -123,8 +126,7 @@ fun FutaPropertyCard(
         "Liên hệ"
     } else {
         val finalPrice = if (rawVal < 1000) rawVal * 1_000_000 else rawVal
-        val formattedNum = "%,d".format(Locale.US, finalPrice.toLong()).replace(',', '.')
-        tr("{0} đ", formattedNum)
+        LocalizedPrice.full(finalPrice)
     }
 
     FutaPropertyCardContent(
@@ -464,26 +466,4 @@ private fun FutaPropertyCardContent(
     }
 }
 
-private fun translateDirection(raw: String): String {
-    val norm = raw.trim().lowercase()
-        .replace("_", "-")
-        .replace("đ", "d")
-        .replace("Đ", "d")
-        .replace(Regex("""[àáạảãâầấậẩẫăằắặẳẵ]"""), "a")
-        .replace(Regex("""[èéẹẻẽêềếệểễ]"""), "e")
-        .replace(Regex("""[ìíịỉĩ]"""), "i")
-        .replace(Regex("""[òóọỏõôồốộổỗơờớợởỡ]"""), "o")
-        .replace(Regex("""[ùúụủũưừứựửữ]"""), "u")
-        .replace(Regex("""[ỳýỵỷỹ]"""), "y")
-    return when (norm) {
-        "dong" -> "Đông"
-        "tay" -> "Tây"
-        "nam" -> "Nam"
-        "bac" -> "Bắc"
-        "dong-nam", "dongnam" -> "Đông Nam"
-        "dong-bac", "dongbac" -> "Đông Bắc"
-        "tay-nam", "taynam" -> "Tây Nam"
-        "tay-bac", "taybac" -> "Tây Bắc"
-        else -> raw.trim()
-    }
-}
+private fun translateDirection(raw: String): String = LocalizedDirection.name(raw)

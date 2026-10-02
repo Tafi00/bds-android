@@ -1,5 +1,6 @@
 package vn.futaland.app.features.discovery
 
+import vn.futaland.app.core.i18n.translated
 import vn.futaland.app.core.i18n.tr
 import vn.futaland.app.core.i18n.Text
 import androidx.compose.foundation.BorderStroke
@@ -220,9 +221,9 @@ private fun PublicProjectCard(
     project: JSONValue,
     onClick: () -> Unit
 ) {
-    val title = project["displayName"].string.ifEmpty { project["name"].string }
+    val title = project["displayName"].string.ifEmpty { project["name"].string }.translated("project")
     val banner = PropertyFormatters.resolveProjectBanner(project)
-    val location = project["location"].string.ifEmpty { project["address"].string }
+    val location = project["location"].string.ifEmpty { project["address"].string }.translated("project")
     val totalUnits = project["totalUnits"].int
     val developer = project["developer"].string.ifEmpty { "Tập đoàn Phương Trang (FUTA Group)" }
     val status = project["status"].string.ifEmpty { "Đang mở bán" }

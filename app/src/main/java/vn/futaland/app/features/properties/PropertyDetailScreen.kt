@@ -1,5 +1,7 @@
 package vn.futaland.app.features.properties
 
+import vn.futaland.app.core.i18n.LocalizedDirection
+import vn.futaland.app.core.i18n.translated
 import vn.futaland.app.core.i18n.tr
 import vn.futaland.app.core.i18n.Text
 import android.content.Intent
@@ -607,7 +609,7 @@ fun PropertyDetailScreen(
                                         color = FutaColors.Navy
                                     )
 
-                                    val titleText = property["title"].string
+                                    val titleText = property["title"].string.translated("property")
                                     if (titleText.isNotEmpty() && titleText.length > 8) {
                                         Spacer(Modifier.height(4.dp))
                                         Text(
@@ -783,9 +785,9 @@ fun PropertyDetailScreen(
                                 specsList.add(Triple(R.drawable.sf_spec_bath, "Phòng tắm / WC", "$bathCount WC"))
                             }
                             val dir = property["direction"].string
-                            if (dir.isNotEmpty()) specsList.add(Triple(R.drawable.sf_spec_compass, "Hướng cửa chính", dir))
+                            if (dir.isNotEmpty()) specsList.add(Triple(R.drawable.sf_spec_compass, "Hướng cửa chính", LocalizedDirection.name(dir)))
                             val balcony = property["balconyDirection"].string
-                            if (balcony.isNotEmpty()) specsList.add(Triple(R.drawable.sf_spec_compass, "Hướng ban công", balcony))
+                            if (balcony.isNotEmpty()) specsList.add(Triple(R.drawable.sf_spec_compass, "Hướng ban công", LocalizedDirection.name(balcony)))
                             val legalText = property["legalStatus"].string.ifEmpty { property["legal"].string }.ifEmpty { "Sổ hồng" }
                             specsList.add(Triple(R.drawable.sf_acc_policies, "Pháp lý", legalText))
                             specsList.add(Triple(R.drawable.sf_quick_house, "Nội thất", property["furniture"].string.ifEmpty { "Cơ bản cao cấp" }))
@@ -1130,7 +1132,7 @@ fun PropertyDetailScreen(
                 }
 
                 // 6. Detailed Description
-                val desc = property["description"].string
+                val desc = property["description"].string.translated("property")
                 if (desc.isNotEmpty()) {
                     item {
                         FutaCard(modifier = Modifier.fillMaxWidth()) {
@@ -1198,7 +1200,7 @@ fun PropertyDetailScreen(
                                     fontWeight = FontWeight.Bold,
                                     color = FutaColors.Navy
                                 )
-                                val addr = property["address"].string
+                                val addr = property["address"].string.translated("property")
                                 if (addr.isNotEmpty()) {
                                     Row(
                                         horizontalArrangement = Arrangement.spacedBy(6.dp),

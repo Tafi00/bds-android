@@ -1,5 +1,6 @@
 package vn.futaland.app.features.properties
 
+import vn.futaland.app.core.i18n.LocalizedDirection
 import vn.futaland.app.core.i18n.Text
 import vn.futaland.app.core.i18n.tr
 import vn.futaland.app.core.i18n.LocalizedPrice
@@ -727,7 +728,7 @@ fun PropertySearchScreen(
             ) {
                 listOf("", "Đông", "Tây", "Nam", "Bắc", "Đông Nam", "Đông Bắc", "Tây Nam", "Tây Bắc").forEach { dir ->
                     val isSelected = direction == dir
-                    QuickChip(title = dir.ifEmpty { "Tất cả" }, isSelected = isSelected) {
+                    QuickChip(title = if (dir.isEmpty()) "Tất cả" else LocalizedDirection.name(dir), isSelected = isSelected) {
                         direction = if (isSelected && dir.isNotEmpty()) "" else dir
                     }
                 }

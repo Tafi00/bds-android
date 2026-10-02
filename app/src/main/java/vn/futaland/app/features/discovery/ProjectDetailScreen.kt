@@ -1,5 +1,6 @@
 package vn.futaland.app.features.discovery
 
+import vn.futaland.app.core.i18n.translated
 import vn.futaland.app.core.i18n.Text
 import android.content.Intent
 import android.net.Uri
@@ -140,9 +141,9 @@ fun ProjectDetailScreen(
             }
         } else {
             val p = project!!
-            val title = p["displayName"].string.ifEmpty { p["name"].string }
+            val title = p["displayName"].string.ifEmpty { p["name"].string }.translated("project")
             val banner = PropertyFormatters.resolveProjectBanner(p)
-            val location = p["address"].string.ifEmpty { p["location"].string }.ifEmpty { p["province"].string }
+            val location = p["address"].string.ifEmpty { p["location"].string }.ifEmpty { p["province"].string }.translated("project")
             val developer = p["developer"].string
 
             Column(

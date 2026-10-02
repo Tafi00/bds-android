@@ -1,5 +1,6 @@
 package vn.futaland.app.features.account
 
+import vn.futaland.app.core.i18n.LocalizedDirection
 import vn.futaland.app.core.i18n.tr
 import vn.futaland.app.core.i18n.Text
 import vn.futaland.app.core.i18n.LocalizedPrice
@@ -650,6 +651,7 @@ fun AdvisorProductsScreen(
                         title = "HƯỚNG CỬA CHÍNH",
                         selected = directionFilter,
                         options = directionOptions,
+                        displayTransform = { LocalizedDirection.name(it) },
                         onSelect = { directionFilter = it }
                     )
                 }
@@ -659,6 +661,7 @@ fun AdvisorProductsScreen(
                         title = "HƯỚNG BAN CÔNG",
                         selected = balconyDirectionFilter,
                         options = balconyDirectionOptions,
+                        displayTransform = { LocalizedDirection.name(it) },
                         onSelect = { balconyDirectionFilter = it }
                     )
                 }

@@ -1,5 +1,6 @@
 package vn.futaland.app.features.properties
 
+import vn.futaland.app.core.i18n.LocalizedDirection
 import vn.futaland.app.core.i18n.tr
 import vn.futaland.app.core.i18n.Text
 import vn.futaland.app.core.i18n.LocalizedPrice
@@ -750,6 +751,7 @@ fun MyListingsScreen(
                         title = "HƯỚNG CỬA CHÍNH",
                         selected = directionFilter,
                         options = directionOptions,
+                        displayTransform = { LocalizedDirection.name(it) },
                         onSelect = { directionFilter = it }
                     )
                 }
@@ -759,6 +761,7 @@ fun MyListingsScreen(
                         title = "HƯỚNG BAN CÔNG",
                         selected = balconyDirectionFilter,
                         options = balconyDirectionOptions,
+                        displayTransform = { LocalizedDirection.name(it) },
                         onSelect = { balconyDirectionFilter = it }
                     )
                 }
@@ -849,19 +852,7 @@ private fun FilterChipSection(
     }
 }
 
-private fun formatDirection(dir: String): String {
-    return when (dir.lowercase().trim()) {
-        "dong", "đông", "east" -> "Đông"
-        "tay", "tây", "west" -> "Tây"
-        "nam", "south" -> "Nam"
-        "bac", "bắc", "north" -> "Bắc"
-        "dong-nam", "đông nam", "southeast" -> "Đông Nam"
-        "dong-bac", "đông bắc", "northeast" -> "Đông Bắc"
-        "tay-nam", "tây nam", "southwest" -> "Tây Nam"
-        "tay-bac", "tây bắc", "northwest" -> "Tây Bắc"
-        else -> dir
-    }
-}
+private fun formatDirection(dir: String): String = LocalizedDirection.name(dir)
 
 @Composable
 private fun RegistrationBadge(text: String, color: Color, bg: Color) {
