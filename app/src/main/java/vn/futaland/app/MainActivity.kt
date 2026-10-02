@@ -21,7 +21,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
-import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
@@ -339,20 +338,21 @@ class MainActivity : ComponentActivity() {
                             }
                         }
                     ) { padding ->
+                        CompositionLocalProvider(LocalRequireLogin provides { safeNavigate(FutaDestinations.AUTH) }) {
                         NavHost(
                             navController = navController,
                             startDestination = FutaDestinations.DISCOVER,
                             modifier = Modifier.padding(bottom = padding.calculateBottomPadding())
                         ) {
                             // 1. Discover Tab
-                            composable(FutaDestinations.DISCOVER) {
+                            gatedComposable(FutaDestinations.DISCOVER) {
                                 DiscoveryScreen(
                                     onNavigate = { route -> safeNavigate(route) }
                                 )
                             }
 
                             // 2. Saved Tab
-                            composable(FutaDestinations.SAVED) {
+                            gatedComposable(FutaDestinations.SAVED) {
                                 FutaAccessGate(
                                     access = NativeAccess.SignedIn,
                                     session = AppSession.shared,
@@ -365,7 +365,7 @@ class MainActivity : ComponentActivity() {
                             }
 
                             // 3. Inbox Tab & Direct Chat
-                            composable(FutaDestinations.INBOX) {
+                            gatedComposable(FutaDestinations.INBOX) {
                                 // Staff land on the advisor chat center (same as the
                                 // bottom-bar chat button); customers get the
                                 // conversation list, guests the transient AI chat.
@@ -379,7 +379,7 @@ class MainActivity : ComponentActivity() {
                                 )
                             }
                             // Staff chat center lives inside the advisor workspace only
-                            composable(FutaDestinations.CHAT_CENTER) {
+                            gatedComposable(FutaDestinations.CHAT_CENTER) {
                                 ChatScreen(
                                     staffContext = true,
                                     productContext = ProductContext.ADVISOR,
@@ -387,7 +387,7 @@ class MainActivity : ComponentActivity() {
                                     onBack = { navController.popBackStack() }
                                 )
                             }
-                            composable(
+                            gatedComposable(
                                 route = FutaDestinations.CHAT_ROUTE,
                                 arguments = listOf(
                                     navArgument("conversationId") { type = NavType.StringType; nullable = true; defaultValue = null },
@@ -420,19 +420,19 @@ class MainActivity : ComponentActivity() {
                             }
 
                             // 4. Account Tab
-                            composable(FutaDestinations.ACCOUNT) {
+                            gatedComposable(FutaDestinations.ACCOUNT) {
                                 AccountScreen(
                                     onNavigate = { route -> safeNavigate(route) }
                                 )
                             }
 
                             // 5. Search Tab
-                            composable(FutaDestinations.SEARCH) {
+                            gatedComposable(FutaDestinations.SEARCH) {
                                 PropertySearchScreen(
                                     onNavigate = { route -> safeNavigate(route) }
                                 )
                             }
-                            composable(
+                            gatedComposable(
                                 route = FutaDestinations.SEARCH_ROUTE,
                                 arguments = listOf(navArgument("propertyType") {
                                     type = NavType.StringType
@@ -448,7 +448,7 @@ class MainActivity : ComponentActivity() {
                             }
 
                             // Auth Modal / Destination
-                            composable(FutaDestinations.AUTH) {
+                            gatedComposable(FutaDestinations.AUTH) {
                                 AuthenticationScreen(
                                     onBack = { navController.popBackStack() },
                                     onSuccess = { navController.popBackStack() }
@@ -456,7 +456,7 @@ class MainActivity : ComponentActivity() {
                             }
 
                             // Secondary: Agent Detail (deep link /listing/agents/{id})
-                            composable(
+                            gatedComposable(
                                 route = FutaDestinations.AGENT_DETAIL,
                                 arguments = listOf(navArgument("id") { type = NavType.StringType })
                             ) { backStack ->
@@ -468,7 +468,7 @@ class MainActivity : ComponentActivity() {
                             }
 
                             // Secondary: Property Detail
-                            composable(
+                            gatedComposable(
                                 route = FutaDestinations.PROPERTY_DETAIL,
                                 arguments = listOf(navArgument("id") { type = NavType.StringType }, navArgument("context") { type = NavType.StringType; defaultValue = "customer" })
                             ) { backStack ->
@@ -482,7 +482,7 @@ class MainActivity : ComponentActivity() {
                             }
 
                             // Secondary: Project Detail
-                            composable(
+                            gatedComposable(
                                 route = FutaDestinations.PROJECT_DETAIL,
                                 arguments = listOf(navArgument("id") { type = NavType.StringType })
                             ) { backStack ->
@@ -495,7 +495,7 @@ class MainActivity : ComponentActivity() {
                             }
 
                             // Secondary: Projects List
-                            composable(FutaDestinations.PROJECTS_LIST) {
+                            gatedComposable(FutaDestinations.PROJECTS_LIST) {
                                 ProjectsScreen(
                                     onBack = { navController.popBackStack() },
                                     onNavigate = { route -> safeNavigate(route) }
@@ -503,7 +503,7 @@ class MainActivity : ComponentActivity() {
                             }
 
                             // Secondary: Notifications
-                            composable(FutaDestinations.NOTIFICATIONS) {
+                            gatedComposable(FutaDestinations.NOTIFICATIONS) {
                                 NotificationsScreen(
                                     onBack = { navController.popBackStack() },
                                     onNavigate = { route -> RouteCoordinator.enqueue(route) }
@@ -511,21 +511,21 @@ class MainActivity : ComponentActivity() {
                             }
 
                             // Secondary: Lucky Wheel
-                            composable(FutaDestinations.LUCKY_WHEEL) {
+                            gatedComposable(FutaDestinations.LUCKY_WHEEL) {
                                 LuckyWheelScreen(
                                     onBack = { navController.popBackStack() }
                                 )
                             }
 
                             // Secondary: Workspace
-                            composable(FutaDestinations.WORKSPACE) {
+                            gatedComposable(FutaDestinations.WORKSPACE) {
                                 WorkspaceScreen(
                                     onBack = { navController.popBackStack() },
                                     onNavigate = { route -> safeNavigate(route) }
                                 )
                             }
                             // Secondary: Project Map
-                            composable(FutaDestinations.PROJECTS_MAP) {
+                            gatedComposable(FutaDestinations.PROJECTS_MAP) {
                                 ProjectMapScreen(
                                     onBack = { navController.popBackStack() },
                                     onProjectClick = { id -> safeNavigate(FutaDestinations.projectDetail(id)) }
@@ -533,16 +533,16 @@ class MainActivity : ComponentActivity() {
                             }
 
                             // Secondary: Admin & Business Modules
-                            composable(FutaDestinations.ADMIN_PROJECTS) {
+                            gatedComposable(FutaDestinations.ADMIN_PROJECTS) {
                                 AdminProjectsScreen { navController.popBackStack() }
                             }
-                            composable(FutaDestinations.ADMIN_CAMPAIGNS) {
+                            gatedComposable(FutaDestinations.ADMIN_CAMPAIGNS) {
                                 AdminCampaignsScreen { navController.popBackStack() }
                             }
-                            composable(FutaDestinations.ADMIN_INVENTORY) {
+                            gatedComposable(FutaDestinations.ADMIN_INVENTORY) {
                                 AdminInventoryScreen { navController.popBackStack() }
                             }
-                            composable(
+                            gatedComposable(
                                 route = FutaDestinations.ADMIN_REGISTRATIONS_ROUTE,
                                 arguments = listOf(navArgument("propertyId") { type = NavType.StringType; nullable = true; defaultValue = null })
                             ) { backStack ->
@@ -551,34 +551,34 @@ class MainActivity : ComponentActivity() {
                                     initialPropertyId = backStack.arguments?.getString("propertyId")
                                 )
                             }
-                            composable(FutaDestinations.ADMIN_TRANSACTIONS) {
+                            gatedComposable(FutaDestinations.ADMIN_TRANSACTIONS) {
                                 AdminTransactionsScreen { navController.popBackStack() }
                             }
-                            composable(FutaDestinations.ADMIN_CMS) {
+                            gatedComposable(FutaDestinations.ADMIN_CMS) {
                                 AdminCMSScreen { navController.popBackStack() }
                             }
-                            composable(FutaDestinations.ADMIN_SETTINGS) {
+                            gatedComposable(FutaDestinations.ADMIN_SETTINGS) {
                                 AdminSettingsScreen { navController.popBackStack() }
                             }
-                            composable(FutaDestinations.ADMIN_USERS) {
+                            gatedComposable(FutaDestinations.ADMIN_USERS) {
                                 AdminUsersScreen { navController.popBackStack() }
                             }
-                            composable(FutaDestinations.ADMIN_ROLES) {
+                            gatedComposable(FutaDestinations.ADMIN_ROLES) {
                                 AdminRolesScreen { navController.popBackStack() }
                             }
-                            composable(FutaDestinations.ADMIN_ADVISOR_PROFILES) {
+                            gatedComposable(FutaDestinations.ADMIN_ADVISOR_PROFILES) {
                                 AdminAdvisorProfilesScreen { navController.popBackStack() }
                             }
-                            composable(FutaDestinations.ADMIN_AI) {
+                            gatedComposable(FutaDestinations.ADMIN_AI) {
                                 AdminAIScreen { navController.popBackStack() }
                             }
-                            composable(FutaDestinations.ADMIN_EXAMS) {
+                            gatedComposable(FutaDestinations.ADMIN_EXAMS) {
                                 AdminExamsScreen { navController.popBackStack() }
                             }
-                            composable(FutaDestinations.ADMIN_ZALO) {
+                            gatedComposable(FutaDestinations.ADMIN_ZALO) {
                                 vn.futaland.app.features.zalo.ZaloScreen { navController.popBackStack() }
                             }
-                            composable(
+                            gatedComposable(
                                 route = FutaDestinations.ADMIN_CUSTOMERS_ROUTE,
                                 arguments = listOf(navArgument("customerId") { type = NavType.StringType; nullable = true; defaultValue = null })
                             ) { backStack ->
@@ -587,7 +587,7 @@ class MainActivity : ComponentActivity() {
                                     initialCustomerId = backStack.arguments?.getString("customerId")
                                 )
                             }
-                            composable(
+                            gatedComposable(
                                 route = FutaDestinations.ADMIN_CONTRACTS_ROUTE,
                                 arguments = listOf(navArgument("contractId") { type = NavType.StringType; nullable = true; defaultValue = null })
                             ) { backStack ->
@@ -596,13 +596,13 @@ class MainActivity : ComponentActivity() {
                                     initialContractId = backStack.arguments?.getString("contractId")
                                 )
                             }
-                            composable(FutaDestinations.ADMIN_REPORTS) {
+                            gatedComposable(FutaDestinations.ADMIN_REPORTS) {
                                 AdminReportsScreen { navController.popBackStack() }
                             }
-                            composable(FutaDestinations.ADMIN_DASHBOARD) {
+                            gatedComposable(FutaDestinations.ADMIN_DASHBOARD) {
                                 AdminDashboardScreen { navController.popBackStack() }
                             }
-                            composable(
+                            gatedComposable(
                                 route = FutaDestinations.CRM_ROUTE,
                                 arguments = listOf(
                                     navArgument("groupId") { type = NavType.StringType; nullable = true; defaultValue = null },
@@ -615,19 +615,19 @@ class MainActivity : ComponentActivity() {
                                     initialLeadId = backStack.arguments?.getString("leadId")
                                 )
                             }
-                            composable(FutaDestinations.ADMIN_LUCKY_WHEEL) {
+                            gatedComposable(FutaDestinations.ADMIN_LUCKY_WHEEL) {
                                 AdminLuckyWheelScreen { navController.popBackStack() }
                             }
-                            composable(FutaDestinations.PROFILE) {
+                            gatedComposable(FutaDestinations.PROFILE) {
                                 ProfileScreen { navController.popBackStack() }
                             }
-                            composable(FutaDestinations.ADVISOR) {
+                            gatedComposable(FutaDestinations.ADVISOR) {
                                 AdvisorWorkspaceScreen(
                                     onBack = { navController.popBackStack() },
                                     onNavigate = { route -> safeNavigate(route) }
                                 )
                             }
-                            composable(
+                            gatedComposable(
                                 route = FutaDestinations.ADVISOR_PRODUCTS_ROUTE,
                                 arguments = listOf(
                                     navArgument("code") { type = NavType.StringType; nullable = true; defaultValue = null },
@@ -642,22 +642,22 @@ class MainActivity : ComponentActivity() {
                                 )
                             }
                             // Advisor onboarding steps and sales registrations (iOS AdvisorViews.swift)
-                            composable(FutaDestinations.ADVISOR_PACKAGE) {
+                            gatedComposable(FutaDestinations.ADVISOR_PACKAGE) {
                                 AdvisorPackageScreen(onBack = { navController.popBackStack() })
                             }
-                            composable(FutaDestinations.ADVISOR_PROFILE) {
+                            gatedComposable(FutaDestinations.ADVISOR_PROFILE) {
                                 AdvisorProfileScreen(
                                     onBack = { navController.popBackStack() },
                                     onOpenAgreements = { safeNavigate(FutaDestinations.ADVISOR_VERIFICATION) }
                                 )
                             }
-                            composable(FutaDestinations.ADVISOR_EXAM) {
+                            gatedComposable(FutaDestinations.ADVISOR_EXAM) {
                                 AdvisorExamScreen(onBack = { navController.popBackStack() })
                             }
-                            composable(FutaDestinations.ADVISOR_VERIFICATION) {
+                            gatedComposable(FutaDestinations.ADVISOR_VERIFICATION) {
                                 AdvisorVerificationScreen(onBack = { navController.popBackStack() })
                             }
-                            composable(FutaDestinations.ADVISOR_REGISTRATIONS) {
+                            gatedComposable(FutaDestinations.ADVISOR_REGISTRATIONS) {
                                 FutaAccessGate(
                                     access = NativeAccess.SignedIn,
                                     session = AppSession.shared,
@@ -666,14 +666,14 @@ class MainActivity : ComponentActivity() {
                                     AdvisorRegistrationsScreen(onBack = { navController.popBackStack() })
                                 }
                             }
-                            composable(FutaDestinations.ADVISOR_PROPOSALS) {
+                            gatedComposable(FutaDestinations.ADVISOR_PROPOSALS) {
                                 AdvisorProposalsScreen(
                                     onBack = { navController.popBackStack() },
                                     onNavigate = { route -> safeNavigate(route) }
                                 )
                             }
                             // Secondary: Authentication (Login / Register)
-                            composable(FutaDestinations.AUTH) {
+                            gatedComposable(FutaDestinations.AUTH) {
                                 AuthenticationScreen(
                                     onBack = { navController.popBackStack() },
                                     onSuccess = { navController.popBackStack() }
@@ -681,7 +681,7 @@ class MainActivity : ComponentActivity() {
                             }
 
                             // Secondary: Pricing VIP Plans
-                            composable("auth_password") {
+                            gatedComposable("auth_password") {
                                 AuthenticationScreen(
                                     initialStep = AuthStep.PASSWORD,
                                     onBack = { navController.popBackStack() },
@@ -690,18 +690,18 @@ class MainActivity : ComponentActivity() {
                             }
 
                             // Secondary: Pricing VIP Plans
-                            composable(FutaDestinations.PRICING) {
+                            gatedComposable(FutaDestinations.PRICING) {
                                 PricingScreen(
                                     onBack = { navController.popBackStack() }
                                 )
                             }
-                            composable(FutaDestinations.NEWS) {
+                            gatedComposable(FutaDestinations.NEWS) {
                                 NewsScreen(
                                     onBack = { navController.popBackStack() },
                                     onArticleClick = { slug -> navController.navigate(FutaDestinations.newsDetail(slug)) }
                                 )
                             }
-                            composable(
+                            gatedComposable(
                                 route = FutaDestinations.NEWS_DETAIL,
                                 arguments = listOf(navArgument("slug") { type = NavType.StringType })
                             ) { backStack ->
@@ -711,19 +711,19 @@ class MainActivity : ComponentActivity() {
                                     onBack = { navController.popBackStack() }
                                 )
                             }
-                            composable(FutaDestinations.GUIDE) {
+                            gatedComposable(FutaDestinations.GUIDE) {
                                 GuideScreen { navController.popBackStack() }
                             }
-                            composable(FutaDestinations.CONTACT) {
+                            gatedComposable(FutaDestinations.CONTACT) {
                                 ContactScreen { navController.popBackStack() }
                             }
-                            composable(FutaDestinations.ABOUT) {
+                            gatedComposable(FutaDestinations.ABOUT) {
                                 AboutScreen(onOpenProjects = { safeNavigate(FutaDestinations.PROJECTS_LIST) }) { navController.popBackStack() }
                             }
-                            composable(FutaDestinations.POLICIES) {
+                            gatedComposable(FutaDestinations.POLICIES) {
                                 PoliciesScreen(onOpenPolicy = { safeNavigate(FutaDestinations.policyDetail(it)) }) { navController.popBackStack() }
                             }
-                            composable(
+                            gatedComposable(
                                 FutaDestinations.POLICY_DETAIL,
                                 arguments = listOf(navArgument("slug") { type = NavType.StringType })
                             ) { entry ->
@@ -732,37 +732,37 @@ class MainActivity : ComponentActivity() {
                                     onContact = { safeNavigate(FutaDestinations.CONTACT) }
                                 ) { navController.popBackStack() }
                             }
-                            composable(FutaDestinations.BILLING) {
+                            gatedComposable(FutaDestinations.BILLING) {
                                 BillingScreen(
                                     onBack = { navController.popBackStack() },
                                     onUpgradeClick = { navController.navigate(FutaDestinations.PRICING) }
                                 )
                             }
-                            composable(FutaDestinations.MY_LISTINGS) {
+                            gatedComposable(FutaDestinations.MY_LISTINGS) {
                                 MyListingsScreen(
                                     onBack = { navController.popBackStack() },
                                     onNavigate = { route -> safeNavigate(route) }
                                 )
                             }
-                            composable(FutaDestinations.VIEW_HISTORY) {
+                            gatedComposable(FutaDestinations.VIEW_HISTORY) {
                                 ViewHistoryScreen(
                                     onBack = { navController.popBackStack() },
                                     onNavigate = { route -> safeNavigate(route) }
                                 )
                             }
-                            composable(FutaDestinations.VIEWING_APPOINTMENTS) {
+                            gatedComposable(FutaDestinations.VIEWING_APPOINTMENTS) {
                                 ViewingAppointmentsScreen(
                                     onBack = { navController.popBackStack() },
                                     onNavigate = { route -> safeNavigate(route) }
                                 )
                             }
-                            composable(FutaDestinations.STAFF_APPOINTMENTS) {
+                            gatedComposable(FutaDestinations.STAFF_APPOINTMENTS) {
                                 StaffViewingAppointmentsScreen(
                                     onBack = { navController.popBackStack() },
                                     onOpenDetail = { id -> safeNavigate(FutaDestinations.staffAppointmentDetail(id)) }
                                 )
                             }
-                            composable(
+                            gatedComposable(
                                 route = FutaDestinations.STAFF_APPOINTMENT_DETAIL,
                                 arguments = listOf(navArgument("id") { type = NavType.StringType })
                             ) { backStack ->
@@ -772,6 +772,7 @@ class MainActivity : ComponentActivity() {
                                     onNavigate = { route -> safeNavigate(route) }
                                 )
                             }
+                        }
                         }
                     }
                     // Toast System Overlay
