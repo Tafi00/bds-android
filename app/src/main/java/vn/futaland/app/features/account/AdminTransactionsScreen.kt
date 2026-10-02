@@ -449,11 +449,13 @@ fun AdminTransactionsScreen(
             title = "Duyệt giao dịch?",
             confirmText = "Duyệt ngay",
             onConfirm = {
+                if (actionBusy) return@FutaDialog
                 scope.launch {
                     actionBusy = true
                     try {
                         val txId = selectedTransaction!!.id
-                        APIClient.get().request("/advisor/transactions/$txId/approve", method = "POST")
+                        // Backend: PATCH /advisor/transactions/:id/approve (OkHttp needs a body for PATCH).
+                        APIClient.get().request("/advisor/transactions/$txId/approve", method = "PATCH", bodyJson = "{}")
                         ToastCenter.show("Đã duyệt giao dịch thành công!")
                         showApproveConfirm = false
                         selectedTransaction = null
@@ -478,13 +480,17 @@ fun AdminTransactionsScreen(
             confirmText = "Xác nhận từ chối",
             confirmVariant = FutaButtonVariant.DANGER,
             onConfirm = {
+                if (actionBusy) return@FutaDialog
                 scope.launch {
+                    actionBusy = true
                     try {
                         val txId = selectedTransaction!!.id
                         APIClient.get().request(
                             "/advisor/transactions/$txId/reject",
-                            method = "POST",
-                            bodyJson = "{\"reason\":\"$rejectReason\"}"
+                            method = "PATCH",
+                            bodyJson = kotlinx.serialization.json.buildJsonObject {
+                                put("reason", kotlinx.serialization.json.JsonPrimitive(rejectReason.trim()))
+                            }.toString()
                         )
                         ToastCenter.show("Đã từ chối giao dịch!")
                         showRejectDialog = false
@@ -492,6 +498,8 @@ fun AdminTransactionsScreen(
                         loadData(search)
                     } catch (e: Exception) {
                         ToastCenter.show(tr("Lỗi: {0}", e.message), isError = true)
+                    } finally {
+                        actionBusy = false
                     }
                 }
             },
