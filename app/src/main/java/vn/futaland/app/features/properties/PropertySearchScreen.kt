@@ -437,15 +437,9 @@ fun PropertySearchScreen(
                     itemsIndexed(results, key = { idx, property -> (property.id.ifEmpty { "search" }) + "-$idx" }) { _, property ->
                         FutaPropertyCard(
                             property = property,
-                            isFavorited = false,
                             onFavoriteClick = {
                                 if (AppSession.shared.isAuthenticated) {
-                                    scope.launch {
-                                        try {
-                                            APIClient.get().request("/favorites/${property.id}", method = "POST")
-                                            ToastCenter.show("Đã cập nhật yêu thích")
-                                        } catch (_: Exception) {}
-                                    }
+                                    scope.launch { vn.futaland.app.core.auth.FavoritesStore.toggle(property.id) }
                                 } else {
                                     onNavigate(FutaDestinations.AUTH)
                                 }

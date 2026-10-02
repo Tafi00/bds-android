@@ -12,6 +12,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import vn.futaland.app.core.auth.FavoritesStore
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -34,7 +37,8 @@ import java.util.Locale
 @Composable
 fun FutaPropertyCard(
     property: JSONValue,
-    isFavorited: Boolean = false,
+    // null = follow the shared FavoritesStore (the normal case).
+    isFavorited: Boolean? = null,
     onFavoriteClick: () -> Unit = {},
     onShareClick: () -> Unit = {},
     onCallClick: () -> Unit = {},
@@ -43,6 +47,8 @@ fun FutaPropertyCard(
     modifier: Modifier = Modifier
 ) {
     val primaryImage = PropertyFormatters.resolveImage(property)
+    val favoriteIds by FavoritesStore.ids.collectAsState()
+    val favorited = isFavorited ?: favoriteIds.contains(property.id)
 
     val hasTour = property["virtualTourUrl"].string.isNotEmpty() ||
         property["projectVirtualTourUrl"].string.isNotEmpty() ||
@@ -132,7 +138,7 @@ fun FutaPropertyCard(
         formattedPrice = formattedPrice,
         hasTour = hasTour,
         hasVideo = hasVideo,
-        isFavorited = isFavorited,
+        isFavorited = favorited,
         onFavoriteClick = onFavoriteClick,
         onClick = onClick,
         modifier = modifier

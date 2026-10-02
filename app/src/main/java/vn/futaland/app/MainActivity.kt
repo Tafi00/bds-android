@@ -178,7 +178,7 @@ class MainActivity : ComponentActivity() {
                         "login-admin", "admin-login", "auth", "login", "dang-nhap", "signin", "auth-password" ->
                             safeNavigate(if (first == "auth-password") "auth_password" else FutaDestinations.AUTH)
                         "logout", "signout", "dang-xuat" -> {
-                            AppSession.shared.logout()
+                            AppSession.shared.signOut()
                             navController.navigate(FutaDestinations.ACCOUNT)
                         }
                         "listing" -> when {

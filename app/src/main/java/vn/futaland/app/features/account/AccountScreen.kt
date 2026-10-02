@@ -38,6 +38,8 @@ import vn.futaland.app.designsystem.FutaCard
 import vn.futaland.app.designsystem.FutaColors
 import vn.futaland.app.designsystem.FutaDialog
 import vn.futaland.app.designsystem.FutaButtonVariant
+import vn.futaland.app.designsystem.ToastCenter
+import kotlinx.coroutines.launch
 import vn.futaland.app.navigation.FutaDestinations
 
 @Composable
@@ -56,6 +58,9 @@ fun AccountScreen(
     val canAccessBilling = session.hasPermission("pricing:subscribe")
 
     var showSignOutDialog by remember { mutableStateOf(false) }
+    var showDeleteAccountDialog by remember { mutableStateOf(false) }
+    var deletingAccount by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
     var showAboutDialog by remember { mutableStateOf(false) }
     var showTermsDialog by remember { mutableStateOf(false) }
 
@@ -433,6 +438,37 @@ fun AccountScreen(
                     }
                 }
             }
+            // Self-service account deletion (store requirement, iOS AccountView).
+            item {
+                FutaCard(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    onClick = { if (!deletingAccount) showDeleteAccountDialog = true }
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 14.dp),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        if (deletingAccount) {
+                            androidx.compose.material3.CircularProgressIndicator(
+                                color = Color.Red,
+                                strokeWidth = 2.dp,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        } else {
+                            Text(
+                                text = "Xóa tài khoản vĩnh viễn",
+                                fontSize = 14.5.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = Color.Red
+                            )
+                        }
+                    }
+                }
+            }
         }
 
         if (appVersionLabel.isNotEmpty()) {
@@ -465,12 +501,44 @@ fun AccountScreen(
         cancelText = "Hủy",
         onConfirm = {
             showSignOutDialog = false
-            session.logout()
+            scope.launch { session.signOut() }
         },
         onCancel = { showSignOutDialog = false }
     ) {
         Text(
             text = "Bạn sẽ cần đăng nhập lại để tiếp tục sử dụng các tính năng cá nhân.",
+            fontSize = 14.sp,
+            color = FutaColors.Slate,
+            lineHeight = 20.sp
+        )
+    }
+
+    // Dialog: Xóa tài khoản vĩnh viễn
+    FutaDialog(
+        visible = showDeleteAccountDialog,
+        onDismiss = { showDeleteAccountDialog = false },
+        title = "Xóa tài khoản vĩnh viễn?",
+        confirmText = "Xóa tài khoản",
+        confirmVariant = FutaButtonVariant.DANGER,
+        cancelText = "Hủy",
+        onConfirm = {
+            showDeleteAccountDialog = false
+            scope.launch {
+                deletingAccount = true
+                try {
+                    session.deleteAccount()
+                    ToastCenter.show(tr("Tài khoản đã được xóa"))
+                } catch (e: Exception) {
+                    ToastCenter.show(e.message ?: tr("Không thể xóa tài khoản"), isError = true)
+                } finally {
+                    deletingAccount = false
+                }
+            }
+        },
+        onCancel = { showDeleteAccountDialog = false }
+    ) {
+        Text(
+            text = "Tài khoản, thông tin cá nhân, tin đã lưu, lịch sử và nội dung bạn tạo sẽ bị xóa. Hành động này không thể hoàn tác.",
             fontSize = 14.sp,
             color = FutaColors.Slate,
             lineHeight = 20.sp

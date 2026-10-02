@@ -138,7 +138,10 @@ fun PropertyDetailScreen(
     }
     var similarProperties by remember(scopeKey) { mutableStateOf<List<JSONValue>>(emptyList()) }
     var loading by remember(scopeKey) { mutableStateOf(true) }
-    var isFavorite by remember(scopeKey) { mutableStateOf(false) }
+    // Heart state comes from the shared favorites store (same as the property cards).
+    val favoriteIds by vn.futaland.app.core.auth.FavoritesStore.ids.collectAsState()
+    val favoriteKey = property?.id?.takeIf { it.isNotEmpty() } ?: propertyId
+    val isFavorite = favoriteIds.contains(favoriteKey) || favoriteIds.contains(propertyId)
     var isDescriptionExpanded by remember(scopeKey) { mutableStateOf(false) }
 
     // Media mode tab: "photos", "video", "flycam", "tour"
@@ -270,7 +273,12 @@ fun PropertyDetailScreen(
                             putExtra(Intent.EXTRA_SUBJECT, PropertyFormatters.propertyTitle(property))
                             type = "text/plain"
                         }
-                        context.startActivity(Intent.createChooser(sendIntent, "Chia sẻ sản phẩm"))
+                        context.startActivity(Intent.createChooser(sendIntent, tr("Chia sẻ sản phẩm")))
+                        scope.launch {
+                            try {
+                                APIClient.get().request("/apartments/${android.net.Uri.encode(favoriteKey)}/track-share", method = "POST")
+                            } catch (_: Exception) {}
+                        }
                     }) {
                         Icon(
                             painter = painterResource(id = R.drawable.sf_card_share),
@@ -628,7 +636,16 @@ fun PropertyDetailScreen(
                                             .clip(RoundedCornerShape(10.dp))
                                             .background(Color(0xFFF8FAFC))
                                             .border(1.dp, Color(0xFFE2E8F0), RoundedCornerShape(10.dp))
-                                            .clickable { isFavorite = !isFavorite },
+                                            .clickable {
+                                                if (!AppSession.shared.isAuthenticated) {
+                                                    onNavigate(FutaDestinations.AUTH)
+                                                } else {
+                                                    scope.launch {
+                                                        val next = vn.futaland.app.core.auth.FavoritesStore.toggle(favoriteKey)
+                                                        if (next != null) ToastCenter.show(if (next) "Đã lưu vào danh sách yêu thích" else "Đã bỏ lưu khỏi danh sách yêu thích")
+                                                    }
+                                                }
+                                            },
                                         contentAlignment = Alignment.Center
                                     ) {
                                         Icon(
@@ -653,7 +670,13 @@ fun PropertyDetailScreen(
                                                     putExtra(Intent.EXTRA_SUBJECT, PropertyFormatters.propertyTitle(property))
                                                     type = "text/plain"
                                                 }
-                                                context.startActivity(Intent.createChooser(sendIntent, "Chia sẻ sản phẩm"))
+                                                context.startActivity(Intent.createChooser(sendIntent, tr("Chia sẻ sản phẩm")))
+                                                // Share activity log for the CRM (POST /apartments/{id}/track-share, best effort).
+                                                scope.launch {
+                                                    try {
+                                                        APIClient.get().request("/apartments/${android.net.Uri.encode(favoriteKey)}/track-share", method = "POST")
+                                                    } catch (_: Exception) {}
+                                                }
                                             },
                                         contentAlignment = Alignment.Center
                                     ) {

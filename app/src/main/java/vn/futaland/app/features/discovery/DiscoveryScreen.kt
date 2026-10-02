@@ -186,7 +186,6 @@ fun DiscoveryScreen(
                 Box(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
                     FutaPropertyCard(
                         property = property,
-                        isFavorited = false,
                         onFavoriteClick = {
                             if (AppSession.shared.isAuthenticated) {
                                 viewModel.toggleFavorite(property.id)
@@ -685,7 +684,6 @@ private fun FeaturedProductsHorizontalSection(
                 Box(modifier = Modifier.width(280.dp)) {
                     FutaPropertyCard(
                         property = property,
-                        isFavorited = false,
                         onFavoriteClick = { onFavoriteToggle(property.id) },
                         onClick = { onPropertyClick(property.id) }
                     )
