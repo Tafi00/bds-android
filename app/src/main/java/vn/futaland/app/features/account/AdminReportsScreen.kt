@@ -39,6 +39,7 @@ import java.util.*
 fun AdminReportsScreen(
     onBack: () -> Unit
 ) {
+    val context = androidx.compose.ui.platform.LocalContext.current
     val scope = rememberCoroutineScope()
     var selectedTab by remember { mutableIntStateOf(0) }
     var selectedPreset by remember { mutableStateOf("30d") }
@@ -105,6 +106,42 @@ fun AdminReportsScreen(
         loadReports()
     }
 
+    // Plain-text summary for the share sheet (iOS ActivityShareView).
+    fun reportSummary(): String {
+        val (startIso, endIso) = calculateDateRange(selectedPreset)
+        val t = overviewData["totals"]
+        val lines = mutableListOf(
+            tr("BÁO CÁO KINH DOANH FUTALAND"),
+            tr("Kỳ báo cáo: {0} ({1} - {2})", tr(presets.firstOrNull { it.first == selectedPreset }?.second ?: selectedPreset), startIso.take(10), endIso.take(10)),
+            "----------------------------------",
+            tr("Lượt xem: {0}", t["views"].int),
+            tr("Khách định danh: {0}", t["identifiedVisitors"].int),
+            tr("Lượt tư vấn: {0}", t["consultations"].int),
+            tr("Giao dịch thành công: {0}", t["successfulSales"].int),
+            "----------------------------------",
+            tr("Tổng cuộc gọi: {0}", callKpi["totalCalls"].int),
+            tr("Nghe máy: {0}", callKpi["answered"].int),
+            tr("Gọi nhỡ: {0}", callKpi["missed"].int),
+            tr("Từ chối: {0}", callKpi["rejected"].int)
+        )
+        val top = overviewData["topProducts"].array
+        if (top.isNotEmpty()) {
+            lines += "----------------------------------"
+            lines += tr("Sản phẩm xem nhiều nhất:")
+            top.take(5).forEachIndexed { i, prod ->
+                lines += tr("{0}. {1} - {2} lượt xem", i + 1, prod["title"].string, prod["viewCount"].int)
+            }
+        }
+        if (salesCalls.isNotEmpty()) {
+            lines += "----------------------------------"
+            lines += tr("Hiệu suất Sales:")
+            salesCalls.take(10).forEach { s ->
+                lines += tr("• {0}: {1} cuộc gọi, {2} nghe máy", s["userInfo"]["name"].string.ifEmpty { tr("Tư vấn viên") }, s["callCount"].int, s["answered"].int)
+            }
+        }
+        return lines.joinToString("\n")
+    }
+
     val totals = overviewData["totals"]
     val views = totals["views"].int
     val identified = totals["identifiedVisitors"].int
@@ -138,7 +175,17 @@ fun AdminReportsScreen(
                         color = FutaColors.Navy
                     )
 
-                    Spacer(Modifier.width(40.dp))
+                    FutaHeaderIconButton(
+                        icon = Icons.Default.IosShare,
+                        contentDescription = "Chia sẻ báo cáo",
+                        onClick = {
+                            if (loading) {
+                                ToastCenter.show(tr("Đang tải dữ liệu báo cáo..."))
+                            } else {
+                                crmShareText(context, reportSummary(), "Chia sẻ báo cáo")
+                            }
+                        }
+                    )
                 }
             }
         }
