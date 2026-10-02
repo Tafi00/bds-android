@@ -22,6 +22,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
@@ -67,7 +69,8 @@ fun ZaloPage(content: @Composable ColumnScope.() -> Unit) {
         modifier = Modifier
             .fillMaxSize()
             .background(FutaColors.PageBg)
-            .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {},
+            // A pointer handler makes this page the hit target (no semantics merge, unlike clickable).
+            .pointerInput(Unit) { detectTapGestures { } },
         content = content
     )
 }

@@ -97,7 +97,6 @@ fun ZaloAccountsScreen(navigator: ZaloNavigator) {
                 ZaloService.reconnectAccount(acc.zaloId, acc.provider)
                 ToastCenter.show(tr("Đang kết nối lại tài khoản..."))
                 delay(2000)
-                load()
                 changed()
             } catch (e: Exception) {
                 ToastCenter.show(e.message ?: tr("Không thể cập nhật tài khoản"), isError = true)
@@ -113,7 +112,6 @@ fun ZaloAccountsScreen(navigator: ZaloNavigator) {
             try {
                 ZaloService.updateAccountSettings(acc.zaloId, value, acc.provider)
                 ToastCenter.show(tr("Đã lưu cài đặt tài khoản"))
-                load()
                 changed()
             } catch (e: Exception) {
                 ToastCenter.show(e.message ?: tr("Không thể cập nhật tài khoản"), isError = true)
@@ -129,7 +127,6 @@ fun ZaloAccountsScreen(navigator: ZaloNavigator) {
             try {
                 ZaloService.removeAccount(acc.zaloId, acc.provider)
                 ToastCenter.show(tr("Đã ngắt kết nối tài khoản {0}", acc.displayName))
-                load()
                 changed()
             } catch (e: Exception) {
                 ToastCenter.show(e.message ?: tr("Không thể cập nhật tài khoản"), isError = true)

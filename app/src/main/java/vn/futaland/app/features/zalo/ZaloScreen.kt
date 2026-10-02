@@ -18,6 +18,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
@@ -83,10 +84,16 @@ private fun ZaloModule(onBack: () -> Unit) {
     BackHandler(enabled = navigator.stack.isNotEmpty()) { navigator.pop() }
 
     Box(modifier = Modifier.fillMaxSize().background(FutaColors.PageBg)) {
-        ZaloRoot(navigator, onBack)
+        val depth = navigator.stack.size
+        // Covered pages stay composed (state, realtime) but are hidden from accessibility.
+        Box(Modifier.fillMaxSize().then(if (depth > 0) Modifier.clearAndSetSemantics {} else Modifier)) {
+            ZaloRoot(navigator, onBack)
+        }
         navigator.stack.forEachIndexed { index, route ->
             key(index, route) {
-                ZaloPage { ZaloRouteContent(route, navigator) }
+                Box(Modifier.fillMaxSize().then(if (index < depth - 1) Modifier.clearAndSetSemantics {} else Modifier)) {
+                    ZaloPage { ZaloRouteContent(route, navigator) }
+                }
             }
         }
     }

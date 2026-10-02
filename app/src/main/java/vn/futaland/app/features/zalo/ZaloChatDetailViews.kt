@@ -209,10 +209,12 @@ fun ZaloChatDetailScreen(conversation: ZaloConversationModel, navigator: ZaloNav
         }
     }
 
+    // Index-based so it also works before the list is laid out (the state applies it on first measure).
     suspend fun scrollToBottom(animated: Boolean = true) {
-        val count = listState.layoutInfo.totalItemsCount
-        if (count == 0) return
-        if (animated) listState.animateScrollToItem(count - 1) else listState.scrollToItem(count - 1)
+        if (messages.isEmpty()) return
+        val last = messages.lastIndex + (if (hasOlder || historyError != null) 1 else 0)
+        if (animated && listState.layoutInfo.totalItemsCount > 0) listState.animateScrollToItem(last)
+        else listState.scrollToItem(last)
     }
 
     suspend fun loadMessages() {
@@ -298,7 +300,7 @@ fun ZaloChatDetailScreen(conversation: ZaloConversationModel, navigator: ZaloNav
                         val follow = isAtBottom || msg.isSelf
                         messages = messages + msg
                         if (!msg.isSelf) customerTyping = false
-                        if (follow) launch { delay(50); scrollToBottom() }
+                        if (follow) launch { scrollToBottom() }
                         launch { markRead() }
                     }
                 }
