@@ -60,6 +60,7 @@ import vn.futaland.app.features.discovery.ProjectsScreen
 import vn.futaland.app.features.account.AdminModuleScreen
 import vn.futaland.app.features.salesadmin.AdminProjectsScreen
 import vn.futaland.app.features.salesadmin.AdminCampaignsScreen
+import vn.futaland.app.features.salesadmin.AdminInventoryScreen
 import vn.futaland.app.features.account.AdminSettingsScreen
 import vn.futaland.app.features.account.AdminDashboardScreen
 import vn.futaland.app.features.account.AdminCRMScreen
@@ -533,7 +534,7 @@ class MainActivity : ComponentActivity() {
                                 AdminCampaignsScreen { navController.popBackStack() }
                             }
                             composable(FutaDestinations.ADMIN_INVENTORY) {
-                                AdminModuleScreen("Quản lý sản phẩm", "/apartments") { navController.popBackStack() }
+                                AdminInventoryScreen { navController.popBackStack() }
                             }
                             composable(
                                 route = FutaDestinations.ADMIN_REGISTRATIONS_ROUTE,
