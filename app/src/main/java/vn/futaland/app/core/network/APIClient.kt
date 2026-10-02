@@ -89,7 +89,9 @@ class APIClient private constructor(context: Context) {
             requestBuilder.addHeader("Authorization", "Bearer $token")
         }
 
-        val requestBody = bodyJson?.toRequestBody("application/json; charset=utf-8".toMediaType())
+        // OkHttp rejects POST/PUT/PATCH without a body: send an empty JSON object for bodiless actions.
+        val payload = bodyJson ?: if (method.uppercase() in setOf("POST", "PUT", "PATCH")) "{}" else null
+        val requestBody = payload?.toRequestBody("application/json; charset=utf-8".toMediaType())
         requestBuilder.method(method, requestBody)
 
         val wasAuthenticated = bearerToken == null && effectiveToken != null
