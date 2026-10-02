@@ -152,11 +152,6 @@ fun PropertyDetailScreen(
     var bookingSlot by remember(scopeKey) { mutableStateOf("Sáng (09:00 - 11:30)") }
     var bookingName by remember(scopeKey) { mutableStateOf(AppSession.shared.user?.get("name")?.string.orEmpty()) }
     var bookingPhone by remember(scopeKey) { mutableStateOf(AppSession.shared.user?.get("phone")?.string.orEmpty()) }
-    var holdingName by remember(scopeKey) { mutableStateOf(AppSession.shared.user?.get("name")?.string.orEmpty()) }
-    var holdingPhone by remember(scopeKey) { mutableStateOf(AppSession.shared.user?.get("phone")?.string.orEmpty()) }
-    var holdingCccd by remember(scopeKey) { mutableStateOf("") }
-    var holdingEmail by remember(scopeKey) { mutableStateOf(AppSession.shared.user?.get("email")?.string.orEmpty()) }
-    var holdingBusy by remember(scopeKey) { mutableStateOf(false) }
     var showRegistrationDialog by remember(scopeKey) { mutableStateOf(false) }
     var showPaymentScheduleSheet by remember(scopeKey) { mutableStateOf(false) }
     var isRegistering by remember(scopeKey) { mutableStateOf(false) }
@@ -1455,116 +1450,15 @@ fun PropertyDetailScreen(
         }
 
         // =========================================================================
-        // 2. HOLDING DEPOSIT BOTTOM SHEET (Matching iOS)
+        // 2. HOLDING FLOW (iOS ProductHoldingSheet: quick hold → deposit request)
         // =========================================================================
         if (showHoldingSheet && access?.get("canHold")?.bool == true) {
             property?.let { property ->
-                FutaBottomSheet(
-                    visible = true,
+                ProductHoldingSheet(
+                    product = property,
                     onDismiss = { showHoldingSheet = false },
-                    title = "Giữ chỗ căn hộ FUTA Land"
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .verticalScroll(rememberScrollState()),
-                        verticalArrangement = Arrangement.spacedBy(14.dp)
-                    ) {
-                        Surface(
-                            shape = RoundedCornerShape(12.dp),
-                            color = Color(0xFFFEF3C7),
-                            border = BorderStroke(1.dp, Color(0xFFFDE68A)),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                                Column {
-                                    Text("TIỀN GIỮ CHỖ THƯỜNG NIÊN", fontSize = 10.5.sp, fontWeight = FontWeight.Bold, color = Color(0xFFB45309))
-                                    Text("50.000.000 VNĐ", fontSize = 18.sp, fontWeight = FontWeight.Black, color = Color(0xFFB45309))
-                                    Text("Hoàn 100% trong 24h nếu khách đổi ý không giao dịch", fontSize = 11.sp, color = Color(0xFF92400E))
-                                }
-                            }
-                        }
-
-                        Text("THÔNG TIN ĐỨNG TÊN HỢP ĐỒNG", fontSize = 11.5.sp, fontWeight = FontWeight.Bold, color = FutaColors.Slate)
-                        FutaInput(
-                            value = holdingName,
-                            onValueChange = { holdingName = it },
-                            placeholder = "Họ và tên người đứng tên cọc",
-                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next)
-                        )
-                        FutaInput(
-                            value = holdingPhone,
-                            onValueChange = { holdingPhone = it },
-                            placeholder = "Số điện thoại nhận hợp đồng điện tử",
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone, imeAction = ImeAction.Next)
-                        )
-                        FutaInput(
-                            value = holdingCccd,
-                            onValueChange = { holdingCccd = it },
-                            placeholder = "Số CCCD / Hộ chiếu",
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next)
-                        )
-                        FutaInput(
-                            value = holdingEmail,
-                            onValueChange = { holdingEmail = it },
-                            placeholder = "Email khách hàng (bắt buộc)",
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email, imeAction = ImeAction.Done)
-                        )
-
-                        val canSubmit = holdingName.isNotBlank() && holdingPhone.isNotBlank() && holdingEmail.isNotBlank()
-                        FutaButton(
-                            text = if (holdingBusy) "Đang xử lý..." else "Xác nhận giữ chỗ",
-                            variant = FutaButtonVariant.SECONDARY,
-                            enabled = !holdingBusy && canSubmit,
-                            onClick = {
-                                scope.launch {
-                                    holdingBusy = true
-                                    try {
-                                        val registrationId = registrationInfo
-                                            ?.get("viewerRegistration")?.get("registrationId")?.string.orEmpty()
-                                        val hasActiveRights = registrationInfo
-                                            ?.get("viewerRegistration")?.get("hasActiveRights")?.bool == true
-
-                                        if (hasActiveRights && registrationId.isNotEmpty()) {
-                                            val holdBody = buildJsonObject {
-                                                put("customerName", holdingName)
-                                                put("customerPhone", holdingPhone)
-                                                put("customerEmail", holdingEmail)
-                                                if (holdingCccd.isNotBlank()) put("customerCccd", holdingCccd)
-                                            }.toString()
-                                            APIClient.get().request(
-                                                "/sales/registrations/$registrationId/hold",
-                                                method = "POST",
-                                                bodyJson = holdBody
-                                            )
-                                            ToastCenter.show("Đã giữ chỗ căn thành công! Chuyên viên FUTA sẽ liên hệ đối soát.")
-                                        } else {
-                                            val body = buildJsonObject {
-                                                put("propertyId", property.id)
-                                                put("customerName", holdingName)
-                                                put("customerPhone", holdingPhone)
-                                                put("customerEmail", holdingEmail)
-                                                if (holdingCccd.isNotBlank()) put("customerCccd", holdingCccd)
-                                                put("salesPolicyAccepted", true)
-                                                put("salesPolicyVersion", SalesPolicy.VERSION)
-                                            }.toString()
-                                            APIClient.get().request("/sales/registrations", method = "POST", bodyJson = body)
-                                            ToastCenter.show("Đã gửi hồ sơ đăng ký bán. Vui lòng chờ Admin duyệt trước khi giữ chỗ.")
-                                        }
-                                        showHoldingSheet = false
-                                        loadRegistrationInfo()
-                                    } catch (e: Exception) {
-                                        ToastCenter.show(e.message ?: "Không gửi được yêu cầu giữ chỗ", isError = true)
-                                    } finally {
-                                        holdingBusy = false
-                                    }
-                                }
-                            },
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                        Spacer(Modifier.height(10.dp))
-                    }
-                }
+                    onDone = { loadRegistrationInfo() }
+                )
             }
         }
     }
